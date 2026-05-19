@@ -1,2 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+        RECORD_AUDIO is also declared in :app — duplicating it here with
+        tools:node="merge" improves discoverability for anyone reading the
+        audio module in isolation and lets the manifest merger collapse the
+        two declarations into a single entry in the final APK.
+    -->
+    <uses-permission
+        android:name="android.permission.RECORD_AUDIO"
+        tools:node="merge" />
+
+</manifest>
