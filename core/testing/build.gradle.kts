@@ -12,7 +12,7 @@ dependencies {
     // PreviewSheet wraps TishinaTheme; expose as api so consumers don't double-declare it.
     api(projects.core.designsystem)
 
-    // Test toolchain — api so feature modules pick it up with one testImplementation(projects.core.testing).
+    // Test toolchain — api so a single testImplementation on this module pulls in the whole stack.
     api(libs.junit.jupiter.api)
     api(libs.junit.jupiter.params)
     api(libs.junit.jupiter.engine)

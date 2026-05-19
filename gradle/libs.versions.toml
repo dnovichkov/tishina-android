@@ -13,7 +13,6 @@ androidxSplashscreen = "1.0.1"
 
 # Compose
 composeBom = "2026.05.00"
-composeCompiler = "1.5.15"
 navigationCompose = "2.9.0"
 hiltNavigationCompose = "1.2.0"
 

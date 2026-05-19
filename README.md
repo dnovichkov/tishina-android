@@ -36,7 +36,7 @@
 
 ## Сборка
 
-Требуется JDK 17 и Android SDK (compileSdk 35).
+Требуется JDK 17 и Android SDK (compileSdk 35, build-tools 35.x). Путь к SDK задаётся переменной `ANDROID_HOME` или строкой `sdk.dir=...` в `local.properties`.
 
 ```bash
 ./gradlew :app:assembleDebug
@@ -47,8 +47,30 @@
 ## Тестирование
 
 ```bash
-./gradlew testDebugUnitTest verifyRoborazziDebug
+./gradlew :build-logic:convention:test testDebugUnitTest verifyRoborazziDebug
 ```
+
+Обновление baseline-PNG для Roborazzi (после намеренного изменения UI):
+
+```bash
+./gradlew recordRoborazziDebug
+```
+
+## Качество кода
+
+```bash
+./gradlew detektAll spotlessCheck lintDebug
+./gradlew koverHtmlReportDebug
+```
+
+HTML-отчёт о покрытии: `build/reports/kover/htmlDebug/index.html`. Авто-фикс форматирования: `./gradlew spotlessApply`.
+
+## Известные особенности Phase 1
+
+- Размер debug-APK ~18 МБ. NFR-4 (≤ 6 МБ) применим к release-сборке после включения R8/resource shrinking — отложено до Phase Release.
+- При прогоне `clean` + Kover в одном invocation возможна гонка `kover-agent.args FileNotFoundException`. Workaround: разделить на два прогона — `./gradlew clean build`, затем `./gradlew testDebugUnitTest verifyRoborazziDebug koverXmlReportDebug`.
+- После `clean` Spotless может выдать stale config-cache. Workaround: удалить `.gradle/configuration-cache/` и повторить.
+- Robolectric 4.13 не поддерживает API 35; для unit-тестов SDK зафиксирован на 33 через `src/test/resources/robolectric.properties` в `:app`, `:core:designsystem`, `:core:ui`.
 
 ## Контрибьюция
 

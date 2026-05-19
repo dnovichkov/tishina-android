@@ -95,7 +95,7 @@ class ModuleDependencyTest {
             args("core/data", setOf("core.domain")),
             args("core/designsystem", emptySet()),
             args("core/ui", setOf("core.designsystem")),
-            args("core/testing", emptySet()),
+            args("core/testing", setOf("core.designsystem")),
             args(
                 "feature/measure",
                 setOf("core.designsystem", "core.ui", "core.domain", "core.testing"),

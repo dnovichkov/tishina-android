@@ -65,11 +65,14 @@ fun TishinaApp(
     Surface(
         modifier = Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.systemBars)
             .testTag(TishinaAppRootTestTag),
     ) {
         if (useNavigationRail) {
-            Row(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.systemBars),
+            ) {
                 TishinaNavigationRail(
                     currentDestination = currentDestination,
                     onItemSelected = { dest -> navController.navigateTopLevel(dest) },
@@ -82,8 +85,9 @@ fun TishinaApp(
         } else {
             Scaffold(
                 topBar = {
+                    val titleRes = currentDestination.topAppBarTitleRes()
                     CenterAlignedTopAppBar(
-                        title = { Text(text = stringResource(id = CoreUiR.string.about_title)) },
+                        title = { Text(text = stringResource(id = titleRes)) },
                         modifier = Modifier.testTag(TishinaTopAppBarTestTag),
                         actions = {
                             IconButton(
@@ -111,6 +115,14 @@ fun TishinaApp(
             }
         }
     }
+}
+
+private fun NavDestination?.topAppBarTitleRes(): Int {
+    if (this != null) {
+        TopLevelDestination.entries.firstOrNull { matches(it) }?.let { return it.labelRes }
+        if (matchesAbout()) return AboutLabelRes
+    }
+    return TopLevelDestination.Measure.labelRes
 }
 
 @Composable
@@ -161,10 +173,11 @@ private fun TishinaNavigationRail(
 
 private fun NavDestination?.matches(item: TopLevelDestination): Boolean {
     if (this == null) return false
-    return when (item) {
-        TopLevelDestination.Measure -> hasRoute(TishinaDestination.Measure::class)
-        TopLevelDestination.History -> hasRoute(TishinaDestination.History::class)
-        TopLevelDestination.Settings -> hasRoute(TishinaDestination.Settings::class)
+    return when (item.destination) {
+        TishinaDestination.Measure -> hasRoute(TishinaDestination.Measure::class)
+        TishinaDestination.History -> hasRoute(TishinaDestination.History::class)
+        TishinaDestination.Settings -> hasRoute(TishinaDestination.Settings::class)
+        TishinaDestination.About -> hasRoute(TishinaDestination.About::class)
     }
 }
 
@@ -174,12 +187,7 @@ private fun NavDestination?.matchesAbout(): Boolean {
 }
 
 private fun NavHostController.navigateTopLevel(destination: TopLevelDestination) {
-    val target = when (destination) {
-        TopLevelDestination.Measure -> TishinaDestination.Measure
-        TopLevelDestination.History -> TishinaDestination.History
-        TopLevelDestination.Settings -> TishinaDestination.Settings
-    }
-    navigate(target) {
+    navigate(destination.destination) {
         launchSingleTop = true
         restoreState = true
         popUpTo(graph.startDestinationId) { saveState = true }

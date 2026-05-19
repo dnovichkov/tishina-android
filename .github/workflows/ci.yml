@@ -78,7 +78,7 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
 
       - name: Unit tests + Roborazzi verify + Kover XML
-        run: ./gradlew testDebugUnitTest verifyRoborazziDebug koverXmlReportDebug --no-daemon --stacktrace
+        run: ./gradlew :build-logic:convention:test testDebugUnitTest verifyRoborazziDebug koverXmlReportDebug --no-daemon --stacktrace
 
       - name: Upload Roborazzi failure images
         if: failure()
@@ -112,7 +112,7 @@ jobs:
           retention-days: 14
 
       - name: Upload coverage to Codecov
-        if: ${{ env.CODECOV_TOKEN != '' }}
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         uses: codecov/codecov-action@v4

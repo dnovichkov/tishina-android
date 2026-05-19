@@ -268,7 +268,6 @@ tishina-android/
 │       └── tishina-spec.md
 ├── app/
 │   ├── build.gradle.kts
-│   ├── lint-baseline.xml
 │   └── src/
 │       ├── main/
 │       │   ├── AndroidManifest.xml
@@ -311,14 +310,14 @@ tishina-android/
 | Группа | Артефакт | Версия |
 |---|---|---|
 | kotlin | `org.jetbrains.kotlin.android` plugin | 2.0.21 (стабильная K2) |
-| android-gradle-plugin | `com.android.application` | 8.5.0+ |
+| android-gradle-plugin | `com.android.application` | 8.7.3 (поднята в Task 2 для совместимости с compose-bom 2026.05.00) |
 | compose-bom | `androidx.compose:compose-bom` | 2026.05.00 |
 | material3 | `androidx.compose.material3:material3` | через BOM → 1.5.x |
 | activity-compose | `androidx.activity:activity-compose` | 1.10.x |
 | lifecycle | `androidx.lifecycle:*` | 2.9.x |
 | navigation-compose | `androidx.navigation:navigation-compose` | 2.9.x (type-safe routes) |
 | windowsizeclass | `androidx.compose.material3:material3-window-size-class` | через BOM |
-| hilt | `com.google.dagger:hilt-android` | 2.52 |
+| hilt | `com.google.dagger:hilt-android` | 2.55 (поднята в Task 2 для совместимости с AGP 8.7.3) |
 | hilt-navigation-compose | `androidx.hilt:hilt-navigation-compose` | 1.2.x |
 | junit5 | `org.junit.jupiter:junit-jupiter-{api,engine}` | 5.11.x |
 | mockk | `io.mockk:mockk` | 1.13.x |

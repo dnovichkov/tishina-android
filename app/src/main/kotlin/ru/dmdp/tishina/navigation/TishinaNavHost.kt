@@ -21,10 +21,7 @@ fun TishinaNavHost(
         modifier = modifier,
     ) {
         composable<TishinaDestination.Measure> {
-            MeasureScreen(
-                onNavigateToAbout = { navController.navigate(TishinaDestination.About) },
-                onNavigateToSettings = { navController.navigate(TishinaDestination.Settings) },
-            )
+            MeasureScreen()
         }
         composable<TishinaDestination.History> {
             HistoryScreen(onNavigateBack = { navController.popBackStack() })
