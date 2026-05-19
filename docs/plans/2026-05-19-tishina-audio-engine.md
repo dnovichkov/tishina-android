@@ -122,15 +122,15 @@ Phase 2 наполняет фундамент, заложенный в Phase 1 (
 
 ### Task 1: Domain models — `:core:domain`
 
-- [ ] создать `core/domain/src/main/kotlin/ru/dmdp/tishina/core/domain/model/SoundSample.kt` — `data class SoundSample(val db: Float, val timestampMs: Long)` (immutable; `timestampMs` относительно начала измерения, не epoch — это упрощает тесты)
-- [ ] создать `MeasurementSnapshot.kt` — `data class MeasurementSnapshot(val currentDb: Float, val minDb: Float, val maxDb: Float, val avgDb: Float, val durationMs: Long, val recent: PersistentList<SoundSample>)` (`recent` — последние 60 секунд для графика; используем стандартный `kotlin.collections.List` вместо kotlinx-collections-immutable чтобы не тянуть зависимость в pure Kotlin модуль)
-- [ ] создать `FrequencyWeighting.kt` — `enum class FrequencyWeighting { A, Z }` (C добавим в Phase 4)
-- [ ] создать `TimeWeighting.kt` — `enum class TimeWeighting(val tauMs: Int) { FAST(125), SLOW(1000) }`
-- [ ] создать `MeasurementConfig.kt` — `data class MeasurementConfig(val frequencyWeighting: FrequencyWeighting = FrequencyWeighting.A, val timeWeighting: TimeWeighting = TimeWeighting.FAST, val calibrationOffsetDb: Float = 0.0f)` (defaults используются Phase 2; в Phase 4 берутся из `SettingsRepository`)
-- [ ] **сначала тест:** `SoundSampleTest`, `MeasurementSnapshotTest` — конструкторы, equality, copy, граничные значения `Float.NaN`, `Float.NEGATIVE_INFINITY`
-- [ ] **сначала тест:** `MeasurementConfigTest` — defaults, copy с одним изменённым полем
-- [ ] реализовать модели чтобы тесты позеленели
-- [ ] run `./gradlew :core:domain:testDebugUnitTest` — must pass before next task
+- [x] создать `core/domain/src/main/kotlin/ru/dmdp/tishina/core/domain/model/SoundSample.kt` — `data class SoundSample(val db: Float, val timestampMs: Long)` (immutable; `timestampMs` относительно начала измерения, не epoch — это упрощает тесты)
+- [x] создать `MeasurementSnapshot.kt` — `data class MeasurementSnapshot(val currentDb: Float, val minDb: Float, val maxDb: Float, val avgDb: Float, val durationMs: Long, val recent: PersistentList<SoundSample>)` (`recent` — последние 60 секунд для графика; используем стандартный `kotlin.collections.List` вместо kotlinx-collections-immutable чтобы не тянуть зависимость в pure Kotlin модуль)
+- [x] создать `FrequencyWeighting.kt` — `enum class FrequencyWeighting { A, Z }` (C добавим в Phase 4)
+- [x] создать `TimeWeighting.kt` — `enum class TimeWeighting(val tauMs: Int) { FAST(125), SLOW(1000) }`
+- [x] создать `MeasurementConfig.kt` — `data class MeasurementConfig(val frequencyWeighting: FrequencyWeighting = FrequencyWeighting.A, val timeWeighting: TimeWeighting = TimeWeighting.FAST, val calibrationOffsetDb: Float = 0.0f)` (defaults используются Phase 2; в Phase 4 берутся из `SettingsRepository`)
+- [x] **сначала тест:** `SoundSampleTest`, `MeasurementSnapshotTest` — конструкторы, equality, copy, граничные значения `Float.NaN`, `Float.NEGATIVE_INFINITY`
+- [x] **сначала тест:** `MeasurementConfigTest` — defaults, copy с одним изменённым полем
+- [x] реализовать модели чтобы тесты позеленели
+- [x] run `./gradlew :core:domain:test` — must pass before next task (note: `:core:domain` is a pure Kotlin JVM module, so the task is `test`, not `testDebugUnitTest`)
 
 ### Task 2: Domain repository interfaces + use-cases
 
