@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="measure_save_unavailable_phase2">History will be available in the next version</string>
+    <string name="measure_permission_denied">Microphone access denied — measurement cannot start</string>
+    <string name="measure_permission_rationale_title">Microphone access</string>
+    <string name="measure_permission_rationale_body">To measure noise level Tishina needs access to the microphone. Audio is NOT recorded and never leaves your device.</string>
+    <string name="measure_permission_settings_action">Open settings</string>
+</resources>

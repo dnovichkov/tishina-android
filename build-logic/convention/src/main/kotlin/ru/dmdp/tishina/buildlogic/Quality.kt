@@ -179,6 +179,7 @@ internal fun configureAndroidLint(project: Project, lint: Lint) {
             "ComposableNaming",
             "MutableCollectionMutableState",
             "NullSafeMutableLiveData",
+            "StateFlowValueCalledInComposition",
         )
         sarifReport = true
         htmlReport = true

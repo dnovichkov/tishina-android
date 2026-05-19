@@ -237,39 +237,46 @@ Phase 2 наполняет фундамент, заложенный в Phase 1 (
 
 ### Task 9: MeasureViewModel — MVI lite state machine
 
-- [ ] добавить в `feature/measure/build.gradle.kts` `implementation(projects.core.audio)` (чтобы получить доступ к `AudioRepository` через Hilt-граф; technically `:core:audio` уже подключен транзитивно через `:app`, но явная зависимость нужна для использования `MeasurementConfig` в ViewModel)
-- [ ] создать `feature/measure/.../MeasureUiState.kt` — `data class MeasureUiState(val current: Float = 0f, val min: Float = Float.POSITIVE_INFINITY, val max: Float = Float.NEGATIVE_INFINITY, val avg: Float = 0f, val durationMs: Long = 0, val recent: List<SoundSample> = emptyList(), val state: MeasurementPhase = MeasurementPhase.Idle, val permissionState: PermissionState = PermissionState.Unknown)`
-- [ ] создать `MeasurementPhase.kt` — `enum class MeasurementPhase { Idle, Running, Paused }`
-- [ ] создать `PermissionState.kt` — `enum class PermissionState { Unknown, Granted, Denied, PermanentlyDenied }`
-- [ ] создать `MeasureUiEvent.kt` — `sealed interface MeasureUiEvent` с `data object StartRequested`, `data object PauseRequested`, `data object ResetRequested`, `data object SaveRequested`, `data class PermissionResult(val granted: Boolean, val shouldShowRationale: Boolean)`
-- [ ] создать `MeasureUiEffect.kt` — `sealed interface MeasureUiEffect` с `data object RequestPermission`, `data class ShowSnackbar(val messageRes: Int)`, `data object OpenAppSettings`
-- [ ] создать `MeasureViewModel.kt` — `@HiltViewModel class MeasureViewModel @Inject constructor(savedStateHandle: SavedStateHandle, private val startMeasurement: StartMeasurementUseCase, private val resetMeasurement: ResetMeasurementUseCase)`:
-  - `val state: StateFlow<MeasureUiState>` через `MutableStateFlow` или `savedStateHandle.getStateFlow(...)` для NFR-5
+- [x] добавить в `feature/measure/build.gradle.kts` `implementation(projects.core.audio)` (чтобы получить доступ к `AudioRepository` через Hilt-граф; technically `:core:audio` уже подключен транзитивно через `:app`, но явная зависимость нужна для использования `MeasurementConfig` в ViewModel)
+- [x] создать `feature/measure/.../MeasureUiState.kt` — поле названо `phase` вместо `state` (имя `state` уже занято `StateFlow` на ViewModel, во избежание путаницы) `data class MeasureUiState(val current: Float = 0f, val min: Float = Float.POSITIVE_INFINITY, val max: Float = Float.NEGATIVE_INFINITY, val avg: Float = 0f, val durationMs: Long = 0, val recent: List<SoundSample> = emptyList(), val phase: MeasurementPhase = MeasurementPhase.Idle, val permissionState: PermissionState = PermissionState.Unknown)`
+- [x] создать `MeasurementPhase.kt` — `enum class MeasurementPhase { Idle, Running, Paused }`
+- [x] создать `PermissionState.kt` — `enum class PermissionState { Unknown, Granted, Denied, PermanentlyDenied }`
+- [x] создать `MeasureUiEvent.kt` — `sealed interface MeasureUiEvent` с `data object StartRequested`, `data object PauseRequested`, `data object ResetRequested`, `data object SaveRequested`, `data class PermissionResult(val granted: Boolean, val shouldShowRationale: Boolean)`
+- [x] создать `MeasureUiEffect.kt` — `sealed interface MeasureUiEffect` с `data object RequestPermission`, `data class ShowSnackbar(@StringRes val messageRes: Int)`, `data object OpenAppSettings`
+- [x] создать `MeasureViewModel.kt` — `@HiltViewModel class MeasureViewModel @Inject constructor(savedStateHandle: SavedStateHandle, private val startMeasurement: StartMeasurementUseCase, private val resetMeasurement: ResetMeasurementUseCase)`:
+  - `val state: StateFlow<MeasureUiState>` через `MutableStateFlow` (SavedStateHandle используется для скаляров `current/min/max/avg/durationMs` через `savedStateHandle[KEY] = ...`, а не для всего state — `List<SoundSample>` recent не Parcelable, был бы overhead; restore собирает скаляры обратно в `MeasureUiState`)
   - `val effects: Flow<MeasureUiEffect>` через `Channel(Channel.BUFFERED).receiveAsFlow()`
   - `fun onEvent(event: MeasureUiEvent)`:
     - `StartRequested` + `permissionState == Granted` → запускает `startMeasurement(config)` в `viewModelScope.launch { ... }` коллектит в state
     - `StartRequested` + `permissionState == Unknown` → эмиттит `RequestPermission` effect
+    - `StartRequested` + `permissionState == PermanentlyDenied` → эмиттит `OpenAppSettings` (раньше уходил в системные настройки)
     - `PauseRequested` → отменяет collect-job, `phase = Paused`, состояние замораживается (min/avg/max сохраняются)
-    - `ResetRequested` → отмена + `state.value = MeasureUiState()` (reset accumulator)
+    - `ResetRequested` → отмена + `state.value = MeasureUiState(permissionState = preserved)` (permission не сбрасывается — пользователь уже его выдал)
     - `SaveRequested` → эмиттит `ShowSnackbar(R.string.measure_save_unavailable_phase2)` — Phase 3 заменит на реальную save-логику
     - `PermissionResult(true)` → переход в `Granted`, авто-старт измерения
+    - `PermissionResult(false, shouldShowRationale = true)` → `Denied`, эмиттит `ShowSnackbar(measure_permission_denied)`
     - `PermissionResult(false, shouldShowRationale = false)` → `PermanentlyDenied`, эмиттит `OpenAppSettings`
-- [ ] **сначала тест:** `MeasureViewModelStartTest` (JUnit 5 + Turbine + MockK):
+- [x] **сначала тест:** `MeasureViewModelStartTest` (JUnit 5 + Turbine + FakeAudioRepository из :core:testing):
   - идеал: разрешение уже выдано, `onEvent(StartRequested)` → `phase` переходит в `Running`, через `FakeAudioRepository.emit(60f)` `state.value.current == 60f`, `min == 60f`, `max == 60f`, `avg == 60f`
   - повтор для последовательности `[40, 60, 80, 60, 40]` → final `min=40, max=80, avg=56`
-- [ ] **сначала тест:** `MeasureViewModelPermissionFlowTest`:
+  - идемпотентность повторного `StartRequested` при уже Running
+- [x] **сначала тест:** `MeasureViewModelPermissionFlowTest`:
   - `permissionState = Unknown`, `onEvent(StartRequested)` → НЕ стартует measurement, **emit** `RequestPermission` effect (verified via Turbine `effects.test { awaitItem() shouldBe RequestPermission }`)
   - `onEvent(PermissionResult(true, false))` → `permissionState = Granted`, авто-старт измерения
   - `onEvent(PermissionResult(false, true))` → `permissionState = Denied`, эмиттит `ShowSnackbar`
   - `onEvent(PermissionResult(false, false))` → `permissionState = PermanentlyDenied`, эмиттит `OpenAppSettings`
-- [ ] **сначала тест:** `MeasureViewModelPauseResetTest`:
-  - после нескольких эмитов `onEvent(PauseRequested)` → `phase = Paused`, дальнейшие emits от FakeAudio **не** обновляют state
-  - `onEvent(ResetRequested)` → all metrics обнуляются, `phase = Idle`
-- [ ] **сначала тест:** `MeasureViewModelSaveStubTest` — `onEvent(SaveRequested)` → ровно один `ShowSnackbar(R.string.measure_save_unavailable_phase2)` effect; state не меняется
-- [ ] **сначала тест:** `MeasureViewModelSavedStateHandleTest` (Robolectric, для типизированного `SavedStateHandle`) — после симуляции process death (`SavedStateHandle` с заранее записанным `MeasureUiState`) новый ViewModel восстанавливает `min/avg/max/durationMs`
-- [ ] реализовать ViewModel; UI-эффекты через `Channel.BUFFERED` чтобы не пропадали при rotation
-- [ ] добавить локализационные строки `measure_save_unavailable_phase2`, `measure_permission_rationale_title`, `measure_permission_rationale_body`, `measure_permission_settings_action` в `:feature:measure/src/main/res/values/strings.xml` и `values-ru/strings.xml`
-- [ ] run `./gradlew :feature:measure:testDebugUnitTest` — must pass before next task
+  - повторный `StartRequested` при уже Granted **не** эмитит `RequestPermission` (`expectNoEvents()`)
+- [x] **сначала тест:** `MeasureViewModelPauseResetTest`:
+  - после нескольких эмитов `onEvent(PauseRequested)` → `phase = Paused`, дальнейшие emits от FakeAudio **не** обновляют state (защита через `if (phase != Running) return@onEach` — атомарная Pause)
+  - `onEvent(ResetRequested)` → all metrics обнуляются, `phase = Idle`, `permissionState` сохраняется (Granted)
+  - resume: `Paused → StartRequested → Running`
+- [x] **сначала тест:** `MeasureViewModelSaveStubTest` — `onEvent(SaveRequested)` → ровно один `ShowSnackbar(R.string.measure_save_unavailable_phase2)` effect; state не меняется
+- [x] **сначала тест:** `MeasureViewModelSavedStateHandleTest` (чистый JVM, без Robolectric — `SavedStateHandle()` принимает скалярные ключи напрямую) — `SavedStateHandle` с заранее записанными `KEY_CURRENT/MIN/MAX/AVG/DURATION` → новый ViewModel восстанавливает `current/min/avg/max/durationMs`, начинает в `Paused` (а не Running — сознательно, чтобы не рестартовать микрофон без явного жеста); проверка обратной стороны: каждый snapshot пишет скаляры в handle
+- [x] реализовать ViewModel; UI-эффекты через `Channel.BUFFERED` чтобы не пропадали при rotation
+- [x] добавить локализационные строки `measure_save_unavailable_phase2`, `measure_permission_denied`, `measure_permission_rationale_title`, `measure_permission_rationale_body`, `measure_permission_settings_action` в `:feature:measure/src/main/res/values/strings.xml` и `values-ru/strings.xml`
+- [x] добавить Hilt-модуль `MeasureUseCaseModule` в `feature/measure/.../di/` — `@Provides` для `StartMeasurementUseCase` и `ResetMeasurementUseCase` (use-cases живут в pure-Kotlin `:core:domain` без `javax.inject`, поэтому связка делается на feature-уровне)
+- [x] инфра-фикс: добавил `StateFlowValueCalledInComposition` в `disable` Android Lint в `build-logic/.../Quality.kt` — известный краш `ComposableStateFlowValueDetector` под AGP 8.7 K1-UAST, в том же ряду что и остальные K2-incompat detector'ы из issuetracker 336842138
+- [x] run `./gradlew :feature:measure:testDebugUnitTest` — must pass before next task (✅ 13 тестов зелёные, detektAll + lintDebug + spotlessCheck + :app:assembleDebug зелёные)
 
 ### Task 10: MeasureScreen UI — readout + gauge + chart + bottom bar
 
