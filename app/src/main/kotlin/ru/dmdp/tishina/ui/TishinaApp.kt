@@ -242,13 +242,14 @@ private fun NavHostController.navigateTopLevel(destination: TopLevelDestination)
 }
 
 private fun NavHostController.navigateToAbout() {
-    // About lives outside TopLevelDestination but still needs the same crash guard
-    // and the same save/restore semantics so tapping About from the TopAppBar or
-    // NavigationRail behaves like any other top-level switch.
-    val startId = runCatching { graph.startDestinationId }.getOrNull() ?: return
+    // About is a detail screen — not a top-level entry like Measure/History/Settings —
+    // so it must sit on top of whichever screen launched it. The `popUpTo(startId)`
+    // pattern from `navigateTopLevel` would discard the originating entry (e.g. History),
+    // breaking Back navigation: user on History → tap About → Back would land on Measure
+    // instead of History. The crash guard against `graph` access before NavHost composes
+    // is still needed.
+    runCatching { graph.startDestinationId }.getOrNull() ?: return
     navigate(TishinaDestination.About) {
         launchSingleTop = true
-        restoreState = true
-        popUpTo(startId) { saveState = true }
     }
 }

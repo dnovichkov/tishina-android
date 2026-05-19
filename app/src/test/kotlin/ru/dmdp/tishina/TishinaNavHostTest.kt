@@ -115,6 +115,48 @@ class TishinaNavHostTest {
 
     @Test
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
+    fun `back from About returns to the originating non-start destination`() {
+        // Regression guard: About is a detail screen, not a top-level entry. Tapping About
+        // from History must NOT discard History from the back stack — Back must land back
+        // on History (not on the start destination Measure).
+        var capturedController: NavHostController? = null
+        composeTestRule.setContent {
+            TishinaTheme(darkTheme = false, dynamicColor = false) {
+                val navController = rememberNavController()
+                capturedController = navController
+                val sizeClass = WindowSizeClass.calculateFromSize(DpSize(360.dp, 640.dp))
+                TishinaApp(windowSizeClass = sizeClass, navController = navController)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        // Navigate Measure → History via the NavigationBar item.
+        composeTestRule
+            .onNodeWithTag(navigationItemTestTag(TopLevelDestination.History))
+            .performClick()
+        composeTestRule.waitForIdle()
+
+        // From History, tap the About action in the TopAppBar.
+        composeTestRule
+            .onNodeWithTag(ru.dmdp.tishina.ui.TishinaAboutActionTestTag)
+            .performClick()
+        composeTestRule.waitForIdle()
+
+        // Press Back from About.
+        composeTestRule
+            .onNodeWithTag(ru.dmdp.tishina.ui.TishinaBackActionTestTag)
+            .performClick()
+        composeTestRule.waitForIdle()
+
+        val current = capturedController!!.currentBackStackEntry?.destination
+        assertTrue(
+            "Back from About launched from History must return to History, not to Measure",
+            current!!.hasRoute(TishinaDestination.History::class),
+        )
+    }
+
+    @Test
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     fun `on About route top bar replaces about action with back action`() {
         var capturedController: NavHostController? = null
         composeTestRule.setContent {
