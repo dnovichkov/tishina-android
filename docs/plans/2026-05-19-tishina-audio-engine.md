@@ -158,18 +158,18 @@ Phase 2 наполняет фундамент, заложенный в Phase 1 (
 
 ### Task 4: RMS calculator + Time-weighted (Fast/Slow)
 
-- [ ] создать `core/audio/.../dsp/RmsCalculator.kt` — `class RmsCalculator(private val windowSize: Int)` с внутренним `RingBuffer`, метод `fun update(sample: Float): Float` (добавляет в буфер и возвращает текущий sqrt(sumOfSquares/N)), метод `fun reset()`
-- [ ] создать `dsp/TimeWeightedRms.kt` — экспоненциально-взвешенное скользящее среднее `class TimeWeightedRms(sampleRateHz: Int, tauMs: Int)`: `alpha = exp(-1.0 / (sampleRateHz * tauMs / 1000.0))`, `fun update(sample: Float): Float` обновляет внутреннюю переменную `state` как `state = alpha·state + (1−alpha)·sample² ; sqrt(state)`; метод `fun reset()`
-- [ ] **сначала тест:** `RmsCalculatorTest` (`@ParameterizedTest`):
+- [x] создать `core/audio/.../dsp/RmsCalculator.kt` — `class RmsCalculator(private val windowSize: Int)` с внутренним `RingBuffer`, метод `fun update(sample: Float): Float` (добавляет в буфер и возвращает текущий sqrt(sumOfSquares/N)), метод `fun reset()`
+- [x] создать `dsp/TimeWeightedRms.kt` — экспоненциально-взвешенное скользящее среднее `class TimeWeightedRms(sampleRateHz: Int, tauMs: Int)`: `alpha = exp(-1.0 / (sampleRateHz * tauMs / 1000.0))`, `fun update(sample: Float): Float` обновляет внутреннюю переменную `state` как `state = alpha·state + (1−alpha)·sample² ; sqrt(state)`; метод `fun reset()`
+- [x] **сначала тест:** `RmsCalculatorTest` (`@ParameterizedTest`):
   - синусоида амплитудой `A=0.5`, 1 кГц, 48 кГц sample rate, window=6000 (125 ms Fast) → RMS = `A/√2 = 0.3535` ± 0.001 (после стабилизации окна)
   - синусоида `A=1.0` → RMS = `0.7071` ± 0.001
   - константный 0 → RMS = 0
   - пустое окно → RMS = 0 (защита от sqrt отрицательного)
-- [ ] **сначала тест:** `TimeWeightedRmsTest`:
+- [x] **сначала тест:** `TimeWeightedRmsTest`:
   - параметризовано для Fast (125 мс) и Slow (1000 мс): step-функция от 0 к синусоиде амплитуды 1, проверка что после `5·tau` значение достигает 99% asymptote
   - constant signal → RMS стабилизируется на правильном значении
-- [ ] реализовать классы чтобы тесты позеленели
-- [ ] run `./gradlew :core:audio:testDebugUnitTest` — must pass before next task
+- [x] реализовать классы чтобы тесты позеленели
+- [x] run `./gradlew :core:audio:testDebugUnitTest` — must pass before next task
 
 ### Task 5: A-weighting + Z-weighting IIR filters (IEC 61672-1)
 
