@@ -7,11 +7,13 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import ru.dmdp.tishina.core.audio.AudioRepositoryImpl
 import ru.dmdp.tishina.core.audio.dsp.AudioProcessorFactory
 import ru.dmdp.tishina.core.audio.source.AndroidAudioRecordSessionFactory
 import ru.dmdp.tishina.core.audio.source.AudioRecordPcmSource
 import ru.dmdp.tishina.core.audio.source.AudioRecordSessionFactory
 import ru.dmdp.tishina.core.audio.source.PcmAudioSource
+import ru.dmdp.tishina.core.domain.repository.AudioRepository
 import javax.inject.Singleton
 
 /**
@@ -28,8 +30,9 @@ import javax.inject.Singleton
  * supports interface modules transparently, with `@Provides` methods placed in the companion
  * object.
  *
- * [ru.dmdp.tishina.core.domain.repository.AudioRepository] is **not** yet wired here — its
- * implementation lands in Task 8; the `@Binds` for `AudioRepositoryImpl` will be added then.
+ * [AudioRepository] is bound to [AudioRepositoryImpl] here. Both bindings are `@Singleton`:
+ * the microphone is process-wide, and the DSP pipeline allocates a fresh `AudioProcessor` on each
+ * `samples()` collection anyway, so making the repository a singleton is safe.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -44,6 +47,10 @@ internal interface AudioModule {
     fun bindAudioRecordSessionFactory(
         impl: AndroidAudioRecordSessionFactory,
     ): AudioRecordSessionFactory
+
+    @Binds
+    @Singleton
+    fun bindAudioRepository(impl: AudioRepositoryImpl): AudioRepository
 
     companion object {
 

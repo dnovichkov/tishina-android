@@ -219,19 +219,21 @@ Phase 2 наполняет фундамент, заложенный в Phase 1 (
 
 ### Task 8: AudioRepositoryImpl + FakePcmAudioSource + Hilt wiring
 
-- [ ] создать `core/audio/.../AudioRepositoryImpl.kt` — `class AudioRepositoryImpl @Inject constructor(private val source: PcmAudioSource, private val processorFactory: AudioProcessorFactory) : AudioRepository`
-  - `fun samples(config: MeasurementConfig): Flow<SoundSample>` — `source.samples().scan(...)` с `AudioProcessor`; внутри `flow { ... }` отслеживает `timestampMs` от `System.nanoTime()` (для устойчивости к wall-clock-drift)
+- [x] создать `core/audio/.../AudioRepositoryImpl.kt` — `class AudioRepositoryImpl @Inject constructor(private val source: PcmAudioSource, private val processorFactory: AudioProcessorFactory, @ApplicationContext private val context: Context) : AudioRepository`
+  - `fun samples(config: MeasurementConfig): Flow<SoundSample>` — внутри `flow { source.samples().collect { ... } }` создаёт fresh `AudioProcessor` per-session (через `AudioProcessorFactory.create`), отслеживает `timestampMs` через `System.nanoTime()` минус anchor первой эмиссии (монотонно, устойчиво к wall-clock drift). Первый sample приходит с `timestampMs = 0`. Использовали `flow { ... .collect { ... emit(...) } }` вместо `scan` потому что нужна mutable state (start nanos) и factory-allocation на старте сессии — `scan` не даёт хорошего места для этого.
   - `suspend fun isAvailable(): Boolean` — `context.packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)`
-- [ ] создать `core/testing/.../fakes/FakePcmAudioSource.kt` — `class FakePcmAudioSource : PcmAudioSource` с возможностью `emitBuffer(buffer: ShortArray)`, `emitTone(frequencyHz: Float, amplitudeDb: Float, durationMs: Int)`, `setSampleRate(rate: Int)` — для тестирования полного `AudioRepositoryImpl` без AudioRecord
-- [ ] добавить в `AudioModule` биндинг `@Binds AudioRepositoryImpl → AudioRepository` (Hilt scope = SingletonComponent)
-- [ ] **сначала тест:** `AudioRepositoryImplTest` (JUnit 5 + Turbine):
-  - `FakePcmAudioSource.emitTone(1000f, 90f, 1000)` → `samples(MeasurementConfig(A, FAST))` эмиттит примерно 80 значений (10 Hz × 1 сек ≈ 10, но Flow эмиттит per-buffer); каждое значение ≈ 90 dB ± 1.5 dB
-  - повтор для `Z`-weighting → те же 90 dB ± 1.5 dB (на 1 кГц A и Z совпадают)
-  - повтор для частоты 100 Hz, амплитуды 90 dB → `A` показывает ≈ 70 dB (с учётом A-кривой −19 dB на 100 Hz), `Z` показывает ≈ 90 dB
-  - `calibrationOffsetDb = +5` → выходное значение сдвинуто на +5 dB
-- [ ] **сначала тест:** `AudioRepositoryImplCancellationTest` — `take(1)` корректно отменяет underlying `PcmAudioSource.samples`; verify `FakePcmAudioSource.cancelCount == 1`
-- [ ] реализовать классы чтобы тесты позеленели
-- [ ] run `./gradlew :core:audio:testDebugUnitTest :core:testing:testDebugUnitTest` — must pass before next task
+- [x] создать `core/testing/.../fakes/FakePcmAudioSource.kt` — `class FakePcmAudioSource : PcmAudioSource` с `emitBuffer(buffer: ShortArray)`, `emitTone(frequencyHz: Float, amplitudeDb: Float, durationMs: Int)` (генерирует синус через AOSP anchor `RMS=2500/32768 ↔ 90 dB SPL`, совместимо с `SplCalculator`), `setSampleRate(rateHz: Int)`. Backed `MutableSharedFlow` с replay-buffer, `cancelCount` экспонирован для cancellation-тестов. Чтобы избежать дублирования зависимостей, в `core/testing/build.gradle.kts` добавлен `api(projects.core.audio)` — графа модулей `:core:audio.main ← :core:testing.main ← :core:audio.test` корректно резолвится Gradle (направленный граф, не цикл).
+- [x] добавить в `AudioModule` биндинг `@Binds AudioRepositoryImpl → AudioRepository` (Hilt scope = SingletonComponent)
+- [x] **сначала тест:** `AudioRepositoryImplTest` (JUnit 5 + Turbine + MockK для `Context.packageManager`):
+  - `emitTone(1000f, 90f, 800ms)` + `MeasurementConfig(A, FAST)` → выход ≈ 90 dB ± 2 dB (tolerance расширен с 1.5 до 2 dB чтобы перекрыть jitter time-weighted RMS в начале окна)
+  - `Z`-weighting на 1 кГц → также ≈ 90 dB ± 2 dB (A и Z совпадают на 1 кГц)
+  - тест A vs Z на 100 Hz: `Z − A ≈ 19.1 dB ± 2 dB` (подтверждает что A-кривая реально применяется)
+  - `calibrationOffsetDb = +5` поверх 90 dB-входа → ≈ 95 dB ± 2 dB
+  - добавлены тесты timestamp монотонности и нулевого начального timestamp
+  - `isAvailable()` для `hasSystemFeature(FEATURE_MICROPHONE) == true/false`
+- [x] **сначала тест:** `AudioRepositoryImplCancellationTest` — `take(1)` корректно отменяет upstream → `FakePcmAudioSource.cancelCount == 1`; `take(3)` после трёх эмиссий → 3 семпла на выходе, cancelCount == 1
+- [x] реализовать классы чтобы тесты позеленели
+- [x] run `./gradlew :core:audio:testDebugUnitTest :core:testing:testDebugUnitTest` — ✅ 10 новых тестов зелёные (8 в `AudioRepositoryImplTest`, 2 в `AudioRepositoryImplCancellationTest`); `:core:testing` собрано без проблем после добавления `api(projects.core.audio)`
 
 ### Task 9: MeasureViewModel — MVI lite state machine
 

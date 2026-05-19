@@ -16,6 +16,12 @@ dependencies {
     // compile classpath of every consumer of :core:testing.
     api(projects.core.domain)
 
+    // FakePcmAudioSource implements the PcmAudioSource interface declared in :core:audio.
+    // Exposing audio as `api` lets :core:audio's test sources reuse the fake without
+    // re-declaring the dep. The project graph is :core:audio.main ← :core:testing.main ←
+    // :core:audio.test — directed, no cycle.
+    api(projects.core.audio)
+
     // Test toolchain — api so a single testImplementation on this module pulls in the whole stack.
     api(libs.junit.jupiter.api)
     api(libs.junit.jupiter.params)
