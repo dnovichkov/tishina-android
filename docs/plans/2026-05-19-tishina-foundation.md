@@ -87,18 +87,18 @@ Phase 1 закладывает инфраструктурный фундамен
 
 ### Task 1: Repository bootstrap + Gradle Version Catalog
 
-- [ ] создать `.gitignore` для Android-проекта (build/, .gradle/, .idea/ кроме нужного, local.properties, *.iml, captures/, .externalNativeBuild/, *.apk, *.aab, *.keystore, .kotlin/)
-- [ ] создать `.gitattributes` с правилами line endings (LF для `*.kt`, `*.kts`, `*.toml`, `*.yml`, `*.yaml`, `*.md`, `*.xml`, `*.pro`; binary для `*.png`, `*.jpg`, `*.webp`, `*.jks`, `*.keystore`, `*.aab`, `*.apk`, `*.jar`)
-- [ ] создать `.editorconfig` (Kotlin: 4 spaces, max_line_length 140; XML: 4 spaces; YAML: 2 spaces; trim_trailing_whitespace, insert_final_newline)
-- [ ] создать `LICENSE` (Apache 2.0, copyright "2026 Dmitriy Novichkov")
-- [ ] создать минимальный `README.md` (название, краткое описание из § 1 спеки, ссылка на спеку, статус "Phase 1: Foundation in progress")
-- [ ] добавить Gradle Wrapper (`gradle/wrapper/gradle-wrapper.jar`, `gradle-wrapper.properties` с Gradle 8.13+, `gradlew`, `gradlew.bat`)
-- [ ] создать `gradle/libs.versions.toml` со всеми версиями по спеке § 8 (kotlin 2.0.x, compose-bom 2026.05.00, hilt, room 2.8.4, datastore 1.1.x, junit5, mockk, turbine, robolectric, roborazzi, detekt, ktlint, spotless, kover 0.9+)
-- [ ] создать корневой `build.gradle.kts` с plugin-alias-объявлениями без apply (`alias(libs.plugins.android.application) apply false` и т. д.)
-- [ ] создать `settings.gradle.kts` с `pluginManagement` (gradlePluginPortal, google, mavenCentral), `dependencyResolutionManagement.repositories` (google, mavenCentral), `rootProject.name = "tishina-android"` и `enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")`
-- [ ] создать `gradle.properties` (`org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8`, `android.useAndroidX=true`, `kotlin.code.style=official`, `org.gradle.caching=true`, `org.gradle.parallel=true`, `org.gradle.configuration-cache=true`)
-- [ ] написать unit-тест: создать `buildSrc/` или `build-logic/` (пока пусто, добавим conventions в Task 2); запустить `./gradlew help` — должен пройти без ошибок
-- [ ] run `./gradlew help` — must pass before next task
+- [x] создать `.gitignore` для Android-проекта (build/, .gradle/, .idea/ кроме нужного, local.properties, *.iml, captures/, .externalNativeBuild/, *.apk, *.aab, *.keystore, .kotlin/)
+- [x] создать `.gitattributes` с правилами line endings (LF для `*.kt`, `*.kts`, `*.toml`, `*.yml`, `*.yaml`, `*.md`, `*.xml`, `*.pro`; binary для `*.png`, `*.jpg`, `*.webp`, `*.jks`, `*.keystore`, `*.aab`, `*.apk`, `*.jar`)
+- [x] создать `.editorconfig` (Kotlin: 4 spaces, max_line_length 140; XML: 4 spaces; YAML: 2 spaces; trim_trailing_whitespace, insert_final_newline)
+- [x] создать `LICENSE` (Apache 2.0, copyright "2026 Dmitriy Novichkov")
+- [x] создать минимальный `README.md` (название, краткое описание из § 1 спеки, ссылка на спеку, статус "Phase 1: Foundation in progress")
+- [x] добавить Gradle Wrapper (`gradle/wrapper/gradle-wrapper.jar`, `gradle-wrapper.properties` с Gradle 8.13+, `gradlew`, `gradlew.bat`)
+- [x] создать `gradle/libs.versions.toml` со всеми версиями по спеке § 8 (kotlin 2.0.x, compose-bom 2026.05.00, hilt, room 2.8.4, datastore 1.1.x, junit5, mockk, turbine, robolectric, roborazzi, detekt, ktlint, spotless, kover 0.9+)
+- [x] создать корневой `build.gradle.kts` с plugin-alias-объявлениями без apply (`alias(libs.plugins.android.application) apply false` и т. д.)
+- [x] создать `settings.gradle.kts` с `pluginManagement` (gradlePluginPortal, google, mavenCentral), `dependencyResolutionManagement.repositories` (google, mavenCentral), `rootProject.name = "tishina-android"` и `enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")`
+- [x] создать `gradle.properties` (`org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8`, `android.useAndroidX=true`, `kotlin.code.style=official`, `org.gradle.caching=true`, `org.gradle.parallel=true`, `org.gradle.configuration-cache=true`)
+- [x] написать unit-тест: создать `buildSrc/` или `build-logic/` (пока пусто, добавим conventions в Task 2); запустить `./gradlew help` — должен пройти без ошибок
+- [x] run `./gradlew help` — must pass before next task
 
 ### Task 2: Multi-module skeleton + convention plugins
 
