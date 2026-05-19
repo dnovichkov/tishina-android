@@ -7,9 +7,17 @@
         android:name="android.hardware.microphone"
         android:required="false" />
 
+    <!--
+        allowBackup is intentionally disabled until Phase 2 lands the measurement
+        DB and we author explicit data extraction / cloud backup rules. Default
+        Auto Backup would otherwise replicate every recorded measurement (with
+        any implicit user context) to Google with no review. Re-enable together
+        with `android:dataExtractionRules` once a policy is in place.
+    -->
     <application
         android:name=".TishinaApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"

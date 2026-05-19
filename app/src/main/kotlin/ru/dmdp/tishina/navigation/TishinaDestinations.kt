@@ -32,8 +32,10 @@ sealed interface TishinaDestination {
 
 /**
  * Subset of destinations that appear in the bottom NavigationBar (compact) or
- * NavigationRail (medium/expanded). [TishinaDestination.About] is intentionally
- * reachable only from the TopAppBar action and is therefore not in this list.
+ * NavigationRail (medium/expanded). [TishinaDestination.About] is rendered
+ * separately — as a TopAppBar action in compact layout, and as an additional
+ * NavigationRailItem (below this list) in medium/expanded layout — so it is
+ * not part of the main destination set.
  */
 enum class TopLevelDestination(val destination: TishinaDestination, @StringRes val labelRes: Int, val icon: ImageVector) {
     Measure(

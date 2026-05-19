@@ -61,7 +61,7 @@ fun TishinaApp(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
     val onAboutClick = remember(navController) {
-        { navController.navigate(TishinaDestination.About) { launchSingleTop = true } }
+        { navController.navigateToAbout() }
     }
     val onBackClick: () -> Unit = remember(navController) {
         {
@@ -235,6 +235,18 @@ private fun NavHostController.navigateTopLevel(destination: TopLevelDestination)
     // click is effectively a no-op until the next frame.
     val startId = runCatching { graph.startDestinationId }.getOrNull() ?: return
     navigate(destination.destination) {
+        launchSingleTop = true
+        restoreState = true
+        popUpTo(startId) { saveState = true }
+    }
+}
+
+private fun NavHostController.navigateToAbout() {
+    // About lives outside TopLevelDestination but still needs the same crash guard
+    // and the same save/restore semantics so tapping About from the TopAppBar or
+    // NavigationRail behaves like any other top-level switch.
+    val startId = runCatching { graph.startDestinationId }.getOrNull() ?: return
+    navigate(TishinaDestination.About) {
         launchSingleTop = true
         restoreState = true
         popUpTo(startId) { saveState = true }
