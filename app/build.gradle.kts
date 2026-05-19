@@ -47,4 +47,12 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.compose.material3.windowsizeclass)
     implementation(libs.androidx.splashscreen)
+
+    // Test stack: Robolectric is JUnit4; vintage engine bridges it onto the JUnit 5 platform
+    // configured by JvmTestingConventionPlugin so a single `:testDebugUnitTest` task runs both.
+    testImplementation(libs.junit4)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.hilt.android.testing)
+    testRuntimeOnly(libs.junit.vintage.engine)
 }

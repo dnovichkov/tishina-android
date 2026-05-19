@@ -1,4 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Tishina.Foundation" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!--
+        Base activity theme. Real Material 3 surfaces are provided by Compose
+        via TishinaTheme; this XML theme only configures the system window
+        background after the splash screen disappears.
+    -->
+    <style name="Theme.Tishina" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
+    </style>
+
+    <!--
+        Activity theme used at launch via androidx core-splashscreen.
+        installSplashScreen() in MainActivity#onCreate swaps it for Theme.Tishina
+        on the first frame.
+    -->
+    <style name="Theme.Tishina.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Tishina</item>
+    </style>
+
 </resources>
