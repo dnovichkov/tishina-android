@@ -1,0 +1,39 @@
+# Normalize line endings to LF on commit; checkout uses the OS default.
+* text=auto eol=lf
+
+# Explicit text formats (defensive — covers the long tail of cases
+# where text=auto might misclassify or where consistency matters).
+*.kt        text eol=lf
+*.kts       text eol=lf
+*.java      text eol=lf
+*.xml       text eol=lf
+*.gradle    text eol=lf
+*.pro       text eol=lf
+*.properties text eol=lf
+*.md        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.json      text eol=lf
+*.sh        text eol=lf
+*.bat       text eol=crlf
+
+# Binary formats — never touched by line-ending normalization.
+*.jar       binary
+*.aar       binary
+*.apk       binary
+*.aab       binary
+*.so        binary
+*.dex       binary
+*.class     binary
+*.keystore  binary
+*.jks       binary
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.webp      binary
+*.gif       binary
+*.ico       binary
+*.ttf       binary
+*.otf       binary
+*.woff      binary
+*.woff2     binary
