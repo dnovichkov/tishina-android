@@ -1,5 +1,4 @@
 pluginManagement {
-    includeBuild("build-logic")
     repositories {
         gradlePluginPortal()
         google {
@@ -14,7 +13,6 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google {
             content {
@@ -25,20 +23,13 @@ dependencyResolutionManagement {
         }
         mavenCentral()
     }
+    versionCatalogs {
+        create("libs") {
+            from(files("../gradle/libs.versions.toml"))
+        }
+    }
 }
 
-enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+rootProject.name = "build-logic"
 
-rootProject.name = "tishina-android"
-
-include(":app")
-include(":core:designsystem")
-include(":core:ui")
-include(":core:domain")
-include(":core:data")
-include(":core:audio")
-include(":core:testing")
-include(":feature:measure")
-include(":feature:history")
-include(":feature:settings")
-include(":feature:about")
+include(":convention")

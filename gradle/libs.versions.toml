@@ -1,6 +1,6 @@
 [versions]
 # Build tools
-agp = "8.5.2"
+agp = "8.7.3"
 kotlin = "2.0.21"
 ksp = "2.0.21-1.0.28"
 
@@ -18,7 +18,7 @@ navigationCompose = "2.9.0"
 hiltNavigationCompose = "1.2.0"
 
 # DI
-hilt = "2.52"
+hilt = "2.55"
 
 # Data
 room = "2.8.4"
@@ -120,6 +120,7 @@ plugin-android-gradle = { group = "com.android.tools.build", name = "gradle", ve
 plugin-kotlin-gradle = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
 plugin-kotlin-compose = { group = "org.jetbrains.kotlin", name = "compose-compiler-gradle-plugin", version.ref = "kotlin" }
 plugin-ksp-gradle = { group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
+plugin-hilt-gradle = { group = "com.google.dagger", name = "hilt-android-gradle-plugin", version.ref = "hilt" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

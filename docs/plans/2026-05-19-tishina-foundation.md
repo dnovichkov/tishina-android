@@ -102,15 +102,17 @@ Phase 1 закладывает инфраструктурный фундамен
 
 ### Task 2: Multi-module skeleton + convention plugins
 
-- [ ] создать `build-logic/` (composite build, не `buildSrc`, чтобы избежать пересборки при изменении плагинов) с `settings.gradle.kts` и `build.gradle.kts`
-- [ ] создать convention plugins в `build-logic/convention/src/main/kotlin/`: `AndroidApplicationConventionPlugin`, `AndroidLibraryConventionPlugin`, `AndroidFeatureConventionPlugin`, `KotlinLibraryConventionPlugin`, `AndroidComposeConventionPlugin`, `AndroidHiltConventionPlugin`, `JvmTestingConventionPlugin` — каждый настраивает соответствующие android/kotlin/compose/hilt блоки
-- [ ] прописать `pluginManagement.includeBuild("build-logic")` в корневом `settings.gradle.kts`
-- [ ] создать 11 модулей из спеки § 7: `:app`, `:core:designsystem`, `:core:ui`, `:core:domain`, `:core:data`, `:core:audio`, `:core:testing`, `:feature:measure`, `:feature:history`, `:feature:settings`, `:feature:about` (для каждого — `build.gradle.kts` с применением соответствующего convention plugin'а, минимальный `AndroidManifest.xml` если android-модуль, исходные директории `src/main/kotlin` и `src/test/kotlin`)
-- [ ] подключить все 11 модулей в `settings.gradle.kts` через `include(...)`
-- [ ] зафиксировать `core:domain` как pure Kotlin (`KotlinLibraryConventionPlugin`), без android-плагина и без `androidx.*` зависимостей — это инвариант архитектуры из спеки § 7 ("`core:domain` не зависит ни от чего, кроме `kotlinx.coroutines` и `javax.inject`")
-- [ ] написать unit-тест в `build-logic`: `ProjectStructureTest` (JUnit 5, без android-deps) — проверяет что `core/domain/build.gradle.kts` не содержит строки `id("com.android.")` (regex-валидация файла)
-- [ ] написать unit-тест: `ModuleDependencyTest` — для каждого модуля парсит `build.gradle.kts` и проверяет что зависимости соответствуют диаграмме из спеки § 7 ("`core:data ──► core:domain` (импортирует интерфейсы)", `app ──► feature:*`, и т. д.)
-- [ ] run `./gradlew :app:assembleDebug` — must pass before next task; собранный APK хранится в `app/build/outputs/apk/debug/`
+- [x] создать `build-logic/` (composite build, не `buildSrc`, чтобы избежать пересборки при изменении плагинов) с `settings.gradle.kts` и `build.gradle.kts`
+- [x] создать convention plugins в `build-logic/convention/src/main/kotlin/`: `AndroidApplicationConventionPlugin`, `AndroidLibraryConventionPlugin`, `AndroidFeatureConventionPlugin`, `KotlinLibraryConventionPlugin`, `AndroidComposeConventionPlugin`, `AndroidHiltConventionPlugin`, `JvmTestingConventionPlugin` — каждый настраивает соответствующие android/kotlin/compose/hilt блоки
+- [x] прописать `pluginManagement.includeBuild("build-logic")` в корневом `settings.gradle.kts`
+- [x] создать 11 модулей из спеки § 7: `:app`, `:core:designsystem`, `:core:ui`, `:core:domain`, `:core:data`, `:core:audio`, `:core:testing`, `:feature:measure`, `:feature:history`, `:feature:settings`, `:feature:about` (для каждого — `build.gradle.kts` с применением соответствующего convention plugin'а, минимальный `AndroidManifest.xml` если android-модуль, исходные директории `src/main/kotlin` и `src/test/kotlin`)
+- [x] подключить все 11 модулей в `settings.gradle.kts` через `include(...)`
+- [x] зафиксировать `core:domain` как pure Kotlin (`KotlinLibraryConventionPlugin`), без android-плагина и без `androidx.*` зависимостей — это инвариант архитектуры из спеки § 7 ("`core:domain` не зависит ни от чего, кроме `kotlinx.coroutines` и `javax.inject`")
+- [x] написать unit-тест в `build-logic`: `ProjectStructureTest` (JUnit 5, без android-deps) — проверяет что `core/domain/build.gradle.kts` не содержит строки `id("com.android.")` (regex-валидация файла)
+- [x] написать unit-тест: `ModuleDependencyTest` — для каждого модуля парсит `build.gradle.kts` и проверяет что зависимости соответствуют диаграмме из спеки § 7 ("`core:data ──► core:domain` (импортирует интерфейсы)", `app ──► feature:*`, и т. д.)
+- [x] run `./gradlew :app:assembleDebug` — must pass before next task; собранный APK хранится в `app/build/outputs/apk/debug/`
+
+> ⚠️ В ходе Task 2 обновлены версии: AGP `8.5.2 → 8.7.3` (требование compose-bom 2026.05.00 / navigation-compose 2.9.0), Hilt `2.52 → 2.55` (совместимость с AGP 8.7).
 
 ### Task 3: App-level configuration + Hilt bootstrap + MainActivity
 
