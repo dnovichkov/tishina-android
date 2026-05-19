@@ -133,17 +133,19 @@ Phase 1 закладывает инфраструктурный фундамен
 
 ### Task 4: Design system module — Material 3 theme, color tokens, typography
 
-- [ ] в `:core:designsystem` создать `theme/Color.kt` со статическими `lightColorScheme` и `darkColorScheme` (primary teal `#0FB5BA`, surface/background — нейтральные оттенки тёмно-синего/светло-серого по § 6 спеки)
-- [ ] создать `theme/SplLevelColors.kt`: data class `SplLevelPalette(val veryQuiet, val quiet, val moderate, val loud, val veryLoud, val extreme: Color)` со значениями из спеки § 6: `#2E7D32`, `#7CB342`, `#FBC02D`, `#F57C00`, `#E64A19`, `#C62828`
-- [ ] создать pure-функцию `fun levelToSplColor(db: Float, palette: SplLevelPalette): Color` — маппинг по диапазонам ≤40 / 41–60 / 61–75 / 76–85 / 86–100 / >100 (см. § 6); граничные значения — клампим в реалистичные пределы −20…140 дБ
-- [ ] создать `theme/Type.kt` с `Typography` (Material 3): displayLarge ≥ 96sp для главного dB-readout (см. § 6 "≥ 80–96 sp")
-- [ ] создать `theme/Shape.kt` с `Shapes` (Material 3 — small/medium/large/extraLarge)
-- [ ] создать composable `TishinaTheme(darkTheme: Boolean = isSystemInDarkTheme(), dynamicColor: Boolean = true, content: @Composable () -> Unit)`: на API 31+ при `dynamicColor=true` использовать `dynamicLightColorScheme(LocalContext.current)` / `dynamicDarkColorScheme`, иначе статические схемы; пробросить `SplLevelPalette` через `CompositionLocal` (`LocalSplLevelPalette`)
-- [ ] **сначала тест:** `LevelToSplColorTest` (JUnit 5 + параметризованный): `@ParameterizedTest @ValueSource(...) fun mapsDbToColor`: проверка границ (30→quiet, 40→quiet, 41→moderate-low, 60→moderate-low, 61→moderate, 75→moderate, 76→loud, 85→loud, 86→veryLoud, 100→veryLoud, 101→extreme, 130→extreme); граничные кейсы `−10` (clamp в veryQuiet), `200` (clamp в extreme)
-- [ ] **сначала тест:** `TishinaThemeScreenshotTest` (Roborazzi + Robolectric): 4 screenshot — `theme_light_static`, `theme_dark_static`, `theme_light_dynamic` (API 31+ via `@Config(sdk = 31)`), `theme_dark_dynamic`; внутри — простой превью-композбл `ThemePreviewSheet` с типографикой и палитрой
-- [ ] **сначала тест:** `SplLevelPaletteScreenshotTest` — горизонтальная палитра 6 цветов с подписями уровней; проверяет contrast text-on-color через `MaterialTheme.colorScheme.onPrimary`-эквивалент
-- [ ] реализовать composables и функции, чтобы тесты позеленели
-- [ ] run `./gradlew :core:designsystem:testDebugUnitTest verifyRoborazziDebug` — must pass before next task
+- [x] в `:core:designsystem` создать `theme/Color.kt` со статическими `lightColorScheme` и `darkColorScheme` (primary teal `#0FB5BA`, surface/background — нейтральные оттенки тёмно-синего/светло-серого по § 6 спеки)
+- [x] создать `theme/SplLevelColors.kt`: data class `SplLevelPalette(val veryQuiet, val quiet, val moderate, val loud, val veryLoud, val extreme: Color)` со значениями из спеки § 6: `#2E7D32`, `#7CB342`, `#FBC02D`, `#F57C00`, `#E64A19`, `#C62828`
+- [x] создать pure-функцию `fun levelToSplColor(db: Float, palette: SplLevelPalette): Color` — маппинг по диапазонам ≤40 / 41–60 / 61–75 / 76–85 / 86–100 / >100 (см. § 6); граничные значения — клампим в реалистичные пределы −20…140 дБ
+- [x] создать `theme/Type.kt` с `Typography` (Material 3): displayLarge ≥ 96sp для главного dB-readout (см. § 6 "≥ 80–96 sp")
+- [x] создать `theme/Shape.kt` с `Shapes` (Material 3 — small/medium/large/extraLarge)
+- [x] создать composable `TishinaTheme(darkTheme: Boolean = isSystemInDarkTheme(), dynamicColor: Boolean = true, content: @Composable () -> Unit)`: на API 31+ при `dynamicColor=true` использовать `dynamicLightColorScheme(LocalContext.current)` / `dynamicDarkColorScheme`, иначе статические схемы; пробросить `SplLevelPalette` через `CompositionLocal` (`LocalSplLevelPalette`)
+- [x] **сначала тест:** `LevelToSplColorTest` (JUnit 5 + параметризованный): `@ParameterizedTest @CsvSource(...) fun mapsDbToBucket`: проверка границ (30→veryQuiet, 40→veryQuiet, 41→quiet, 60→quiet, 61→moderate, 75→moderate, 76→loud, 85→loud, 86→veryLoud, 100→veryLoud, 101→extreme, 130→extreme); граничные кейсы `−10`/`−20`/`−50` (clamp в veryQuiet), `140`/`150`/`200` (clamp в extreme)
+- [x] **сначала тест:** `TishinaThemeScreenshotTest` (Roborazzi + Robolectric): 4 screenshot — `theme_light_static`, `theme_dark_static`, `theme_light_dynamic` (API 31+ via `@Config(sdk = [31])`), `theme_dark_dynamic`; внутри — простой превью-композбл `ThemePreviewSheet` с типографикой и палитрой
+- [x] **сначала тест:** `SplLevelPaletteScreenshotTest` — горизонтальная палитра 6 цветов в светлой и тёмной темах; визуально проверяет contrast и порядок цветов
+- [x] реализовать composables и функции, чтобы тесты позеленели
+- [x] run `./gradlew :core:designsystem:testDebugUnitTest verifyRoborazziDebug` — must pass before next task
+
+> ⚠️ Task 4: для запуска Roborazzi screenshot-тестов в `:core:designsystem` добавлен плагин `alias(libs.plugins.roborazzi)` и тестовые зависимости (`junit4`, `robolectric`, `compose-ui-test-junit4`, `roborazzi*`, `vintage-engine`). Также добавлен `core/designsystem/src/test/resources/robolectric.properties` (sdk=33) — Robolectric 4.13 ещё не содержит system-image для compileSdk 35; @Config(sdk=[31]) на dynamic-color-тестах локально переопределяет SDK. Baseline-PNG записаны в `core/designsystem/src/test/snapshots/` (опережая Task 9 для конкретно этого модуля — иначе `verifyRoborazziDebug` не проходит). Compose UI Test предупреждает о deprecated `createComposeRule()` (рекомендуется v2 API) — non-blocking, миграция отложена.
 
 ### Task 5: Common UI components + Navigation skeleton
 
