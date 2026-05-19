@@ -64,8 +64,14 @@ private const val VERY_LOUD_MAX = 100f
  *
  * Boundaries follow spec § 6 — upper-inclusive buckets:
  * 40 -> veryQuiet, 41 -> quiet, 60 -> quiet, 61 -> moderate, etc.
+ *
+ * Non-finite inputs (NaN / ±Infinity) map to [palette].veryQuiet rather than
+ * leaking into the `extreme` branch — a NaN comparison is always false, so
+ * without this guard the `when` would silently fall through to `extreme` and
+ * show a false "danger" indicator for a broken upstream measurement.
  */
 fun levelToSplColor(db: Float, palette: SplLevelPalette = defaultSplLevelPalette): Color {
+    if (!db.isFinite()) return palette.veryQuiet
     val clamped = db.coerceIn(MIN_DB, MAX_DB)
     return when {
         clamped <= VERY_QUIET_MAX -> palette.veryQuiet

@@ -3,6 +3,7 @@ package ru.dmdp.tishina.core.designsystem.theme
 import androidx.compose.ui.graphics.Color
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
@@ -77,6 +78,17 @@ class LevelToSplColorTest {
     fun handlesExtremeInputs(db: Float, bucket: String) {
         val expected = palette.bucket(bucket)
         assertEquals(expected, levelToSplColor(db, palette))
+    }
+
+    @DisplayName("non-finite inputs (NaN, ±Infinity) map to veryQuiet, not to extreme")
+    @Test
+    fun nonFiniteInputsMapToVeryQuiet() {
+        // NaN comparisons are always false; without an explicit guard the `when` falls
+        // through to `else -> extreme`, painting a false "danger" indicator for a
+        // broken upstream measurement.
+        assertEquals(palette.veryQuiet, levelToSplColor(Float.NaN, palette))
+        assertEquals(palette.veryQuiet, levelToSplColor(Float.POSITIVE_INFINITY, palette))
+        assertEquals(palette.veryQuiet, levelToSplColor(Float.NEGATIVE_INFINITY, palette))
     }
 
     private fun SplLevelPalette.bucket(name: String): Color = when (name) {

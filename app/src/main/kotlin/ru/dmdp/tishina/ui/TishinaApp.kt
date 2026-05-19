@@ -229,9 +229,14 @@ private fun NavDestination?.matchesAbout(): Boolean {
 }
 
 private fun NavHostController.navigateTopLevel(destination: TopLevelDestination) {
+    // graph is only set after NavHost composes its first pass. A synthetic accessibility
+    // click on the NavigationBar/Rail before that frame would throw IllegalStateException
+    // ("setGraph must be called"). Guard via runCatching — if the graph isn't ready, the
+    // click is effectively a no-op until the next frame.
+    val startId = runCatching { graph.startDestinationId }.getOrNull() ?: return
     navigate(destination.destination) {
         launchSingleTop = true
         restoreState = true
-        popUpTo(graph.startDestinationId) { saveState = true }
+        popUpTo(startId) { saveState = true }
     }
 }

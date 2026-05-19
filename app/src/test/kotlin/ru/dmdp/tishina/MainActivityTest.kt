@@ -1,6 +1,7 @@
 package ru.dmdp.tishina
 
 import android.os.Build
+import dagger.hilt.internal.GeneratedComponentManagerHolder
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -39,13 +40,24 @@ class MainActivityTest {
 
     @Test
     fun `MainActivity is annotated for Hilt entry`() {
-        // @AndroidEntryPoint rewrites the superclass to a Hilt_-prefixed shim;
-        // verifying the superclass keeps the test honest about Hilt being wired.
-        val superclassName = MainActivity::class.java.superclass.name
+        // @AndroidEntryPoint makes the generated class implement GeneratedComponentManagerHolder
+        // — a stable Hilt SPI — instead of relying on the internal Hilt_-prefix naming convention
+        // which is not part of the public API and may be renamed across Hilt versions.
+        //
+        // We upcast to `android.app.Activity` so the static type does not declare the
+        // GeneratedComponentManagerHolder relationship; the runtime check is what matters,
+        // because Hilt inserts the SPI-bearing superclass via bytecode transformation that
+        // is invisible to kotlinc's USELESS_IS_CHECK analysis.
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity: android.app.Activity = controller.get()
+
         assertTrue(
-            "MainActivity should extend Hilt-generated shim before ComponentActivity, " +
-                "but extends $superclassName",
-            superclassName.contains("Hilt_MainActivity"),
+            "MainActivity must implement GeneratedComponentManagerHolder " +
+                "(verifying @AndroidEntryPoint is wired)",
+            activity is GeneratedComponentManagerHolder,
         )
+        val componentManager = (activity as GeneratedComponentManagerHolder).componentManager()
+        assertNotNull(componentManager)
+        assertNotNull(componentManager.generatedComponent())
     }
 }

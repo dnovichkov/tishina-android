@@ -70,21 +70,23 @@ kover {
     reports {
         filters {
             excludes {
-                // Framework/generated artifacts that contribute nothing actionable to coverage:
+                // Framework/generated artifacts that contribute nothing actionable to coverage.
+                // Class patterns are FQN-anchored to avoid silently swallowing legitimate Phase 2
+                // code: `*MainActivity*` (unanchored) would also exclude future `MainActivityViewModel`,
+                // and `*Application*` would exclude `ApplicationCoroutineScope` etc. — both of which
+                // are exactly the kind of code we want measured.
                 classes(
                     "*.BuildConfig",
                     "*.databinding.*",
-                    "*Module",
                     "*_HiltModules*",
                     "*_Factory",
                     "*_Factory\$*",
                     "*_MembersInjector",
                     "*Hilt_*",
-                    "*MainActivity*",
-                    "*Application*",
+                    "ru.dmdp.tishina.MainActivity",
+                    "ru.dmdp.tishina.TishinaApplication",
                     "*ComposableSingletons*",
                     "*\$\$serializer",
-                    "*Preview*",
                 )
                 packages(
                     "hilt_aggregated_deps",

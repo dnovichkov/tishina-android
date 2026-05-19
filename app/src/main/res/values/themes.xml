@@ -4,10 +4,22 @@
     <!--
         Base activity theme. Real Material 3 surfaces are provided by Compose
         via TishinaTheme; this XML theme only configures the system window
-        background after the splash screen disappears.
+        background and status-bar contrast for the brief moment between the
+        splash dismissal and the first Compose frame. `Theme.DeviceDefault`
+        is day-night aware — the values-night/ variant overrides any
+        day-specific attributes when the system is in dark mode.
+
+        The brand-dark navy windowBackground (#0E2433) requires LIGHT status
+        bar icons; `enableEdgeToEdge()` in MainActivity later replaces these
+        runtime-driven from Compose state, but the XML attributes set the
+        initial contrast before that runs.
     -->
-    <style name="Theme.Tishina" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.Tishina" parent="android:Theme.DeviceDefault.NoActionBar">
         <item name="android:windowBackground">@color/ic_launcher_background</item>
+        <!-- windowLightStatusBar requires API 23+ (our minSdk is 26 — OK). The matching
+             windowLightNavigationBar attribute requires API 27+, so the navigation-bar
+             contrast is left to the runtime via enableEdgeToEdge() in MainActivity. -->
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
     <!--
