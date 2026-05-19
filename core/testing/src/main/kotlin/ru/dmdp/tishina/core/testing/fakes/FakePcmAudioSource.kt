@@ -30,10 +30,8 @@ import kotlin.math.sin
  * cancelling collection (e.g. via `Flow.take`) propagates through to the source
  * (NFR-5).
  */
-class FakePcmAudioSource(
-    initialSampleRateHz: Int = DEFAULT_SAMPLE_RATE,
-    private val unprocessedSupported: Boolean = true,
-) : PcmAudioSource {
+class FakePcmAudioSource(initialSampleRateHz: Int = DEFAULT_SAMPLE_RATE, private val unprocessedSupported: Boolean = true) :
+    PcmAudioSource {
 
     private val flow = MutableSharedFlow<ShortArray>(
         replay = REPLAY_BUFFER,

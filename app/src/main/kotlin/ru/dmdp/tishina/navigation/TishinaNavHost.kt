@@ -14,6 +14,7 @@ import ru.dmdp.tishina.feature.settings.SettingsScreen
 fun TishinaNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
+    measureContent: @Composable () -> Unit = { MeasureScreen() },
 ) {
     NavHost(
         navController = navController,
@@ -21,7 +22,7 @@ fun TishinaNavHost(
         modifier = modifier,
     ) {
         composable<TishinaDestination.Measure> {
-            MeasureScreen()
+            measureContent()
         }
         composable<TishinaDestination.History> {
             HistoryScreen(onNavigateBack = { navController.popBackStack() })

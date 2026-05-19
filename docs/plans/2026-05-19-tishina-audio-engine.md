@@ -303,22 +303,27 @@ Phase 2 наполняет фундамент, заложенный в Phase 1 (
 
 ### Task 11: Integration smoke + acceptance criteria + README
 
-- [ ] verify all requirements from Overview are implemented:
-  - `:app:assembleDebug` собирается без ошибок; debug APK устанавливается на эмулятор Android API 30; нажатие на FAB вызывает permission dialog; после grant — values обновляются 10 раз в секунду
-  - placeholder MeasureScreen полностью заменён реальным UI
-  - все Hilt-зависимости резолвятся (`AudioRepository`, `AudioRecordPcmSource`, `AudioProcessorFactory`, `StartMeasurementUseCase`, `MeasureViewModel`)
-- [ ] verify edge cases handled:
-  - `SplCalculator` clamp при `rms = 0` (тишина в записи)
-  - `MeasureViewModel.PermissionResult(false, false)` корректно эмиттит `OpenAppSettings`
-  - rotation: `MeasureViewModel.savedStateHandle` восстанавливает min/avg/max
-  - кнопка Save показывает Snackbar и не падает
-- [ ] run full test suite: `./gradlew testDebugUnitTest verifyRoborazziDebug` — 100% зелёных
-- [ ] run linter: `./gradlew detektAll spotlessCheck lintDebug` — все warnings/errors устранены или явно подавлены
-- [ ] verify test coverage report генерируется: `./gradlew koverHtmlReportDebug koverXmlReportDebug`; визуально проверяем что `:core:audio` ≥ 95% и `:core:domain` ≥ 90% (просто наблюдение, без enforced threshold)
-- [ ] verify APK size — debug APK всё ещё ≤ 25 МБ (R8 не включён, реальный target ≤ 6 МБ — Phase Release); фиксируем фактическое значение в этот ⚠️ комментарий ниже
-- [ ] зафиксировать baseline Roborazzi screenshots (`./gradlew recordRoborazziDebug`) и закоммитить новые PNG в `feature/measure/src/test/snapshots/`
-- [ ] обновить `README.md`: статус "Phase 2: Audio Engine + Measure" → "Complete"; обновить раздел "What's working" с списком FR, покрытых в Phase 2
-- [ ] run финальный smoke-прогон: `./gradlew clean assembleDebug testDebugUnitTest verifyRoborazziDebug detektAll spotlessCheck lintDebug` (помним про Kover/clean race из Phase 1 ⚠️ — при необходимости разбиваем на два invocation: `./gradlew clean assembleDebug -x test` потом `./gradlew testDebugUnitTest verifyRoborazziDebug detektAll spotlessCheck lintDebug`)
+- [x] verify all requirements from Overview are implemented:
+  - `:app:assembleDebug` собирается без ошибок (✅ зелёный после `clean`)
+  - placeholder MeasureScreen полностью заменён реальным UI (✅ Task 10)
+  - все Hilt-зависимости резолвятся: `AudioRepository`, `AudioRecordPcmSource`, `AudioProcessorFactory`, `StartMeasurementUseCase`, `MeasureViewModel` (✅ `:app:assembleDebug` доказывает, что Hilt-граф валиден; `:app` зависит от `:feature:measure` транзитивно через все слои)
+  - [x] manual test (skipped - not automatable): установка debug APK на эмулятор API 30 и проверка реального обновления dB(A) 10 раз в секунду — требует запущенного эмулятора и физического звука; см. Post-Completion → "Manual verification"
+- [x] verify edge cases handled:
+  - `SplCalculator` clamp при `rms = 0` — покрыт `SplCalculatorTest` (`rms=0.0f` → `MIN_RMS` → finite < 0)
+  - `MeasureViewModel.PermissionResult(false, false)` корректно эмиттит `OpenAppSettings` — покрыт `MeasureViewModelPermissionFlowTest`
+  - rotation: `MeasureViewModel.savedStateHandle` восстанавливает min/avg/max — покрыт `MeasureViewModelSavedStateHandleTest`
+  - кнопка Save показывает Snackbar и не падает — покрыт `MeasureViewModelSaveStubTest`
+- [x] run full test suite: `./gradlew testDebugUnitTest verifyRoborazziDebug` — 100% зелёных (после фикса навигационных тестов :app, см. ниже)
+- [x] run linter: `./gradlew detektAll spotlessCheck lintDebug` — все warnings/errors устранены (применён `spotlessApply` к `FakePcmAudioSource.kt`)
+- [x] verify test coverage report генерируется: `./gradlew koverHtmlReportDebug koverXmlReportDebug` (плюс отдельный `:core:domain:koverHtmlReport` для pure-Kotlin модуля); зафиксированы цифры (просто наблюдение, без enforced threshold):
+  - `:core:domain` — 100% INSTRUCTION (цель ≥ 90% — ✅)
+  - `:core:audio` — 89.66% INSTRUCTION (цель ≥ 95% — gap преимущественно в Android-зависимом `AudioRecordPcmSource`/`AudioRecordCheck`; полное покрытие требует instrumentation-тестов на эмуляторе, Phase Release)
+  - `:feature:measure` — 77.33% INSTRUCTION (цель ≥ 85% — gap в `MeasureScreen` Hilt-обвязке производственной функции, которая требует instrumentation-теста)
+- [x] verify APK size — debug APK ~17.9 МБ (18 765 797 байт), ≤ 25 МБ Phase 2 target ✅; R8 не включён, реальный target ≤ 6 МБ — Phase Release
+- [x] зафиксировать baseline Roborazzi screenshots — 34 PNG уже закоммичены в Task 10; `verifyRoborazziDebug` зелёный, обновлений baseline в Task 11 не потребовалось
+- [x] обновить `README.md`: статус "Phase 2: Audio Engine + Measure" → "Complete"; добавлен раздел с покрытыми FR/NFR, архитектурными модулями, фактическими цифрами покрытия и фиксацией Hilt-stub-паттерна для навигационных тестов
+- [x] run финальный smoke-прогон: разбит на два invocation (workaround Kover/clean race): `./gradlew clean assembleDebug -x test` + `./gradlew testDebugUnitTest verifyRoborazziDebug detektAll spotlessCheck lintDebug` — оба зелёные
+- [x] ⚠️ обнаружена и устранена регрессия из Task 10: переход с placeholder `MeasureScreen` на реальный `hiltViewModel()`-зависимый ломал 9 unit-тестов навигации в `:app` (`AdaptiveNavigationTest`, `NavigationRotationTest`, `TishinaNavHostTest`). Решено добавлением необязательного параметра `measureContent: @Composable () -> Unit = { MeasureScreen() }` в `TishinaApp` / `TishinaNavHost`; тесты передают пустой `MeasureScreenTestStub`. Production API сохранён.
 
 ## Technical Details
 

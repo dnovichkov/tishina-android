@@ -21,6 +21,7 @@ import org.robolectric.annotation.Config
 import ru.dmdp.tishina.core.designsystem.theme.TishinaTheme
 import ru.dmdp.tishina.navigation.TishinaDestination
 import ru.dmdp.tishina.navigation.TopLevelDestination
+import ru.dmdp.tishina.testutils.MeasureScreenTestStub
 import ru.dmdp.tishina.ui.TishinaApp
 import ru.dmdp.tishina.ui.TishinaNavigationRailTestTag
 import ru.dmdp.tishina.ui.navigationItemTestTag
@@ -43,7 +44,11 @@ class NavigationRotationTest {
                 val navController = rememberNavController()
                 capturedController = navController
                 val sizeClass = WindowSizeClass.calculateFromSize(DpSize(1024.dp, 720.dp))
-                TishinaApp(windowSizeClass = sizeClass, navController = navController)
+                TishinaApp(
+                    windowSizeClass = sizeClass,
+                    navController = navController,
+                    measureContent = { MeasureScreenTestStub() },
+                )
             }
         }
         composeTestRule.waitForIdle()

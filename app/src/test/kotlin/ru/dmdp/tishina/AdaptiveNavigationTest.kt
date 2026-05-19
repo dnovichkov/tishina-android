@@ -14,6 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import ru.dmdp.tishina.core.designsystem.theme.TishinaTheme
+import ru.dmdp.tishina.testutils.MeasureScreenTestStub
 import ru.dmdp.tishina.ui.TishinaApp
 import ru.dmdp.tishina.ui.TishinaNavigationBarTestTag
 import ru.dmdp.tishina.ui.TishinaNavigationRailTestTag
@@ -31,7 +32,7 @@ class AdaptiveNavigationTest {
         composeTestRule.setContent {
             TishinaTheme(darkTheme = false, dynamicColor = false) {
                 val sizeClass = WindowSizeClass.calculateFromSize(DpSize(360.dp, 640.dp))
-                TishinaApp(windowSizeClass = sizeClass)
+                TishinaApp(windowSizeClass = sizeClass, measureContent = { MeasureScreenTestStub() })
             }
         }
         composeTestRule.waitForIdle()
@@ -46,7 +47,7 @@ class AdaptiveNavigationTest {
         composeTestRule.setContent {
             TishinaTheme(darkTheme = false, dynamicColor = false) {
                 val sizeClass = WindowSizeClass.calculateFromSize(DpSize(720.dp, 1024.dp))
-                TishinaApp(windowSizeClass = sizeClass)
+                TishinaApp(windowSizeClass = sizeClass, measureContent = { MeasureScreenTestStub() })
             }
         }
         composeTestRule.waitForIdle()
@@ -61,7 +62,7 @@ class AdaptiveNavigationTest {
         composeTestRule.setContent {
             TishinaTheme(darkTheme = false, dynamicColor = false) {
                 val sizeClass = WindowSizeClass.calculateFromSize(DpSize(960.dp, 1024.dp))
-                TishinaApp(windowSizeClass = sizeClass)
+                TishinaApp(windowSizeClass = sizeClass, measureContent = { MeasureScreenTestStub() })
             }
         }
         composeTestRule.waitForIdle()

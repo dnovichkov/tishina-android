@@ -34,6 +34,7 @@ import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import ru.dmdp.tishina.feature.measure.MeasureScreen
 import ru.dmdp.tishina.navigation.AboutIcon
 import ru.dmdp.tishina.navigation.AboutLabelRes
 import ru.dmdp.tishina.navigation.TishinaDestination
@@ -56,6 +57,7 @@ fun navigationItemTestTag(destination: TopLevelDestination): String =
 fun TishinaApp(
     windowSizeClass: WindowSizeClass,
     navController: NavHostController = rememberNavController(),
+    measureContent: @Composable () -> Unit = { MeasureScreen() },
 ) {
     val useNavigationRail = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -87,7 +89,7 @@ fun TishinaApp(
                     onAboutClick = onAboutClick,
                 )
                 Box(modifier = Modifier.fillMaxSize()) {
-                    TishinaNavHost(navController = navController)
+                    TishinaNavHost(navController = navController, measureContent = measureContent)
                 }
             }
         } else {
@@ -108,7 +110,7 @@ fun TishinaApp(
                 },
             ) { padding ->
                 Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                    TishinaNavHost(navController = navController)
+                    TishinaNavHost(navController = navController, measureContent = measureContent)
                 }
             }
         }

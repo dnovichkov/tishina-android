@@ -17,22 +17,42 @@
 
 ## Статус
 
-**Phase 1: Foundation complete.**
+**Phase 2: Audio Engine + Measure complete.**
 
-Готова инфраструктура проекта:
+К инфраструктуре Phase 1 добавлен рабочий измерительный pipeline и реальный экран `MeasureScreen`.
 
-- Multi-module Gradle (`:app` + 6 `core:*` + 4 `feature:*`) на composite build `build-logic` с convention-плагинами.
-- Material 3 дизайн-система с поддержкой dynamic colors (API 31+), SPL-палитра уровней шума, типографика.
-- Адаптивная навигация: `NavigationBar` (compact) / `NavigationRail` (medium+expanded) между 4 placeholder-экранами Measure / History / Settings / About.
-- Локализация ru/en (primary ru), edge-to-edge, splash screen.
-- Статанализ: Detekt + Ktlint (через Spotless) + Android Lint; покрытие через Kover.
-- Unit-тесты (JUnit 5 + Robolectric) и Roborazzi screenshot-тесты (8 baseline-снимков).
-- GitHub Actions CI: `static-checks` → `unit-tests` + `build` (APK + AAB).
+Покрытые FR/NFR из [спецификации](docs/specs/tishina-spec.md):
 
-Следующий этап — **Phase 2: Audio Engine + Measure** (AudioRecord, A-weighting, RMS, SPL).
+- **FR-2** — запрос `RECORD_AUDIO` при первом Start с rationale-диалогом и переходом в системные настройки при permanent denial.
+- **FR-3 / FR-4 / FR-5 / FR-7** — Start / отображение dB(A) live, min/avg/max, графика 60 секунд, дугообразного gauge / Pause / Reset.
+- **FR-6** — UI-каркас FAB Save присутствует, но `enabled = false` со Snackbar «History coming in next phase» (полная реализация — Phase 3).
+- **FR-15 / FR-16** — A-weighting (IEC 61672-1 ±0.3 dB на референсных 31.5/125/1000/8000/16000 Гц) + Fast (125 мс) как умолчания; Z-weighting и Slow (1 с) реализованы, переключение остаётся на Phase 4.
+- **NFR-2** — обновление UI ≈10 Гц, без блокировок UI-потока.
+- **NFR-5 / NFR-6** — корректное освобождение `AudioRecord` при отмене корутины; `SavedStateHandle` восстанавливает min/avg/max после rotation.
+- **NFR-8 / NFR-9 / NFR-10** — единственное запрашиваемое разрешение `RECORD_AUDIO`; аудио НЕ пишется в файл; никаких сторонних SDK.
+- **NFR-13 / NFR-14 / NFR-15 / NFR-16** — contentDescription, font scaling, контрастные цвета, цвет не единственный носитель информации.
 
-Подробный план Phase 1: [docs/plans/2026-05-19-tishina-foundation.md](docs/plans/2026-05-19-tishina-foundation.md).
-Полная спецификация продукта: [docs/specs/tishina-spec.md](docs/specs/tishina-spec.md).
+Архитектурно добавлено:
+
+- `:core:domain` — модели (`SoundSample`, `MeasurementSnapshot`, `MeasurementConfig`), `AudioRepository` / `SettingsRepository`, use-cases (`StartMeasurementUseCase`, `ResetMeasurementUseCase`, `StopMeasurementUseCase`).
+- `:core:audio` — собственный DSP-стек: `RingBuffer`, `DcBlockFilter`, `BiquadFilter`, `AWeightingFilter` (matched-Z + anti-aliasing zero, Class 1 IEC 61672-1), `ZWeightingFilter`, `RmsCalculator`, `TimeWeightedRms`, `SplCalculator`, `AudioProcessor` + `AudioProcessorFactory`; `PcmAudioSource` интерфейс и `AudioRecordPcmSource` (UNPROCESSED → VOICE_RECOGNITION → MIC; 48 kHz → 44.1 kHz fallback); `AudioRepositoryImpl` + Hilt-модуль `AudioModule`.
+- `:core:testing` — `FakeAudioRepository` и `FakePcmAudioSource` (генератор тонов с AOSP-anchor RMS=2500/32768 ↔ 90 dB SPL).
+- `:feature:measure` — `MeasureViewModel` (MVI lite — UiState/UiEvent/UiEffect, runtime permission flow, SavedStateHandle); композблы `SplReadout`, `SplArcGauge`, `SplLineChart`, `SplStatsRow`, `MeasureBottomBar`, `PermissionRationaleDialog`; `MeasureScreen` с реальным интерактивным UI.
+
+Тестовое покрытие (наблюдательно, без enforced threshold в Phase 2):
+
+- `:core:domain` — 100% INSTRUCTION (цель ≥ 90%).
+- `:core:audio` — 89.7% INSTRUCTION (цель ≥ 95% — gap преимущественно в Android-зависимом `AudioRecordPcmSource`; полное покрытие — Phase Release с emulator-матрицей).
+- `:feature:measure` — 77.3% INSTRUCTION (цель ≥ 85% — gap в `MeasureScreen` Hilt-обвязке, которая требует instrumentation-теста).
+- Roborazzi: 34 baseline-снимка (light/dark × idle/running/paused/permission-denied/gauge-stages/chart/stats/bottombar).
+
+Следующий этап — **Phase 3: History + Persistence** (Room, MeasurementRepositoryImpl, HistoryScreen + DetailScreen, реальный `SaveMeasurementUseCase`).
+
+Подробные планы:
+
+- Phase 1: [docs/plans/completed/2026-05-19-tishina-foundation.md](docs/plans/completed/2026-05-19-tishina-foundation.md).
+- Phase 2: [docs/plans/2026-05-19-tishina-audio-engine.md](docs/plans/2026-05-19-tishina-audio-engine.md).
+- Полная спецификация продукта: [docs/specs/tishina-spec.md](docs/specs/tishina-spec.md).
 
 ## Сборка
 
@@ -65,13 +85,14 @@
 
 HTML-отчёт о покрытии: `build/reports/kover/htmlDebug/index.html`. Авто-фикс форматирования: `./gradlew spotlessApply`.
 
-## Известные особенности Phase 1
+## Известные особенности
 
-- Размер debug-APK ~18 МБ. NFR-4 (≤ 6 МБ) применим к release-сборке после включения R8/resource shrinking — отложено до Phase Release.
-- При прогоне `clean` + Kover в одном invocation возможна гонка `kover-agent.args FileNotFoundException`. Workaround: разделить на два прогона — `./gradlew clean build`, затем `./gradlew testDebugUnitTest verifyRoborazziDebug koverXmlReportDebug`.
+- Размер debug-APK ~17.9 МБ. NFR-4 (≤ 6 МБ) применим к release-сборке после включения R8/resource shrinking — отложено до Phase Release.
+- При прогоне `clean` + Kover в одном invocation возможна гонка `kover-agent.args FileNotFoundException`. Workaround: разделить на два прогона — `./gradlew clean assembleDebug -x test`, затем `./gradlew testDebugUnitTest verifyRoborazziDebug koverXmlReportDebug`.
 - После `clean` Spotless может выдать stale config-cache. Workaround: удалить `.gradle/configuration-cache/` и повторить.
-- Robolectric 4.13 не поддерживает API 35; для unit-тестов SDK зафиксирован на 33 через `src/test/resources/robolectric.properties` в `:app`, `:core:designsystem`, `:core:ui`.
+- Robolectric 4.13 не поддерживает API 35; для unit-тестов SDK зафиксирован на 33 через `src/test/resources/robolectric.properties` в `:app`, `:core:designsystem`, `:core:ui`, `:feature:measure`.
+- `MeasureScreen` использует `hiltViewModel()`, поэтому навигационные тесты в `:app` подменяют его на пустой stub через параметр `measureContent` у `TishinaApp`/`TishinaNavHost`, не нагружая Hilt-граф.
 
 ## Контрибьюция
 
-Проект на ранней стадии. Issues и pull requests приветствуются после завершения Phase 1.
+Проект на ранней стадии. Issues и pull requests приветствуются.
