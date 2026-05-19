@@ -19,13 +19,7 @@ package ru.dmdp.tishina.core.audio.dsp
  * The class is stateful — feed contiguous chunks of audio and call [reset] only when starting
  * a fresh measurement so the trailing IIR memory doesn't leak between sessions.
  */
-class BiquadFilter(
-    private val b0: Float,
-    private val b1: Float,
-    private val b2: Float,
-    private val a1: Float,
-    private val a2: Float,
-) {
+class BiquadFilter(private val b0: Float, private val b1: Float, private val b2: Float, private val a1: Float, private val a2: Float) {
 
     private var d1: Float = 0f
     private var d2: Float = 0f

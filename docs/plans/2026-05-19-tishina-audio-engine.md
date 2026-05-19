@@ -190,19 +190,19 @@ Phase 2 наполняет фундамент, заложенный в Phase 1 (
 
 ### Task 6: SPL calculator + AudioProcessor pipeline
 
-- [ ] создать `core/audio/.../dsp/SplCalculator.kt` — `class SplCalculator(referenceRms: Float = DEFAULT_REFERENCE_RMS)` — формула `dB = 20 · log10(max(rms, MIN_RMS) / referenceRms) + calibrationOffset`, где `MIN_RMS = 1e-9f` для защиты от `log10(0) = −Infinity` (clamp в нижний предел ≈ −180 dB); метод `fun toDb(rms: Float, calibrationOffsetDb: Float): Float`; константа `DEFAULT_REFERENCE_RMS = 2500f / 32768f` (по AOSP CDD: "Close-talk config: 90 dB SPL reads RMS of 2500 (16 bit samples)" — § 11 спеки)
-- [ ] создать `dsp/AudioProcessor.kt` — pipeline-композитор: `class AudioProcessor(private val dcBlock: DcBlockFilter, private val weighting: FrequencyFilter, private val timeWeightedRms: TimeWeightedRms, private val spl: SplCalculator)`; метод `fun process(pcm: ShortArray, offsetDb: Float): Float` (нормализует short в Float, применяет фильтры in-place в shared scratch-буфере, возвращает текущий dB); метод `fun reset()` вызывает `reset` для каждого компонента
-- [ ] создать `dsp/AudioProcessorFactory.kt` — `class AudioProcessorFactory @Inject constructor()` с методом `fun create(sampleRateHz: Int, config: MeasurementConfig): AudioProcessor` — инстанциирует Dc/A-or-Z/TimeWeighted/Spl по `config.frequencyWeighting` и `config.timeWeighting`
-- [ ] **сначала тест:** `SplCalculatorTest` (`@ParameterizedTest @CsvSource`):
+- [x] создать `core/audio/.../dsp/SplCalculator.kt` — `class SplCalculator(referenceRms: Float = DEFAULT_REFERENCE_RMS)` — формула `dB = 20 · log10(max(rms, MIN_RMS) / referenceRms) + ANCHOR_DB + calibrationOffset`, где `MIN_RMS = 1e-9f` для защиты от `log10(0) = −Infinity` и `ANCHOR_DB = 90f` — это AOSP close-talk anchor (RMS=2500/32768 ↔ 90 dB SPL). Реализация отклоняется от исходной плановой формулы без `ANCHOR_DB`: одна лишь `20·log10(rms/ref)` дала бы `0 dB` при `rms=ref`, а CSV-таблица в тестах требует `90 dB`. Поэтому `ref` остаётся «RMS-at-90-dB» (как просил план), и `ANCHOR_DB` явно добавлен в формулу. Clamp при `rms=0` даёт ≈ −67.6 dB — тест проверяет «finite & < 0», а не точную цифру (плановая «-180» была off-the-cuff и не сходится с указанным `MIN_RMS`).
+- [x] создать `dsp/AudioProcessor.kt` — pipeline-композитор: `class AudioProcessor(private val dcBlock: DcBlockFilter, private val weighting: FrequencyFilter, private val timeWeightedRms: TimeWeightedRms, private val spl: SplCalculator)`; метод `fun process(pcm: ShortArray, offsetDb: Float): Float` (нормализует short в Float, применяет фильтры in-place в shared scratch-буфере, возвращает текущий dB); метод `fun reset()` вызывает `reset` для каждого компонента
+- [x] создать `dsp/AudioProcessorFactory.kt` — `class AudioProcessorFactory` (без `@Inject` пока — Hilt в `:core:audio` подключается в Task 7; будет использован через `@Provides` в `AudioModule`, что не требует аннотации на конструкторе) с методом `fun create(sampleRateHz: Int, config: MeasurementConfig): AudioProcessor` — инстанциирует Dc/A-or-Z/TimeWeighted/Spl по `config.frequencyWeighting` и `config.timeWeighting`
+- [x] **сначала тест:** `SplCalculatorTest` (`@ParameterizedTest @CsvSource`):
   - `referenceRms=0.0763f` (~2500/32768), `rms=0.0763f`, `offset=0` → 90.0 dB
   - `rms=0.00763f` (10× меньше) → 70.0 dB
   - `rms=0.763f` → 110.0 dB
-  - `rms=0.0f` → clamp в `MIN_RMS`, dB ≈ −180 (не -∞)
+  - `rms=0.0f` → clamp в `MIN_RMS`, dB конечный и < 0 (фактически ≈ −67.6 dB при `MIN_RMS=1e-9` и `ref=0.0763`)
   - `offset=+5` поверх 90 dB-входа → 95.0 dB
-- [ ] **сначала тест:** `AudioProcessorIntegrationTest` — генерируем синусоиду 1 кГц амплитудой соответствующей 90 dB SPL (через `referenceRms × 32768`), пропускаем через полный pipeline (DC + A-weighting + TimeWeighted + SPL), ожидаем выход 90 dB ± 0.5 dB; повторяем для Z-weighting (та же амплитуда → 90 dB, без 0 dB поправки A-кривой на 1 кГц)
-- [ ] **сначала тест:** `AudioProcessorResetTest` — после `reset()` два идентичных прогона дают идентичный результат
-- [ ] реализовать классы чтобы тесты позеленели
-- [ ] run `./gradlew :core:audio:testDebugUnitTest` — must pass before next task
+- [x] **сначала тест:** `AudioProcessorIntegrationTest` — генерируем синусоиду 1 кГц амплитудой соответствующей 90 dB SPL (через `referenceRms × 32768`), пропускаем через полный pipeline (DC + A-weighting + TimeWeighted + SPL), ожидаем выход 90 dB ± 0.5 dB; повторяем для Z-weighting (та же амплитуда → 90 dB, без 0 dB поправки A-кривой на 1 кГц); расширено тестом 100 Hz A vs Z (Δ ≈ 19.1 dB подтверждает что A-кривая реально применяется) и тестом calibration offset.
+- [x] **сначала тест:** `AudioProcessorResetTest` — после `reset()` два идентичных прогона дают идентичный результат
+- [x] реализовать классы чтобы тесты позеленели
+- [x] run `./gradlew :core:audio:testDebugUnitTest` — must pass before next task
 
 ### Task 7: PcmAudioSource interface + AudioRecordPcmSource
 

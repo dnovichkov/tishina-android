@@ -15,8 +15,10 @@ class AWeightingFilterResetTest {
         val filter = AWeightingFilter(sampleRateHz)
         val input = FloatArray(2_048) { n ->
             // Sum two tones so all biquads have meaningful activity in their state.
-            (sin(2.0 * PI * 1_000.0 * n / sampleRateHz) +
-                0.5 * sin(2.0 * PI * 100.0 * n / sampleRateHz)).toFloat()
+            (
+                sin(2.0 * PI * 1_000.0 * n / sampleRateHz) +
+                    0.5 * sin(2.0 * PI * 100.0 * n / sampleRateHz)
+                ).toFloat()
         }
 
         val firstRun = input.copyOf()
