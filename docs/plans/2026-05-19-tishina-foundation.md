@@ -168,13 +168,15 @@ Phase 1 закладывает инфраструктурный фундамен
 
 ### Task 6: Testing infrastructure :core:testing
 
-- [ ] в `:core:testing/build.gradle.kts` подключить как `api`-зависимости: junit-jupiter-api/engine, mockk, turbine, robolectric, roborazzi, compose-ui-test-junit4 — чтобы тестовые модули фичей подключали один `testImplementation(projects.core.testing)` и получали полный набор
-- [ ] создать `rules/RoborazziTestRule.kt` — обёртка над `RoborazziRule` с дефолтной директорией `module/build/outputs/roborazzi/`, дефолтным `RoborazziOptions.CompareOptions(changeThreshold = 0.01)`, удобным шорткатом `captureRoboImage(name: String)` для composables
-- [ ] создать `rules/MainDispatcherRule.kt` — стандартная обёртка над `TestDispatcher` для замены `Dispatchers.Main` в JUnit 5 (`@BeforeEach setMain`, `@AfterEach resetMain`)
-- [ ] создать `composables/PreviewSheet.kt` — helper `@Composable fun PreviewSheet(name: String, content: @Composable () -> Unit)` оборачивает контент в `TishinaTheme` + контрастный фон + label, чтобы единообразно делать screenshot-фикстуры
-- [ ] создать `fakes/` — пустая директория с README "fake implementations will be added in Phase 2+"
-- [ ] добавить тест-маркер: `infrastructureSmoke` — пустой JUnit 5 тест `class InfrastructureSmokeTest { @Test fun moduleCompiles() = Unit }`, чтобы CI прогонял `:core:testing:testDebugUnitTest` и validating импорты
-- [ ] run `./gradlew :core:testing:testDebugUnitTest` — must pass before next task
+- [x] в `:core:testing/build.gradle.kts` подключить как `api`-зависимости: junit-jupiter-api/engine, mockk, turbine, robolectric, roborazzi, compose-ui-test-junit4 — чтобы тестовые модули фичей подключали один `testImplementation(projects.core.testing)` и получали полный набор
+- [x] создать `rules/RoborazziTestRule.kt` — обёртка над `RoborazziRule` с дефолтной директорией `module/build/outputs/roborazzi/`, дефолтным `RoborazziOptions.CompareOptions(changeThreshold = 0.01)`, удобным шорткатом `captureRoboImage(name: String)` для composables (реализовано как `captureSnapshot(name)` extension + константы `SnapshotChangeThreshold` / `SnapshotDirectory`; имя отличается от `captureRoboImage`, чтобы не конфликтовать с одноимённой extension-функцией Roborazzi)
+- [x] создать `rules/MainDispatcherRule.kt` — стандартная обёртка над `TestDispatcher` для замены `Dispatchers.Main` в JUnit 5 (`@BeforeEach setMain`, `@AfterEach resetMain`)
+- [x] создать `composables/PreviewSheet.kt` — helper `@Composable fun PreviewSheet(name: String, content: @Composable () -> Unit)` оборачивает контент в `TishinaTheme` + контрастный фон + label, чтобы единообразно делать screenshot-фикстуры
+- [x] создать `fakes/` — пустая директория с README "fake implementations will be added in Phase 2+"
+- [x] добавить тест-маркер: `infrastructureSmoke` — пустой JUnit 5 тест `class InfrastructureSmokeTest { @Test fun moduleCompiles() = Unit }`, чтобы CI прогонял `:core:testing:testDebugUnitTest` и validating импорты
+- [x] run `./gradlew :core:testing:testDebugUnitTest` — must pass before next task
+
+> ⚠️ Task 6: в `:core:testing` подключены дополнительные плагины `tishina.android.compose` (PreviewSheet — composable) и `tishina.jvm.testing` (включает `useJUnitPlatform()` для InfrastructureSmokeTest); добавлены `api(projects.core.designsystem)` (для `TishinaTheme` внутри PreviewSheet), `api(libs.junit4)` и `api(libs.junit.vintage.engine)` (чтобы фичевые модули, подключающие `testImplementation(projects.core.testing)`, могли писать JUnit 4-стилевые тесты с `@RunWith(RobolectricTestRunner)` без дублирования зависимостей). `RoborazziOptions.CompareOptions(changeThreshold)` принимает `Float`, не `Double`; обёрнут `@OptIn(ExperimentalRoborazziApi::class)`.
 
 ### Task 7: Static analysis — Detekt, Ktlint, Android Lint + Code coverage Kover
 
