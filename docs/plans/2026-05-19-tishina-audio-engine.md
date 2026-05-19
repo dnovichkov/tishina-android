@@ -147,14 +147,14 @@ Phase 2 наполняет фундамент, заложенный в Phase 1 (
 
 ### Task 3: DSP foundation — RingBuffer + DcBlockFilter
 
-- [ ] добавить в `core/audio/build.gradle.kts` `testImplementation(projects.core.testing)` (получаем JUnit 5 / MockK / Turbine / Robolectric транзитивно)
-- [ ] создать `core/audio/src/main/kotlin/ru/dmdp/tishina/core/audio/dsp/RingBuffer.kt` — `class RingBuffer(capacity: Int)` с примитивами `FloatArray` (не `Array<Float>` — избегаем boxing на горячем пути), `fun add(value: Float)`, `fun snapshot(): FloatArray` (возвращает копию в хронологическом порядке), `fun mean(): Float`, `fun sumOfSquares(): Float` (через цикл Кэхэна для устойчивости накопления)
-- [ ] создать `dsp/DcBlockFilter.kt` — `class DcBlockFilter(private val pole: Float = 0.995f)` (1-й порядок HPF: `y[n] = x[n] − x[n−1] + pole·y[n−1]`), метод `fun process(samples: FloatArray, into: FloatArray = samples)` (in-place по умолчанию для экономии аллокаций), метод `fun reset()`
-- [ ] **сначала тест:** `RingBufferTest` (`@ParameterizedTest @CsvSource`): емкость 4, добавляем [1, 2, 3] → snapshot == [1, 2, 3]; добавляем [1, 2, 3, 4, 5] → snapshot == [2, 3, 4, 5] (wrap-around); `mean()` после [10, 20, 30, 40] = 25.0f; `mean()` для пустого буфера = 0.0f; `sumOfSquares()` для [3, 4] = 25.0f
-- [ ] **сначала тест:** `DcBlockFilterTest` — константный DC-сигнал `[1.0f, 1.0f, 1.0f, ...]` через фильтр → выход экспоненциально стремится к 0 (после 1000 семплов |y| < 0.01); синусоида 1 кГц на 48 кГц через фильтр практически без искажений (RMS сохраняется в пределах 1%)
-- [ ] **сначала тест:** `DcBlockFilterResetTest` — `reset()` восстанавливает начальное состояние, два прогона дают одинаковый результат
-- [ ] реализовать классы чтобы тесты позеленели
-- [ ] run `./gradlew :core:audio:testDebugUnitTest` — must pass before next task
+- [x] добавить в `core/audio/build.gradle.kts` `testImplementation(projects.core.testing)` (получаем JUnit 5 / MockK / Turbine / Robolectric транзитивно)
+- [x] создать `core/audio/src/main/kotlin/ru/dmdp/tishina/core/audio/dsp/RingBuffer.kt` — `class RingBuffer(capacity: Int)` с примитивами `FloatArray` (не `Array<Float>` — избегаем boxing на горячем пути), `fun add(value: Float)`, `fun snapshot(): FloatArray` (возвращает копию в хронологическом порядке), `fun mean(): Float`, `fun sumOfSquares(): Float` (через цикл Кэхэна для устойчивости накопления)
+- [x] создать `dsp/DcBlockFilter.kt` — `class DcBlockFilter(private val pole: Float = 0.995f)` (1-й порядок HPF: `y[n] = x[n] − x[n−1] + pole·y[n−1]`), метод `fun process(samples: FloatArray, into: FloatArray = samples)` (in-place по умолчанию для экономии аллокаций), метод `fun reset()`
+- [x] **сначала тест:** `RingBufferTest` (`@ParameterizedTest @CsvSource`): емкость 4, добавляем [1, 2, 3] → snapshot == [1, 2, 3]; добавляем [1, 2, 3, 4, 5] → snapshot == [2, 3, 4, 5] (wrap-around); `mean()` после [10, 20, 30, 40] = 25.0f; `mean()` для пустого буфера = 0.0f; `sumOfSquares()` для [3, 4] = 25.0f (реализован как набор `@Test` — параметризация по `@CsvSource` не дала выигрыша на наборах разной размерности, тесты остаются именованными)
+- [x] **сначала тест:** `DcBlockFilterTest` — константный DC-сигнал `[1.0f, 1.0f, 1.0f, ...]` через фильтр → выход экспоненциально стремится к 0 (после 1000 семплов |y| < 0.01); синусоида 1 кГц на 48 кГц через фильтр практически без искажений (RMS сохраняется в пределах 1%)
+- [x] **сначала тест:** `DcBlockFilterResetTest` — `reset()` восстанавливает начальное состояние, два прогона дают одинаковый результат
+- [x] реализовать классы чтобы тесты позеленели
+- [x] run `./gradlew :core:audio:testDebugUnitTest` — must pass before next task
 
 ### Task 4: RMS calculator + Time-weighted (Fast/Slow)
 
