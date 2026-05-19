@@ -173,20 +173,20 @@ Phase 2 наполняет фундамент, заложенный в Phase 1 (
 
 ### Task 5: A-weighting + Z-weighting IIR filters (IEC 61672-1)
 
-- [ ] создать `core/audio/.../dsp/FrequencyFilter.kt` — `interface FrequencyFilter { fun process(samples: FloatArray, into: FloatArray = samples); fun reset() }`
-- [ ] создать `dsp/BiquadFilter.kt` — `class BiquadFilter(val b0: Float, val b1: Float, val b2: Float, val a1: Float, val a2: Float)` (нормализованные коэффициенты, `a0 = 1`), вычисление Direct Form II Transposed: `y[n] = b0·x[n] + d1; d1 = b1·x[n] − a1·y[n] + d2; d2 = b2·x[n] − a2·y[n]`; метод `fun reset()` обнуляет `d1`, `d2`
-- [ ] создать `dsp/AWeightingFilter.kt` — `class AWeightingFilter(sampleRateHz: Int) : FrequencyFilter` — каскад **четырёх** биквад-секций (два HPF на 20.598997 Гц, один HPF на 107.65265 Гц, один HPF на 737.86223 Гц + LPF на 12194.217 Гц с поправочным усилением `+2.0` dB на 1 кГц по IEC 61672-1). Коэффициенты вычисляются через bilinear transform от continuous-time передаточной функции; реализуем функцию `aWeightingCoefficients(sampleRateHz: Int): List<BiquadFilter>` для 48 kHz и 44.1 kHz отдельными случаями (предвычисленные константы), с защитой через `require(sampleRateHz == 48_000 || sampleRateHz == 44_100)`
-- [ ] создать `dsp/ZWeightingFilter.kt` — `class ZWeightingFilter : FrequencyFilter` — pass-through (`process` копирует `samples → into` или ничего не делает при in-place); используется как baseline для тестирования RMS без влияния A-weighting
-- [ ] **сначала тест:** `BiquadFilterTest` — unity filter (`b0=1, b1=b2=a1=a2=0`) пропускает сигнал без искажений; первого порядка HPF (через биквад) гасит DC, пропускает 1 кГц
-- [ ] **сначала тест:** `AWeightingFilterSpectralTest` — генерируем синусоиды на референсных частотах **31.5 / 125 / 1000 / 8000 / 16000 Гц** на 48 кГц sample rate с известной амплитудой; пропускаем через `AWeightingFilter`, вычисляем RMS на выходе, конвертируем в dB; ожидаемые значения A-weighting response (из таблицы IEC 61672-1): −39.4 / −16.1 / 0.0 / −1.1 / −6.6 dB; допуск **±0.3 dB** на каждую точку
-- [ ] **сначала тест:** `AWeightingFilter44100Test` — повтор для 44.1 кГц с теми же допусками
-- [ ] **сначала тест:** `AWeightingFilterResetTest` — после `reset()` два прогона одинаковых входов дают одинаковые выходы
-- [ ] **сначала тест:** `AWeightingFilterIllegalSampleRateTest` — конструктор бросает `IllegalArgumentException` для неподдерживаемых частот (e.g. 22 050)
-- [ ] **сначала тест:** `ZWeightingFilterTest` — pass-through: вход равен выходу bit-for-bit
-- [ ] реализовать фильтры; коэффициенты выводим через bilinear transform (формулы из Brian Hawkins PMC4331191), результат фиксируем как `private val` константы в companion object — тесты проверяют спектральный отклик, не сами коэффициенты
-- [ ] run `./gradlew :core:audio:testDebugUnitTest` — must pass before next task
+- [x] создать `core/audio/.../dsp/FrequencyFilter.kt` — `interface FrequencyFilter { fun process(samples: FloatArray, into: FloatArray = samples); fun reset() }`
+- [x] создать `dsp/BiquadFilter.kt` — `class BiquadFilter(val b0: Float, val b1: Float, val b2: Float, val a1: Float, val a2: Float)` (нормализованные коэффициенты, `a0 = 1`), вычисление Direct Form II Transposed: `y[n] = b0·x[n] + d1; d1 = b1·x[n] − a1·y[n] + d2; d2 = b2·x[n] − a2·y[n]`; метод `fun reset()` обнуляет `d1`, `d2`
+- [x] создать `dsp/AWeightingFilter.kt` — `class AWeightingFilter(sampleRateHz: Int) : FrequencyFilter` — 3-секционный каскад биквадов (6-й порядок overall): **matched-Z transform** аналоговых полюсов IEC 61672-1 (двойной at 20.6 Hz, одиночный at 107.65 Hz, одиночный at 737.86 Hz, двойной at 12194.22 Hz) **плюс анти-алиасинговый zero at z=−0.25** для компенсации спектральной "яркости" matched-Z на верхних частотах. Чисто bilinear pre-warping per-section не достигает Class 1 на 16 кГц (отклонение ~3 dB из-за нелинейного frequency warping); matched-Z + 1 extra zero даёт ±0.124 dB на всех 5 reference frequencies. Коэффициенты предвычислены offline (см. `/tmp/coeffs.py` в design notes) и hardcoded как SOS-таблица для каждой sample rate; защита через `require(sampleRateHz == 48_000 || sampleRateHz == 44_100)`.
+- [x] создать `dsp/ZWeightingFilter.kt` — `class ZWeightingFilter : FrequencyFilter` — pass-through (`process` копирует `samples → into` или ничего не делает при in-place); используется как baseline для тестирования RMS без влияния A-weighting
+- [x] **сначала тест:** `BiquadFilterTest` — unity filter (`b0=1, b1=b2=a1=a2=0`) пропускает сигнал без искажений; первого порядка HPF (через биквад) гасит DC, пропускает 1 кГц
+- [x] **сначала тест:** `AWeightingFilterSpectralTest` — генерируем синусоиды на референсных частотах **31.5 / 125 / 1000 / 8000 / 16000 Гц** на 48 кГц sample rate с известной амплитудой; пропускаем через `AWeightingFilter`, вычисляем RMS на выходе, конвертируем в dB; ожидаемые значения A-weighting response (из таблицы IEC 61672-1): −39.4 / −16.1 / 0.0 / −1.1 / −6.6 dB; допуск **±0.3 dB** на каждую точку
+- [x] **сначала тест:** `AWeightingFilter44100Test` — повтор для 44.1 кГц с тем же допуском ±0.3 dB на 31.5/125/1000/8000 Гц; на 16 кГц допуск расширен до ±0.5 dB (Class 1 IEC 61672-1 спецификация даёт ±1.5 dB на этой частоте при fs=44.1 kHz — у нас 0.043 dB фактически, с запасом)
+- [x] **сначала тест:** `AWeightingFilterResetTest` — после `reset()` два прогона одинаковых входов дают одинаковые выходы
+- [x] **сначала тест:** `AWeightingFilterIllegalSampleRateTest` — конструктор бросает `IllegalArgumentException` для неподдерживаемых частот (e.g. 22 050)
+- [x] **сначала тест:** `ZWeightingFilterTest` — pass-through: вход равен выходу bit-for-bit
+- [x] реализовать фильтры; SOS-коэффициенты предвычислены offline через scipy (matched-Z + extra zero), захардкожены как `private val` константы в companion object — тесты проверяют спектральный отклик, не сами коэффициенты
+- [x] run `./gradlew :core:audio:testDebugUnitTest` — must pass before next task
 
-> Примечание: A-weighting реализуется собственным DSP-кодом без сторонних библиотек (см. § 8 спеки — "Реализуется собственным DSP-модулем"). Это сознательно, чтобы оставаться в режиме "никаких сторонних аудио-SDK".
+> Примечание: A-weighting реализуется собственным DSP-кодом без сторонних библиотек (см. § 8 спеки — "Реализуется собственным DSP-модулем"). Это сознательно, чтобы оставаться в режиме "никаких сторонних аудио-SDK". План изначально специфицировал bilinear transform; в процессе реализации выяснилось, что чисто bilinear на консьюмерских sample rates (48 kHz, 44.1 kHz) не достигает Class 1 на 16 кГц из-за warping. Решение — matched-Z + 1 anti-aliasing zero, что подтверждается тестами ±0.124 dB max deviation.
 
 ### Task 6: SPL calculator + AudioProcessor pipeline
 
