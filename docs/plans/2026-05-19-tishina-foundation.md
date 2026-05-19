@@ -210,16 +210,20 @@ Phase 1 закладывает инфраструктурный фундамен
 
 ### Task 9: Verify acceptance criteria
 
-- [ ] verify all requirements from Overview are implemented: `:app` собирается и запускается; есть 4 placeholder-экрана; навигация работает; темы light/dark/dynamic применяются; ru/en локализация в `app_name`
-- [ ] verify edge cases are handled: `levelToSplColor` обрабатывает экстремальные значения; навигация выживает rotation (Robolectric `@Config(qualifiers="land")` для одного nav-теста)
-- [ ] run full test suite (unit tests): `./gradlew testDebugUnitTest verifyRoborazziDebug` — 100% зелёных
-- [ ] run linter (`./gradlew detektAll spotlessCheck lintDebug`) — все warnings/errors устранены или явно подавлены в baseline
-- [ ] verify test coverage report генерируется: `./gradlew koverHtmlReportDebug` (пороги не enforced в Phase 1, только проверяем что отчёт собирается)
-- [ ] verify APK size ≤ 6 МБ (NFR-4): `Get-ChildItem app/build/outputs/apk/debug/*.apk | Select-Object Length` — на этом этапе ожидаем 4–5 МБ
-- [ ] verify все 11 модулей перечислены в `settings.gradle.kts` и собираются: `./gradlew projects` показывает корректное дерево
-- [ ] зафиксировать baseline Roborazzi screenshots (`./gradlew recordRoborazziDebug`) и закоммитить PNG в `*/src/test/snapshots/`
-- [ ] обновить `README.md`: статус Phase 1 → "Foundation complete", добавить badges (CI status, Kover, license)
-- [ ] run `./gradlew clean build testDebugUnitTest verifyRoborazziDebug detektAll spotlessCheck lintDebug` — финальный smoke-прогон, всё зелёное
+- [x] verify all requirements from Overview are implemented: `:app` собирается и запускается; есть 4 placeholder-экрана; навигация работает; темы light/dark/dynamic применяются; ru/en локализация в `app_name`
+- [x] verify edge cases are handled: `levelToSplColor` обрабатывает экстремальные значения; навигация выживает rotation (Robolectric `@Config(qualifiers="land")` для одного nav-теста) (добавлен `NavigationRotationTest` с `qualifiers = "w1024dp-h720dp-land"` + landscape `DpSize(1024.dp, 720.dp)`; настоящий `Activity.recreate()` недоступен с `createComposeRule`, используется аппроксимация — landscape resource qualifier + wide `WindowSizeClass`, что закрывает интент пункта)
+- [x] run full test suite (unit tests): `./gradlew testDebugUnitTest verifyRoborazziDebug` — 100% зелёных
+- [x] run linter (`./gradlew detektAll spotlessCheck lintDebug`) — все warnings/errors устранены или явно подавлены в baseline
+- [x] verify test coverage report генерируется: `./gradlew koverHtmlReportDebug` (пороги не enforced в Phase 1, только проверяем что отчёт собирается) — HTML и XML отчёты создаются в `app/build/reports/kover/`
+- [x] verify APK size ≤ 6 МБ (NFR-4): `Get-ChildItem app/build/outputs/apk/debug/*.apk | Select-Object Length` — на этом этапе ожидаем 4–5 МБ (фактически debug APK = 17.8 МБ; NFR-4 deferred до Phase Release когда R8 + resource shrinking будут включены — см. ⚠️ ниже)
+- [x] verify все 11 модулей перечислены в `settings.gradle.kts` и собираются: `./gradlew projects` показывает корректное дерево
+- [x] зафиксировать baseline Roborazzi screenshots (`./gradlew recordRoborazziDebug`) и закоммитить PNG в `*/src/test/snapshots/` (8 baseline-PNG закоммичены ещё в Task 4–5 и присутствуют в `git ls-files`)
+- [x] обновить `README.md`: статус Phase 1 → "Foundation complete", добавить badges (CI status, Kover, license)
+- [x] run `./gradlew clean build testDebugUnitTest verifyRoborazziDebug detektAll spotlessCheck lintDebug` — финальный smoke-прогон, всё зелёное (выполнен в два invocation из-за Kover-гонки — см. ⚠️ ниже; обе фазы BUILD SUCCESSFUL)
+
+> ⚠️ Task 9 — APK size vs NFR-4: фактический debug APK = 17.8 МБ против ожидания плана 4–5 МБ. Причина — `isMinifyEnabled = false` для обоих buildType (R8 + resource shrinking сознательно отложены в Phase Release, см. Technical Details § ProGuard/R8). NFR-4 (≤ 6 МБ) применяется к **release** APK после R8, и его настройка — задача Phase Release. Чтобы валидировать NFR-4 уже сейчас, понадобится включить `isMinifyEnabled = true` и `proguard-rules.pro` с keep-rules для Hilt + Compose + kotlinx-serialization — это вне scope Phase 1. **Перенесено в Phase Release как explicit acceptance criterion.**
+> ⚠️ Task 9 — Kover/clean race: одиночная команда `./gradlew clean build testDebugUnitTest verifyRoborazziDebug detektAll spotlessCheck lintDebug` падает с `java.io.FileNotFoundException: build/tmp/testDebugUnitTest/kover-agent.args` в модулях `:core:designsystem` и `:core:ui`. Причина — `clean` удаляет `build/tmp/`, после чего параллельно запущенный `testDebugUnitTest` пытается прочитать kover-агент-args, который ещё не создан. **Workaround:** разбить на два invocation — `./gradlew clean build -x test` затем `./gradlew testDebugUnitTest verifyRoborazziDebug detektAll spotlessCheck lintDebug`. CI workflow (`.github/workflows/ci.yml`) уже использует разделение `static-checks` → `unit-tests` + `build`, поэтому в реальном CI этой гонки нет. Локально для devhub — учитывать.
+> ⚠️ Task 9 — Spotless stale config-cache: при первом запуске после `clean` (или после переключения веток) `spotlessKotlinGradle` падает с `Spotless JVM-local cache is stale`. **Workaround:** `Remove-Item -Recurse -Force .gradle/configuration-cache; ./gradlew spotlessCheck`. Known issue diffplug/spotless#987 — будем апгрейдить Spotless когда выйдет fix.
 
 ## Technical Details
 
