@@ -5,4 +5,41 @@
     <string name="measure_permission_rationale_title">Доступ к микрофону</string>
     <string name="measure_permission_rationale_body">Чтобы измерить уровень шума, приложению нужен доступ к микрофону. Аудио НЕ записывается и НЕ покидает устройство.</string>
     <string name="measure_permission_settings_action">Открыть настройки</string>
+
+    <!-- Readout & gauge -->
+    <string name="measure_unit_db_a">дБ A</string>
+    <string name="measure_readout_cd">%1$.1f децибел по шкале A</string>
+    <string name="measure_gauge_cd">Шкала уровня шума: %1$.1f децибел</string>
+
+    <!-- Reference labels (spec § 6) -->
+    <string name="measure_ref_breath">Дыхание</string>
+    <string name="measure_ref_whisper">Шёпот, шелест листьев</string>
+    <string name="measure_ref_bedroom">Тихая спальня</string>
+    <string name="measure_ref_library">Библиотека, тихий офис</string>
+    <string name="measure_ref_fridge">Холодильник, тихая улица</string>
+    <string name="measure_ref_conversation">Обычный разговор</string>
+    <string name="measure_ref_vacuum">Пылесос, оживлённая улица</string>
+    <string name="measure_ref_traffic">Будильник, плотный трафик</string>
+    <string name="measure_ref_motorbike">Мотоцикл, фен</string>
+    <string name="measure_ref_subway">Метро, газонокосилка</string>
+    <string name="measure_ref_concert">Концерт, бензопила</string>
+    <string name="measure_ref_thunder">Гром, сирена скорой помощи</string>
+    <string name="measure_ref_jet">Реактивный самолёт, выстрел</string>
+
+    <!-- Stats row -->
+    <string name="measure_stats_min">Мин</string>
+    <string name="measure_stats_avg">Сред</string>
+    <string name="measure_stats_max">Макс</string>
+    <string name="measure_stats_placeholder">—</string>
+
+    <string name="measure_duration_label">Длительность: %1$s</string>
+
+    <string name="measure_action_start">Старт</string>
+    <string name="measure_action_pause">Пауза</string>
+    <string name="measure_action_reset">Сброс</string>
+    <string name="measure_action_save">Сохранить</string>
+    <string name="measure_save_disabled_cd">Сохранить (станет доступно в следующей версии)</string>
+
+    <string name="measure_permission_rationale_confirm">Разрешить</string>
+    <string name="measure_permission_rationale_dismiss">Не сейчас</string>
 </resources>

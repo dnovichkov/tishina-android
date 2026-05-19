@@ -5,4 +5,44 @@
     <string name="measure_permission_rationale_title">Microphone access</string>
     <string name="measure_permission_rationale_body">To measure noise level Tishina needs access to the microphone. Audio is NOT recorded and never leaves your device.</string>
     <string name="measure_permission_settings_action">Open settings</string>
+
+    <!-- Readout & gauge -->
+    <string name="measure_unit_db_a">dB A</string>
+    <string name="measure_readout_cd">%1$.1f decibel A-weighted</string>
+    <string name="measure_gauge_cd">Sound level gauge: %1$.1f decibels</string>
+
+    <!-- Reference labels (spec § 6, ordered by ascending dB) -->
+    <string name="measure_ref_breath">Breathing</string>
+    <string name="measure_ref_whisper">Whisper, rustling leaves</string>
+    <string name="measure_ref_bedroom">Quiet bedroom</string>
+    <string name="measure_ref_library">Library, quiet office</string>
+    <string name="measure_ref_fridge">Refrigerator, quiet street</string>
+    <string name="measure_ref_conversation">Normal conversation</string>
+    <string name="measure_ref_vacuum">Vacuum cleaner, busy street</string>
+    <string name="measure_ref_traffic">Alarm clock, heavy traffic</string>
+    <string name="measure_ref_motorbike">Motorbike, hair dryer</string>
+    <string name="measure_ref_subway">Subway, lawn mower</string>
+    <string name="measure_ref_concert">Concert, chainsaw</string>
+    <string name="measure_ref_thunder">Thunder, ambulance siren</string>
+    <string name="measure_ref_jet">Jet engine, gunshot</string>
+
+    <!-- Stats row -->
+    <string name="measure_stats_min">Min</string>
+    <string name="measure_stats_avg">Avg</string>
+    <string name="measure_stats_max">Max</string>
+    <string name="measure_stats_placeholder">—</string>
+
+    <!-- Duration label, formatted mm:ss -->
+    <string name="measure_duration_label">Duration: %1$s</string>
+
+    <!-- Bottom action bar -->
+    <string name="measure_action_start">Start</string>
+    <string name="measure_action_pause">Pause</string>
+    <string name="measure_action_reset">Reset</string>
+    <string name="measure_action_save">Save</string>
+    <string name="measure_save_disabled_cd">Save (will be available in the next version)</string>
+
+    <!-- Permission rationale dialog -->
+    <string name="measure_permission_rationale_confirm">Allow</string>
+    <string name="measure_permission_rationale_dismiss">Not now</string>
 </resources>
