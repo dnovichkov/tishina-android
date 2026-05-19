@@ -23,9 +23,9 @@ import org.junit.jupiter.api.extension.ExtensionContext
  * `UnconfinedTestDispatcher` when a test needs eager coroutine execution.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class MainDispatcherRule(
-    val testDispatcher: TestDispatcher = StandardTestDispatcher(),
-) : BeforeEachCallback, AfterEachCallback {
+class MainDispatcherRule(val testDispatcher: TestDispatcher = StandardTestDispatcher()) :
+    BeforeEachCallback,
+    AfterEachCallback {
 
     override fun beforeEach(context: ExtensionContext) {
         Dispatchers.setMain(testDispatcher)

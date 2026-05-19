@@ -125,6 +125,9 @@ plugin-kotlin-gradle = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-p
 plugin-kotlin-compose = { group = "org.jetbrains.kotlin", name = "compose-compiler-gradle-plugin", version.ref = "kotlin" }
 plugin-ksp-gradle = { group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
 plugin-hilt-gradle = { group = "com.google.dagger", name = "hilt-android-gradle-plugin", version.ref = "hilt" }
+plugin-detekt-gradle = { group = "io.gitlab.arturbosch.detekt", name = "detekt-gradle-plugin", version.ref = "detekt" }
+plugin-spotless-gradle = { group = "com.diffplug.spotless", name = "spotless-plugin-gradle", version.ref = "spotless" }
+plugin-kover-gradle = { group = "org.jetbrains.kotlinx", name = "kover-gradle-plugin", version.ref = "kover" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -150,3 +153,4 @@ tishina-android-compose = { id = "tishina.android.compose" }
 tishina-android-hilt = { id = "tishina.android.hilt" }
 tishina-kotlin-library = { id = "tishina.kotlin.library" }
 tishina-jvm-testing = { id = "tishina.jvm.testing" }
+tishina-quality = { id = "tishina.quality" }

@@ -1,0 +1,157 @@
+# Project-specific overrides on top of Detekt's default config.
+# `buildUponDefaultConfig = true` in convention plugins merges this file with the
+# packaged defaults; only fields listed here override their default values.
+#
+# Phase 1 strategy:
+# - default complexity / style thresholds are mostly fine for an empty codebase;
+# - we relax a handful of rules that are noisy for Compose + Kotlin DSL projects;
+# - `NoHardcodedStrings` is intentionally NOT added (deferred to Phase Release per plan § 26).
+
+build:
+  maxIssues: 0
+  excludeCorrectable: false
+
+config:
+  validation: true
+  warningsAsErrors: false
+  checkExhaustiveness: false
+
+complexity:
+  active: true
+  LongMethod:
+    active: true
+    threshold: 80
+  LongParameterList:
+    active: true
+    functionThreshold: 8
+    constructorThreshold: 8
+    ignoreDefaultParameters: true
+    ignoreDataClasses: true
+    ignoreAnnotatedParameter:
+      - 'androidx.compose.runtime.Composable'
+  CyclomaticComplexMethod:
+    active: true
+    threshold: 20
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 30
+    thresholdInClasses: 20
+    thresholdInInterfaces: 20
+    thresholdInObjects: 20
+    thresholdInEnums: 20
+    ignoreDeprecated: true
+    ignorePrivate: true
+    ignoreOverridden: true
+  NestedBlockDepth:
+    active: true
+    threshold: 5
+  ComplexCondition:
+    active: true
+    threshold: 5
+
+style:
+  active: true
+  MagicNumber:
+    active: true
+    ignoreNumbers: ['-1', '0', '1', '2', '100']
+    ignoreHashCodeFunction: true
+    ignorePropertyDeclaration: true
+    ignoreLocalVariableDeclaration: false
+    ignoreConstantDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    ignoreAnnotation: true
+    ignoreNamedArgument: true
+    ignoreEnums: true
+    ignoreRanges: false
+  ReturnCount:
+    active: true
+    max: 3
+    excludedFunctions:
+      - 'equals'
+  MaxLineLength:
+    active: true
+    maxLineLength: 140
+    excludePackageStatements: true
+    excludeImportStatements: true
+    excludeCommentStatements: false
+  UnusedImports:
+    active: true
+  UnusedPrivateMember:
+    active: true
+    ignoreAnnotated:
+      - 'androidx.compose.ui.tooling.preview.Preview'
+      - 'androidx.compose.runtime.Composable'
+  UnusedParameter:
+    active: true
+    # Composable placeholder screens accept navigation handlers that callers wire up but the
+    # placeholder body doesn't consume yet. Real feature screens (Phase 2+) will use them.
+    ignoreAnnotated:
+      - 'androidx.compose.runtime.Composable'
+  ForbiddenComment:
+    active: false  # Allow TODO/FIXME during MVP development; will tighten in Release phase
+  WildcardImport:
+    active: true
+    excludeImports:
+      - 'java.util.*'
+
+naming:
+  active: true
+  FunctionNaming:
+    active: true
+    functionPattern: '[a-z][a-zA-Z0-9]*'
+    ignoreAnnotated:
+      - 'androidx.compose.runtime.Composable'  # Composables use PascalCase by convention
+  TopLevelPropertyNaming:
+    active: true
+    # Allow both UPPER_SNAKE_CASE (Java-flavored) and PascalCase (Compose-idiomatic for test tags,
+    # CompositionLocals, route keys). NowInAndroid and AndroidX use PascalCase for compile-time
+    # string constants; we follow the same convention to keep the codebase coherent.
+    constantPattern: '[A-Z][A-Za-z0-9_]*'
+    propertyPattern: '[A-Za-z][A-Za-z0-9]*'
+    privatePropertyPattern: '_?[A-Za-z][A-Za-z0-9]*'
+  MatchingDeclarationName:
+    # Files like `SplLevelColors.kt` and `TishinaDestinations.kt` group multiple related
+    # top-level declarations (a data class + utilities) under a topic name rather than the name
+    # of a single class. We rely on Spotless+IDE conventions for file naming.
+    active: false
+
+empty-blocks:
+  active: true
+  EmptyFunctionBlock:
+    active: true
+    ignoreOverridden: true
+
+exceptions:
+  active: true
+  TooGenericExceptionCaught:
+    active: true
+    exceptionNames:
+      - 'Error'
+      - 'Throwable'
+  SwallowedException:
+    active: true
+
+performance:
+  active: true
+
+potential-bugs:
+  active: true
+
+coroutines:
+  active: true
+  GlobalCoroutineUsage:
+    active: true
+  RedundantSuspendModifier:
+    active: true
+
+formatting:
+  active: false  # Delegated to Spotless+Ktlint to avoid duplicate enforcement
+
+comments:
+  active: true
+  UndocumentedPublicClass:
+    active: false  # Re-enable in Phase Release when public API stabilizes
+  UndocumentedPublicFunction:
+    active: false
+  UndocumentedPublicProperty:
+    active: false

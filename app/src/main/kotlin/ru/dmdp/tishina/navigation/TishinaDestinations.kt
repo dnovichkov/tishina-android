@@ -35,11 +35,7 @@ sealed interface TishinaDestination {
  * NavigationRail (medium/expanded). [TishinaDestination.About] is intentionally
  * reachable only from the TopAppBar action and is therefore not in this list.
  */
-enum class TopLevelDestination(
-    val destination: TishinaDestination,
-    @StringRes val labelRes: Int,
-    val icon: ImageVector,
-) {
+enum class TopLevelDestination(val destination: TishinaDestination, @StringRes val labelRes: Int, val icon: ImageVector) {
     Measure(
         destination = TishinaDestination.Measure,
         labelRes = CoreUiR.string.measure_title,

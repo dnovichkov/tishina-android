@@ -33,12 +33,12 @@ import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import ru.dmdp.tishina.core.ui.R as CoreUiR
 import ru.dmdp.tishina.navigation.AboutIcon
 import ru.dmdp.tishina.navigation.AboutLabelRes
 import ru.dmdp.tishina.navigation.TishinaDestination
 import ru.dmdp.tishina.navigation.TishinaNavHost
 import ru.dmdp.tishina.navigation.TopLevelDestination
+import ru.dmdp.tishina.core.ui.R as CoreUiR
 
 const val TishinaAppRootTestTag: String = "tishina_app_root"
 const val TishinaNavigationBarTestTag: String = "tishina_navigation_bar"

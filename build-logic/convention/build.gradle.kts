@@ -21,6 +21,9 @@ dependencies {
     compileOnly(libs.plugin.kotlin.compose)
     compileOnly(libs.plugin.ksp.gradle)
     compileOnly(libs.plugin.hilt.gradle)
+    compileOnly(libs.plugin.detekt.gradle)
+    compileOnly(libs.plugin.spotless.gradle)
+    compileOnly(libs.plugin.kover.gradle)
 
     testImplementation(libs.junit.jupiter.api)
     testImplementation(libs.junit.jupiter.params)
@@ -60,6 +63,10 @@ gradlePlugin {
         register("jvmTesting") {
             id = "tishina.jvm.testing"
             implementationClass = "JvmTestingConventionPlugin"
+        }
+        register("quality") {
+            id = "tishina.quality"
+            implementationClass = "QualityConventionPlugin"
         }
     }
 }

@@ -51,6 +51,14 @@ val LocalSplLevelPalette = staticCompositionLocalOf { defaultSplLevelPalette }
 private const val MIN_DB = -20f
 private const val MAX_DB = 140f
 
+// Bucket boundaries follow spec § 6. Boundaries are upper-inclusive
+// (40 -> veryQuiet, 41 -> quiet, 60 -> quiet, 61 -> moderate, ...).
+private const val VERY_QUIET_MAX = 40f
+private const val QUIET_MAX = 60f
+private const val MODERATE_MAX = 75f
+private const val LOUD_MAX = 85f
+private const val VERY_LOUD_MAX = 100f
+
 /**
  * Maps a dB SPL value to the corresponding [palette] color.
  *
@@ -60,11 +68,11 @@ private const val MAX_DB = 140f
 fun levelToSplColor(db: Float, palette: SplLevelPalette = defaultSplLevelPalette): Color {
     val clamped = db.coerceIn(MIN_DB, MAX_DB)
     return when {
-        clamped <= 40f -> palette.veryQuiet
-        clamped <= 60f -> palette.quiet
-        clamped <= 75f -> palette.moderate
-        clamped <= 85f -> palette.loud
-        clamped <= 100f -> palette.veryLoud
+        clamped <= VERY_QUIET_MAX -> palette.veryQuiet
+        clamped <= QUIET_MAX -> palette.quiet
+        clamped <= MODERATE_MAX -> palette.moderate
+        clamped <= LOUD_MAX -> palette.loud
+        clamped <= VERY_LOUD_MAX -> palette.veryLoud
         else -> palette.extreme
     }
 }

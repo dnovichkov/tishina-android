@@ -69,9 +69,9 @@ class LevelToSplColorTest {
     @CsvSource(
         "-10,  veryQuiet",
         "-20,  veryQuiet",
-        "-50,  veryQuiet",   // below clamp lower bound, still veryQuiet
+        "-50,  veryQuiet", // below clamp lower bound, still veryQuiet
         "140,  extreme",
-        "150,  extreme",     // above clamp upper bound, still extreme
+        "150,  extreme", // above clamp upper bound, still extreme
         "200,  extreme",
     )
     fun handlesExtremeInputs(db: Float, bucket: String) {

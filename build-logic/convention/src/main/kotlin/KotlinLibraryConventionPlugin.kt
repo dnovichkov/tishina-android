@@ -6,6 +6,7 @@ class KotlinLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
             pluginManager.apply("org.jetbrains.kotlin.jvm")
+            pluginManager.apply("tishina.quality")
             configureKotlinJvm()
         }
     }
