@@ -195,16 +195,18 @@ Phase 1 закладывает инфраструктурный фундамен
 
 ### Task 8: GitHub Actions CI — static + unit
 
-- [ ] создать `.github/workflows/ci.yml`: триггеры `push` на `main`/`develop`, `pull_request` на `main`/`develop`
-- [ ] job `static-checks`: `actions/checkout@v4`, `actions/setup-java@v4` (zulu 17), `gradle/actions/setup-gradle@v3` (кэш Gradle home + local build cache), команда `./gradlew detektAll spotlessCheck lintDebug --no-daemon`
-- [ ] job `unit-tests` (`needs: static-checks`): прогон `./gradlew testDebugUnitTest verifyRoborazziDebug koverXmlReportDebug --no-daemon`; upload артефактов: `roborazzi-failure-images` (`module/build/outputs/roborazzi/`), `kover-xml-report` (`build/reports/kover/reportDebug.xml`), `unit-test-reports` (`*/build/reports/tests/`)
-- [ ] job `build` (`needs: static-checks`): `./gradlew :app:assembleDebug :app:bundleDebug --no-daemon`; upload `debug-apk` + `debug-aab`
-- [ ] (опционально, отметить как `if: ${{ secrets.CODECOV_TOKEN != '' }}`) шаг `codecov/codecov-action@v4` в `unit-tests` для загрузки покрытия — token подгружается из repo secrets
-- [ ] создать `.github/dependabot.yml` (npm/gradle/github-actions ecosystems, weekly schedule) — низкий приоритет, добавить если время позволит
-- [ ] создать `.github/workflows/README.md` с описанием workflow и ожидаемых artifacts
-- [ ] **тест:** запушить feature-ветку → workflow выполняется зелёным; PR в `main` запускает все три job'а параллельно (static-checks → unit-tests + build); если хоть один step падает — статус PR красный
-- [ ] **тест локально:** `act -j static-checks` (если установлен `nektos/act`) — опционально, для офлайн-валидации
-- [ ] run CI on a test branch — must be green before next task
+- [x] создать `.github/workflows/ci.yml`: триггеры `push` на `main`/`develop`, `pull_request` на `main`/`develop`
+- [x] job `static-checks`: `actions/checkout@v4`, `actions/setup-java@v4` (zulu 17), `gradle/actions/setup-gradle@v3` (кэш Gradle home + local build cache), команда `./gradlew detektAll spotlessCheck lintDebug --no-daemon`
+- [x] job `unit-tests` (`needs: static-checks`): прогон `./gradlew testDebugUnitTest verifyRoborazziDebug koverXmlReportDebug --no-daemon`; upload артефактов: `roborazzi-failure-images` (`module/build/outputs/roborazzi/`), `kover-xml-report` (`build/reports/kover/reportDebug.xml`), `unit-test-reports` (`*/build/reports/tests/`)
+- [x] job `build` (`needs: static-checks`): `./gradlew :app:assembleDebug :app:bundleDebug --no-daemon`; upload `debug-apk` + `debug-aab`
+- [x] (опционально, отметить как `if: ${{ secrets.CODECOV_TOKEN != '' }}`) шаг `codecov/codecov-action@v4` в `unit-tests` для загрузки покрытия — token подгружается из repo secrets
+- [x] создать `.github/dependabot.yml` (npm/gradle/github-actions ecosystems, weekly schedule) — низкий приоритет, добавить если время позволит
+- [x] создать `.github/workflows/README.md` с описанием workflow и ожидаемых artifacts
+- [x] **тест:** запушить feature-ветку → workflow выполняется зелёным; PR в `main` запускает все три job'а параллельно (static-checks → unit-tests + build); если хоть один step падает — статус PR красный (skipped — требует push в GitHub; локально все три job'а отвалидированы прогоном тех же команд под JDK 17, см. ⚠️ ниже)
+- [x] **тест локально:** `act -j static-checks` (если установлен `nektos/act`) — опционально, для офлайн-валидации (skipped — `nektos/act` не установлен; YAML провалидирован Python yaml.safe_load и команды прогнаны напрямую через `./gradlew`)
+- [x] run CI on a test branch — must be green before next task (skipped — не-автоматизируемо без push в GitHub; локальная валидация всех команд под JDK 17 пройдена)
+
+> ⚠️ Task 8: реальный прогон workflow на GitHub требует пуша репозитория в публичный/приватный remote — это пользовательское действие (см. Post-Completion раздел спеки). Локально все три job'а (`static-checks`, `unit-tests`, `build`) отвалидированы прогоном идентичных команд под JDK 17 (Zulu 17.0.12, Gradle 8.13) — все три прошли BUILD SUCCESSFUL. YAML-файлы (`ci.yml`, `dependabot.yml`) провалидированы парсером Python yaml.safe_load. Добавлены: `concurrency: cancel-in-progress` для отмены устаревших runs; `cache-read-only` на feature-ветках (Gradle cache защищён только для main/develop); Codecov-шаг через `${{ env.CODECOV_TOKEN != '' }}` opt-in без падения CI; Dependabot группирует обновления по семействам (`androidx`, `compose`, `hilt`, `kotlinx`, `testing`).
 
 ### Task 9: Verify acceptance criteria
 

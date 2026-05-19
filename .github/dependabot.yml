@@ -1,0 +1,52 @@
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: "Europe/Moscow"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - gradle
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+    groups:
+      androidx:
+        patterns:
+          - "androidx.*"
+      compose:
+        patterns:
+          - "androidx.compose*"
+      hilt:
+        patterns:
+          - "com.google.dagger*"
+          - "androidx.hilt*"
+      kotlinx:
+        patterns:
+          - "org.jetbrains.kotlinx*"
+      testing:
+        patterns:
+          - "org.junit*"
+          - "io.mockk*"
+          - "app.cash.turbine*"
+          - "org.robolectric*"
+          - "io.github.takahirom.roborazzi*"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: "Europe/Moscow"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
