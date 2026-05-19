@@ -149,20 +149,22 @@ Phase 1 закладывает инфраструктурный фундамен
 
 ### Task 5: Common UI components + Navigation skeleton
 
-- [ ] в `:core:ui` создать `components/AppTopBar.kt` — обёртка над Material 3 `LargeTopAppBar` с `WindowInsets.statusBars` padding, поддержкой "?" и шестерёнки как actions (по спеке § 6 главный экран)
-- [ ] в `:core:ui` создать `components/AppEmptyState.kt` — `Column` с иконкой Material Symbol, заголовком, описанием и опциональным CTA-`FilledTonalButton` (по спеке § 6 HistoryScreen empty state)
-- [ ] в `:core:ui` создать `components/Placeholder.kt` — single-composable `PlaceholderScreen(titleRes: Int, descriptionRes: Int)` для feature-модулей в Phase 1
-- [ ] в каждом из 4 feature-модулей создать `<Feature>Screen.kt` (`MeasureScreen`, `HistoryScreen`, `SettingsScreen`, `AboutScreen`) — пока вызывают `PlaceholderScreen(R.string.<feature>_title, R.string.<feature>_placeholder)`; каждый помечен `@Composable`; каждый принимает `onNavigateToAbout`/`onNavigateBack` для будущей интеграции с Navigation
-- [ ] в `:app` создать `navigation/TishinaDestinations.kt` — sealed interface `TishinaDestination(val route: String, val labelRes: Int, val iconRes: Int)` с объектами Measure (start destination), History, Settings, About (out of nav-bar, доступен из top-bar)
-- [ ] в `:app` создать `navigation/TishinaNavHost.kt` — `NavHost(startDestination = Measure.route)`, `composable<Measure>{ MeasureScreen(...) }` etc.; используется type-safe navigation (`androidx.navigation.compose` 2.9+ с `kotlinx.serialization` route классами)
-- [ ] в `:app` создать `ui/TishinaApp.kt` — корневой композбл: на `WindowWidthSizeClass.Compact` показывает `NavigationBar` снизу с 3 пунктами (Measure / History / Settings); на `Medium`/`Expanded` — `NavigationRail` сбоку; AboutScreen достижим через TopAppBar action
-- [ ] добавить строки `measure_title="Измерение"`/"Measure", `history_title="История"`/"History", `settings_title="Настройки"`/"Settings", `about_title="О приложении"`/"About", и соответствующие `*_placeholder` (например, "В разработке" / "Coming soon")
-- [ ] **сначала тест:** `PlaceholderScreenTest` (Compose UI test через Robolectric `createComposeRule`) — `setContent { PlaceholderScreen(...) }`, проверка `onNodeWithText("В разработке").assertIsDisplayed()`
-- [ ] **сначала тест:** `AppEmptyStateScreenshotTest` (Roborazzi) — снимок light + dark
-- [ ] **сначала тест:** `TishinaNavHostTest` — `setContent { TishinaApp() }`, проверка что стартовый destination — Measure, клик по `NavigationBar` пункту "История" приводит к навигации на `History` (`assertCurrentDestinationIs("history")` через `composeTestRule.activity.navController.currentDestination`)
-- [ ] **сначала тест:** `AdaptiveNavigationTest` — `@Config(qualifiers = "w320dp")` показывает `NavigationBar`; `@Config(qualifiers = "w840dp")` показывает `NavigationRail`
-- [ ] реализовать composables и навигационный граф
-- [ ] run `./gradlew testDebugUnitTest verifyRoborazziDebug` — must pass before next task
+- [x] в `:core:ui` создать `components/AppTopBar.kt` — обёртка над Material 3 `LargeTopAppBar` с `WindowInsets.statusBars` padding, поддержкой "?" и шестерёнки как actions (по спеке § 6 главный экран)
+- [x] в `:core:ui` создать `components/AppEmptyState.kt` — `Column` с иконкой Material Symbol, заголовком, описанием и опциональным CTA-`FilledTonalButton` (по спеке § 6 HistoryScreen empty state)
+- [x] в `:core:ui` создать `components/Placeholder.kt` — single-composable `PlaceholderScreen(titleRes: Int, descriptionRes: Int)` для feature-модулей в Phase 1
+- [x] в каждом из 4 feature-модулей создать `<Feature>Screen.kt` (`MeasureScreen`, `HistoryScreen`, `SettingsScreen`, `AboutScreen`) — пока вызывают `PlaceholderScreen(R.string.<feature>_title, R.string.<feature>_placeholder)`; каждый помечен `@Composable`; каждый принимает `onNavigateToAbout`/`onNavigateBack` для будущей интеграции с Navigation
+- [x] в `:app` создать `navigation/TishinaDestinations.kt` — sealed interface `TishinaDestination(val route: String, val labelRes: Int, val iconRes: Int)` с объектами Measure (start destination), History, Settings, About (out of nav-bar, доступен из top-bar) (реализовано как `sealed interface` + `@Serializable data object` маршруты для type-safe navigation, плюс `enum class TopLevelDestination` для nav-bar пунктов; About выведен в отдельные `AboutLabelRes`/`AboutIcon` константы)
+- [x] в `:app` создать `navigation/TishinaNavHost.kt` — `NavHost(startDestination = Measure.route)`, `composable<Measure>{ MeasureScreen(...) }` etc.; используется type-safe navigation (`androidx.navigation.compose` 2.9+ с `kotlinx.serialization` route классами)
+- [x] в `:app` создать `ui/TishinaApp.kt` — корневой композбл: на `WindowWidthSizeClass.Compact` показывает `NavigationBar` снизу с 3 пунктами (Measure / History / Settings); на `Medium`/`Expanded` — `NavigationRail` сбоку; AboutScreen достижим через TopAppBar action (в compact-режиме) либо отдельным rail-item (в expanded)
+- [x] добавить строки `measure_title="Измерение"`/"Measure", `history_title="История"`/"History", `settings_title="Настройки"`/"Settings", `about_title="О приложении"`/"About", и соответствующие `*_placeholder` (например, "В разработке" / "Coming soon") (живут в `:core:ui` res, чтобы быть доступными всем feature-модулям без дублирования)
+- [x] **сначала тест:** `PlaceholderScreenTest` (Compose UI test через Robolectric `createComposeRule`) — `setContent { PlaceholderScreen(...) }`, проверка `onNodeWithText("В разработке").assertIsDisplayed()` (по дефолту Robolectric использует en-локаль — проверяем "Coming soon")
+- [x] **сначала тест:** `AppEmptyStateScreenshotTest` (Roborazzi) — снимок light + dark
+- [x] **сначала тест:** `TishinaNavHostTest` — `setContent { TishinaApp() }`, проверка что стартовый destination — Measure, клик по `NavigationBar` пункту "История" приводит к навигации на `History` (через `NavDestination.hasRoute(TishinaDestination.History::class)`)
+- [x] **сначала тест:** `AdaptiveNavigationTest` — `WindowSizeClass.calculateFromSize(DpSize(360.dp, 640.dp))` показывает `NavigationBar`; `DpSize(720.dp, 1024.dp)` и `DpSize(960.dp, 1024.dp)` показывают `NavigationRail` (используем DpSize вместо `@Config(qualifiers)` — Robolectric `Activity.window` не подключён в чистом `createComposeRule`)
+- [x] реализовать composables и навигационный граф
+- [x] run `./gradlew testDebugUnitTest verifyRoborazziDebug` — must pass before next task
+
+> ⚠️ Task 5: добавлены ресурсы локализации в `:core:ui` (`values/strings.xml` и `values-ru/strings.xml`) — feature-модули включают `:core:ui` транзитивно через `AndroidFeatureConventionPlugin`, поэтому строки доступны всем экранам без дублирования. Также подключён плагин `kotlin-serialization` и зависимость `kotlinx-serialization-json` в `:app` — это требование type-safe routes navigation-compose 2.9. Roborazzi-baseline для `AppEmptyState` записан (light + dark) и закоммичен в `core/ui/src/test/snapshots/`. Тестовые WindowSizeClass подаются через `WindowSizeClass.calculateFromSize(DpSize)` напрямую, минуя `calculateWindowSizeClass(activity)` — Robolectric `Activity.window` без `createAndroidComposeRule` не настраивается.
 
 ### Task 6: Testing infrastructure :core:testing
 

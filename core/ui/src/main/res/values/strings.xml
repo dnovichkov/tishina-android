@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="measure_title">Measure</string>
+    <string name="history_title">History</string>
+    <string name="settings_title">Settings</string>
+    <string name="about_title">About</string>
+
+    <string name="measure_placeholder">Coming soon</string>
+    <string name="history_placeholder">Coming soon</string>
+    <string name="settings_placeholder">Coming soon</string>
+    <string name="about_placeholder">Coming soon</string>
+
+    <string name="nav_open_about">Open about</string>
+    <string name="nav_open_settings">Open settings</string>
+    <string name="nav_back">Back</string>
+</resources>

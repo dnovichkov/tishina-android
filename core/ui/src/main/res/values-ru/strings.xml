@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="measure_title">Измерение</string>
+    <string name="history_title">История</string>
+    <string name="settings_title">Настройки</string>
+    <string name="about_title">О приложении</string>
+
+    <string name="measure_placeholder">В разработке</string>
+    <string name="history_placeholder">В разработке</string>
+    <string name="settings_placeholder">В разработке</string>
+    <string name="about_placeholder">В разработке</string>
+
+    <string name="nav_open_about">Открыть «О приложении»</string>
+    <string name="nav_open_settings">Открыть настройки</string>
+    <string name="nav_back">Назад</string>
+</resources>

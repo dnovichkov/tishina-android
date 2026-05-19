@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.tishina.android.compose)
     alias(libs.plugins.tishina.android.hilt)
     alias(libs.plugins.tishina.jvm.testing)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -46,7 +47,9 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.compose.material3.windowsizeclass)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.splashscreen)
+    implementation(libs.kotlinx.serialization.json)
 
     // Test stack: Robolectric is JUnit4; vintage engine bridges it onto the JUnit 5 platform
     // configured by JvmTestingConventionPlugin so a single `:testDebugUnitTest` task runs both.
