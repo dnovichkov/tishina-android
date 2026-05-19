@@ -11,14 +11,18 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 
+internal const val TISHINA_COMPILE_SDK = 35
+internal const val TISHINA_MIN_SDK = 26
+internal const val TISHINA_TARGET_SDK = 35
+
 internal fun Project.configureKotlinAndroid(
     commonExtension: CommonExtension<*, *, *, *, *, *>,
 ) {
     commonExtension.apply {
-        compileSdk = 35
+        compileSdk = TISHINA_COMPILE_SDK
 
         defaultConfig {
-            minSdk = 26
+            minSdk = TISHINA_MIN_SDK
         }
 
         compileOptions {

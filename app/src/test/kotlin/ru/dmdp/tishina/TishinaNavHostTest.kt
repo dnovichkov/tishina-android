@@ -112,4 +112,42 @@ class TishinaNavHostTest {
             current!!.hasRoute(TishinaDestination.About::class),
         )
     }
+
+    @Test
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
+    fun `on About route top bar replaces about action with back action`() {
+        var capturedController: NavHostController? = null
+        composeTestRule.setContent {
+            TishinaTheme(darkTheme = false, dynamicColor = false) {
+                val navController = rememberNavController()
+                capturedController = navController
+                val sizeClass = WindowSizeClass.calculateFromSize(DpSize(360.dp, 640.dp))
+                TishinaApp(windowSizeClass = sizeClass, navController = navController)
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule
+            .onNodeWithTag(ru.dmdp.tishina.ui.TishinaAboutActionTestTag)
+            .performClick()
+        composeTestRule.waitForIdle()
+
+        // After navigating to About, the About action must be hidden and a back affordance shown.
+        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaAboutActionTestTag).assertDoesNotExist()
+        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaBackActionTestTag).assertIsDisplayed()
+
+        composeTestRule
+            .onNodeWithTag(ru.dmdp.tishina.ui.TishinaBackActionTestTag)
+            .performClick()
+        composeTestRule.waitForIdle()
+
+        // Back action must pop the About destination — we land back on Measure (the start dest).
+        val current = capturedController!!.currentBackStackEntry?.destination
+        assertTrue(
+            "After clicking Back from About we must return to the start destination Measure",
+            current!!.hasRoute(TishinaDestination.Measure::class),
+        )
+        // And the About action reappears (we're no longer on About).
+        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaAboutActionTestTag).assertIsDisplayed()
+    }
 }

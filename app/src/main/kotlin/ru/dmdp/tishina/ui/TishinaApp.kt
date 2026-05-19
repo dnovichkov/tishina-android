@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,6 +45,7 @@ const val TishinaAppRootTestTag: String = "tishina_app_root"
 const val TishinaNavigationBarTestTag: String = "tishina_navigation_bar"
 const val TishinaNavigationRailTestTag: String = "tishina_navigation_rail"
 const val TishinaAboutActionTestTag: String = "tishina_about_action"
+const val TishinaBackActionTestTag: String = "tishina_back_action"
 const val TishinaTopAppBarTestTag: String = "tishina_top_app_bar"
 
 fun navigationItemTestTag(destination: TopLevelDestination): String =
@@ -61,6 +63,12 @@ fun TishinaApp(
     val onAboutClick = remember(navController) {
         { navController.navigate(TishinaDestination.About) { launchSingleTop = true } }
     }
+    val onBackClick: () -> Unit = remember(navController) {
+        {
+            navController.popBackStack()
+        }
+    }
+    val isOnAbout = currentDestination.matchesAbout()
 
     Surface(
         modifier = Modifier
@@ -85,21 +93,11 @@ fun TishinaApp(
         } else {
             Scaffold(
                 topBar = {
-                    val titleRes = currentDestination.topAppBarTitleRes()
-                    CenterAlignedTopAppBar(
-                        title = { Text(text = stringResource(id = titleRes)) },
-                        modifier = Modifier.testTag(TishinaTopAppBarTestTag),
-                        actions = {
-                            IconButton(
-                                onClick = onAboutClick,
-                                modifier = Modifier.testTag(TishinaAboutActionTestTag),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
-                                    contentDescription = stringResource(id = CoreUiR.string.nav_open_about),
-                                )
-                            }
-                        },
+                    TishinaTopAppBar(
+                        currentDestination = currentDestination,
+                        isOnAbout = isOnAbout,
+                        onAboutClick = onAboutClick,
+                        onBackClick = onBackClick,
                     )
                 },
                 bottomBar = {
@@ -115,6 +113,50 @@ fun TishinaApp(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TishinaTopAppBar(
+    currentDestination: NavDestination?,
+    isOnAbout: Boolean,
+    onAboutClick: () -> Unit,
+    onBackClick: () -> Unit,
+) {
+    val titleRes = currentDestination.topAppBarTitleRes()
+    CenterAlignedTopAppBar(
+        title = { Text(text = stringResource(id = titleRes)) },
+        modifier = Modifier.testTag(TishinaTopAppBarTestTag),
+        navigationIcon = {
+            // On the About route the About IconButton would be a visible no-op (re-navigating
+            // to the current destination with launchSingleTop does nothing); replace it with
+            // a back affordance so the primary action is real.
+            if (isOnAbout) {
+                IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier.testTag(TishinaBackActionTestTag),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = stringResource(id = CoreUiR.string.nav_back),
+                    )
+                }
+            }
+        },
+        actions = {
+            if (!isOnAbout) {
+                IconButton(
+                    onClick = onAboutClick,
+                    modifier = Modifier.testTag(TishinaAboutActionTestTag),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
+                        contentDescription = stringResource(id = CoreUiR.string.nav_open_about),
+                    )
+                }
+            }
+        },
+    )
 }
 
 private fun NavDestination?.topAppBarTitleRes(): Int {

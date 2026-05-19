@@ -29,6 +29,11 @@ class AndroidFeatureConventionPlugin : Plugin<Project> {
                 add("implementation", libs.findLibrary("androidx-lifecycle-viewmodel-ktx").get())
                 add("implementation", libs.findLibrary("androidx-lifecycle-viewmodel-compose").get())
                 add("implementation", libs.findLibrary("androidx-hilt-navigation-compose").get())
+
+                // Spec §7 / plan line 345: every feature gets the shared test stack via :core:testing.
+                // Without this, the first Robolectric/Roborazzi/Compose UI test in a feature would
+                // either duplicate the toolchain wiring or fail to compile.
+                add("testImplementation", project(":core:testing"))
             }
         }
     }
