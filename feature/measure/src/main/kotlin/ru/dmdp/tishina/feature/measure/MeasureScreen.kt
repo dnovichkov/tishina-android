@@ -3,6 +3,7 @@ package ru.dmdp.tishina.feature.measure
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -30,7 +31,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.collect
 import ru.dmdp.tishina.feature.measure.ui.MeasureBottomBar
@@ -83,6 +87,17 @@ fun MeasureScreen(
         viewModel.onEvent(
             MeasureUiEvent.PermissionResult(granted = granted, shouldShowRationale = rationale),
         )
+    }
+
+    // ON_RESUME re-check covers the "user denied → opened system Settings → granted → returned"
+    // round-trip. Without this, permissionState would stay PermanentlyDenied even though the
+    // mic is now usable, and the next Start tap would needlessly send the user back to Settings.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO,
+        ) == PackageManager.PERMISSION_GRANTED
+        viewModel.onEvent(MeasureUiEvent.PermissionRefreshed(granted))
     }
 
     LaunchedEffect(viewModel) {

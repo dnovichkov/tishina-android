@@ -4,12 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -67,6 +69,7 @@ class MeasureViewModel @Inject constructor(
             is MeasureUiEvent.ResetRequested -> handleResetRequested()
             is MeasureUiEvent.SaveRequested -> handleSaveRequested()
             is MeasureUiEvent.PermissionResult -> handlePermissionResult(event)
+            is MeasureUiEvent.PermissionRefreshed -> handlePermissionRefreshed(event)
         }
     }
 
@@ -103,11 +106,24 @@ class MeasureViewModel @Inject constructor(
                 permissionState = it.permissionState,
             )
         }
+        // Without this, a process kill *after* Reset would restore the pre-Reset scalars
+        // (restoreInitialState returns Paused as soon as any KEY_* is present), so the user
+        // would see "Paused, max=78.3" right after they explicitly cleared everything.
+        clearPersistedScalars()
     }
 
     private fun handleSaveRequested() {
         // Phase 2 stub. Phase 3 replaces with SaveMeasurementUseCase invocation.
         effectChannel.trySend(MeasureUiEffect.ShowSnackbar(R.string.measure_save_unavailable_phase2))
+    }
+
+    private fun handlePermissionRefreshed(event: MeasureUiEvent.PermissionRefreshed) {
+        // Only upgrade — never downgrade. A passive probe may report "not granted" before the
+        // user has even seen the system dialog, which would erase a real PermanentlyDenied flag
+        // captured during a prior request cycle. Downgrades go through PermissionResult only.
+        if (event.granted && _state.value.permissionState != PermissionState.Granted) {
+            _state.update { it.copy(permissionState = PermissionState.Granted) }
+        }
     }
 
     private fun handlePermissionResult(event: MeasureUiEvent.PermissionResult) {
@@ -149,6 +165,15 @@ class MeasureViewModel @Inject constructor(
                     }
                     persistScalars(snapshot.currentDb, snapshot.minDb, snapshot.maxDb, snapshot.avgDb, snapshot.durationMs)
                 }
+                // Without this, an AudioRecord acquisition failure (no usable source / permission
+                // revoked mid-session / dead device object) propagates to viewModelScope's
+                // UncaughtExceptionHandler and the UI freezes at "Running, 0.0 dB" forever.
+                // Re-throw CancellationException so structured concurrency keeps working.
+                .catch { error ->
+                    if (error is CancellationException) throw error
+                    _state.update { it.copy(phase = MeasurementPhase.Idle) }
+                    effectChannel.trySend(MeasureUiEffect.ShowSnackbar(R.string.measure_engine_error))
+                }
                 .collect()
         }
     }
@@ -159,6 +184,14 @@ class MeasureViewModel @Inject constructor(
         savedStateHandle[KEY_MAX] = max
         savedStateHandle[KEY_AVG] = avg
         savedStateHandle[KEY_DURATION] = durationMs
+    }
+
+    private fun clearPersistedScalars() {
+        savedStateHandle.remove<Float>(KEY_CURRENT)
+        savedStateHandle.remove<Float>(KEY_MIN)
+        savedStateHandle.remove<Float>(KEY_MAX)
+        savedStateHandle.remove<Float>(KEY_AVG)
+        savedStateHandle.remove<Long>(KEY_DURATION)
     }
 
     private fun restoreInitialState(): MeasureUiState =

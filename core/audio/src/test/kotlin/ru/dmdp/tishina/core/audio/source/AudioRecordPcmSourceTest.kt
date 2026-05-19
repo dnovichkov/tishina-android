@@ -7,6 +7,7 @@ import android.media.MediaRecorder
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -178,6 +179,31 @@ class AudioRecordPcmSourceTest {
         assertEquals(1, session.startedCount)
         assertEquals(1, session.stoppedCount)
         assertEquals(1, session.releasedCount)
+    }
+
+    @Test
+    fun `treats read==0 as transient and continues until data arrives`() = runTest {
+        // 3 zero-returns (warm-up / route change), then a real chunk, then EOF.
+        val session = FakeAudioRecordSession().apply {
+            pendingZeroReads = 3
+            pendingReads.addLast(ShortArray(4))
+        }
+        val factory = FakeAudioRecordSessionFactory(createBehavior = { _, _ -> session })
+        // Use Dispatchers.Unconfined (not UnconfinedTestDispatcher) for the flowOn dispatcher.
+        // The production code calls `yield()` on read==0, which dispatches on the flow's
+        // dispatcher. A TestDispatcher there would create a TestCoroutineScheduler distinct
+        // from runTest's scheduler and trigger "Detected use of different schedulers".
+        val source = buildSource(
+            unprocessedSupported = true,
+            factory = factory,
+            dispatcher = Dispatchers.Unconfined,
+        )
+
+        val emitted = source.samples().take(1).toList()
+
+        assertEquals(1, emitted.size, "the positive read must still produce one emission")
+        // 3 zero reads + 1 successful read; the source must not have broken out on the zeros.
+        assertTrue(session.readCount >= 4, "expected at least 4 reads (3 zero + 1 data), got ${session.readCount}")
     }
 
     @Test

@@ -51,7 +51,7 @@
 Подробные планы:
 
 - Phase 1: [docs/plans/completed/2026-05-19-tishina-foundation.md](docs/plans/completed/2026-05-19-tishina-foundation.md).
-- Phase 2: [docs/plans/2026-05-19-tishina-audio-engine.md](docs/plans/2026-05-19-tishina-audio-engine.md).
+- Phase 2: [docs/plans/completed/2026-05-19-tishina-audio-engine.md](docs/plans/completed/2026-05-19-tishina-audio-engine.md).
 - Полная спецификация продукта: [docs/specs/tishina-spec.md](docs/specs/tishina-spec.md).
 
 ## Сборка
@@ -67,8 +67,10 @@
 ## Тестирование
 
 ```bash
-./gradlew :build-logic:convention:test testDebugUnitTest verifyRoborazziDebug
+./gradlew :build-logic:convention:test :core:domain:test testDebugUnitTest verifyRoborazziDebug
 ```
+
+`:core:domain` — pure-Kotlin JVM-модуль, для него правильная задача `test`, не `testDebugUnitTest`. Отчёт Kover для этого модуля собирается отдельной командой `./gradlew :core:domain:koverHtmlReport`.
 
 Обновление baseline-PNG для Roborazzi (после намеренного изменения UI):
 
@@ -90,7 +92,7 @@ HTML-отчёт о покрытии: `build/reports/kover/htmlDebug/index.html`.
 - Размер debug-APK ~17.9 МБ. NFR-4 (≤ 6 МБ) применим к release-сборке после включения R8/resource shrinking — отложено до Phase Release.
 - При прогоне `clean` + Kover в одном invocation возможна гонка `kover-agent.args FileNotFoundException`. Workaround: разделить на два прогона — `./gradlew clean assembleDebug -x test`, затем `./gradlew testDebugUnitTest verifyRoborazziDebug koverXmlReportDebug`.
 - После `clean` Spotless может выдать stale config-cache. Workaround: удалить `.gradle/configuration-cache/` и повторить.
-- Robolectric 4.13 не поддерживает API 35; для unit-тестов SDK зафиксирован на 33 через `src/test/resources/robolectric.properties` в `:app`, `:core:designsystem`, `:core:ui`, `:feature:measure`.
+- Robolectric 4.13 не поддерживает API 35; для unit-тестов SDK зафиксирован на 33 через `src/test/resources/robolectric.properties` в `:app`, `:core:designsystem`, `:core:ui`, `:core:audio`, `:feature:measure`.
 - `MeasureScreen` использует `hiltViewModel()`, поэтому навигационные тесты в `:app` подменяют его на пустой stub через параметр `measureContent` у `TishinaApp`/`TishinaNavHost`, не нагружая Hilt-граф.
 
 ## Контрибьюция

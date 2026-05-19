@@ -93,6 +93,52 @@ class MeasureViewModelPermissionFlowTest {
     }
 
     @Test
+    fun `PermissionRefreshed granted upgrades PermanentlyDenied to Granted without auto-start`() = runTest {
+        val viewModel = buildViewModel()
+
+        viewModel.effects.test {
+            // Land in PermanentlyDenied first — this fires an OpenAppSettings effect we consume.
+            viewModel.onEvent(MeasureUiEvent.PermissionResult(granted = false, shouldShowRationale = false))
+            assertEquals(MeasureUiEffect.OpenAppSettings, awaitItem())
+            assertEquals(PermissionState.PermanentlyDenied, viewModel.state.value.permissionState)
+
+            // User went to Settings and granted; the lifecycle observer fires this on ON_RESUME.
+            viewModel.onEvent(MeasureUiEvent.PermissionRefreshed(granted = true))
+            // Must NOT auto-start (the user did not tap Start) — no further effects.
+            expectNoEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals(PermissionState.Granted, viewModel.state.value.permissionState)
+        assertEquals(MeasurementPhase.Idle, viewModel.state.value.phase)
+    }
+
+    @Test
+    fun `PermissionRefreshed granted is a no-op when already Granted`() = runTest {
+        val repo = FakeAudioRepository()
+        val viewModel = buildViewModel(repo)
+        viewModel.onEvent(MeasureUiEvent.PermissionResult(granted = true, shouldShowRationale = false))
+        val phaseBefore = viewModel.state.value.phase
+
+        viewModel.onEvent(MeasureUiEvent.PermissionRefreshed(granted = true))
+
+        // Phase must not change — in particular the refresh must not double-launch the collect job.
+        assertEquals(phaseBefore, viewModel.state.value.phase)
+        assertEquals(PermissionState.Granted, viewModel.state.value.permissionState)
+    }
+
+    @Test
+    fun `PermissionRefreshed not-granted does not downgrade Granted state`() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.onEvent(MeasureUiEvent.PermissionResult(granted = true, shouldShowRationale = false))
+
+        viewModel.onEvent(MeasureUiEvent.PermissionRefreshed(granted = false))
+
+        // A passive probe never overrides authoritative state from PermissionResult.
+        assertEquals(PermissionState.Granted, viewModel.state.value.permissionState)
+    }
+
+    @Test
     fun `StartRequested with already Granted permission does not re-emit RequestPermission`() = runTest {
         val repo = FakeAudioRepository()
         val viewModel = buildViewModel(repo)

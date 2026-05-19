@@ -91,14 +91,19 @@ class ModuleDependencyTest {
         @JvmStatic
         fun modulesWithAllowedDeps(): List<org.junit.jupiter.params.provider.Arguments> = listOf(
             args("core/domain", emptySet()),
-            args("core/audio", setOf("core.domain")),
+            // :core:audio uses :core:testing only for test sources (FakePcmAudioSource).
+            args("core/audio", setOf("core.domain", "core.testing")),
             args("core/data", setOf("core.domain")),
             args("core/designsystem", emptySet()),
             args("core/ui", setOf("core.designsystem")),
-            args("core/testing", setOf("core.designsystem")),
+            // :core:testing reaches into :core:domain and :core:audio to expose Fakes for those
+            // interfaces. The :core:audio.main ← :core:testing.main ← :core:audio.test edge is
+            // directed (no cycle); see core/testing/build.gradle.kts for the rationale.
+            args("core/testing", setOf("core.designsystem", "core.domain", "core.audio")),
             args(
+                // Phase 2: :feature:measure now consumes :core:audio for the live engine.
                 "feature/measure",
-                setOf("core.designsystem", "core.ui", "core.domain", "core.testing"),
+                setOf("core.designsystem", "core.ui", "core.domain", "core.testing", "core.audio"),
             ),
             args(
                 "feature/history",

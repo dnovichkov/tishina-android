@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.yield
 import ru.dmdp.tishina.core.audio.di.IoDispatcher
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -65,13 +66,22 @@ class AudioRecordPcmSource @Inject internal constructor(
             val chunk = ShortArray(bufferBytes / BYTES_PER_SAMPLE)
             while (currentCoroutineContext().isActive) {
                 val read = session.read(chunk, 0, chunk.size)
-                if (read > 0) {
-                    // copyOf so consumers can hold the array safely while we refill chunk in-place.
-                    emit(chunk.copyOf(read))
-                } else if (read < 0) {
-                    // ERROR_INVALID_OPERATION / ERROR_BAD_VALUE / ERROR_DEAD_OBJECT — stop the
-                    // flow rather than busy-loop on a broken recorder.
-                    break
+                when {
+                    read > 0 -> {
+                        // copyOf so consumers can hold the array safely while we refill chunk in-place.
+                        emit(chunk.copyOf(read))
+                    }
+                    read < 0 -> {
+                        // ERROR_INVALID_OPERATION / ERROR_BAD_VALUE / ERROR_DEAD_OBJECT — stop the
+                        // flow rather than busy-loop on a broken recorder.
+                        break
+                    }
+                    else -> {
+                        // read == 0: legal transient zero (e.g. AudioRecord still warming up after
+                        // startRecording, or a route change on Samsung devices). Yield so we don't
+                        // peg a CPU core spinning, and so cancellation can propagate immediately.
+                        yield()
+                    }
                 }
             }
         } finally {

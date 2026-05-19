@@ -28,12 +28,23 @@ internal class FakeAudioRecordSession(initialState: Int = AudioRecord.STATE_INIT
 
     val pendingReads: ArrayDeque<ShortArray> = ArrayDeque()
 
+    /**
+     * If non-zero, the next N reads return 0 (legal transient AudioRecord state, e.g.
+     * warm-up after [startRecording] or a hardware route change). Decrements per read.
+     * Use this to verify the consumer cooperates with cancellation while data is unavailable.
+     */
+    var pendingZeroReads: Int = 0
+
     override fun startRecording() {
         startedCount++
     }
 
     override fun read(buffer: ShortArray, offsetInShorts: Int, sizeInShorts: Int): Int {
         readCount++
+        if (pendingZeroReads > 0) {
+            pendingZeroReads--
+            return 0
+        }
         val next = pendingReads.removeFirstOrNull() ?: return defaultRead
         val n = minOf(next.size, sizeInShorts)
         System.arraycopy(next, 0, buffer, offsetInShorts, n)

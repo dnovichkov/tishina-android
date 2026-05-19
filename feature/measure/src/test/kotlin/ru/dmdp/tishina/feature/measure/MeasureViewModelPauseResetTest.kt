@@ -85,6 +85,34 @@ class MeasureViewModelPauseResetTest {
     }
 
     @Test
+    fun `Reset clears persisted SavedStateHandle scalars so process death after Reset starts fresh`() = runTest {
+        val repo = FakeAudioRepository()
+        val handle = SavedStateHandle()
+        val viewModel = MeasureViewModel(
+            savedStateHandle = handle,
+            startMeasurement = StartMeasurementUseCase(repo),
+            resetMeasurement = ResetMeasurementUseCase(),
+        )
+
+        viewModel.onEvent(MeasureUiEvent.PermissionResult(granted = true, shouldShowRationale = false))
+        repo.emit(SoundSample(80f, 100L))
+        viewModel.onEvent(MeasureUiEvent.PauseRequested)
+
+        // Persisted between Pause and Reset.
+        assertEquals(80f, handle.get<Float>(MeasureViewModel.KEY_CURRENT))
+
+        viewModel.onEvent(MeasureUiEvent.ResetRequested)
+
+        // After Reset, the five headline keys must be gone — otherwise a process kill would
+        // resurrect the cleared session as Paused with stale max/avg.
+        assertEquals(null, handle.get<Float>(MeasureViewModel.KEY_CURRENT))
+        assertEquals(null, handle.get<Float>(MeasureViewModel.KEY_MIN))
+        assertEquals(null, handle.get<Float>(MeasureViewModel.KEY_MAX))
+        assertEquals(null, handle.get<Float>(MeasureViewModel.KEY_AVG))
+        assertEquals(null, handle.get<Long>(MeasureViewModel.KEY_DURATION))
+    }
+
+    @Test
     fun `Resume from Paused with new StartRequested transitions to Running`() = runTest {
         val repo = FakeAudioRepository()
         val viewModel = MeasureViewModel(

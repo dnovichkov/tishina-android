@@ -22,4 +22,12 @@ sealed interface MeasureUiEvent {
      *  app settings.
      */
     data class PermissionResult(val granted: Boolean, val shouldShowRationale: Boolean) : MeasureUiEvent
+
+    /**
+     * Passive permission re-check on screen entry / resume. Unlike [PermissionResult]
+     * this does NOT trigger `startCollecting` even when granted — the user must still
+     * tap Start. Used to recover from "user denied twice → opened Settings → granted"
+     * so the UI doesn't stay stuck on `PermanentlyDenied`.
+     */
+    data class PermissionRefreshed(val granted: Boolean) : MeasureUiEvent
 }

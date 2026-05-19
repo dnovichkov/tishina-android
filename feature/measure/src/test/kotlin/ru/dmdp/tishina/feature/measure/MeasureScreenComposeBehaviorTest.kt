@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -100,9 +101,7 @@ class MeasureScreenComposeBehaviorTest {
             }
         }
         composeTestRule.onNodeWithTag(MeasureBottomBarStartPauseFabTestTag).performClick()
-        assert(lastEvent == MeasureUiEvent.StartRequested) {
-            "Expected StartRequested, got $lastEvent"
-        }
+        assertEquals("Expected StartRequested", MeasureUiEvent.StartRequested, lastEvent)
     }
 
     @Test
@@ -125,8 +124,6 @@ class MeasureScreenComposeBehaviorTest {
             }
         }
         composeTestRule.onNodeWithTag(MeasureBottomBarStartPauseFabTestTag).performClick()
-        assert(lastEvent == MeasureUiEvent.PauseRequested) {
-            "Expected PauseRequested, got $lastEvent"
-        }
+        assertEquals("Expected PauseRequested", MeasureUiEvent.PauseRequested, lastEvent)
     }
 }
