@@ -12,6 +12,10 @@ dependencies {
     // PreviewSheet wraps TishinaTheme; expose as api so consumers don't double-declare it.
     api(projects.core.designsystem)
 
+    // Fakes reference domain interfaces (AudioRepository, SoundSample) — must be on the
+    // compile classpath of every consumer of :core:testing.
+    api(projects.core.domain)
+
     // Test toolchain — api so a single testImplementation on this module pulls in the whole stack.
     api(libs.junit.jupiter.api)
     api(libs.junit.jupiter.params)

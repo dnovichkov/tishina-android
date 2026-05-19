@@ -134,16 +134,16 @@ Phase 2 наполняет фундамент, заложенный в Phase 1 (
 
 ### Task 2: Domain repository interfaces + use-cases
 
-- [ ] создать `core/domain/src/main/kotlin/ru/dmdp/tishina/core/domain/repository/AudioRepository.kt` — `interface AudioRepository { fun samples(config: MeasurementConfig): Flow<SoundSample>; suspend fun isAvailable(): Boolean }` (`isAvailable` — для проверки наличия микрофона при cold start)
-- [ ] создать `repository/SettingsRepository.kt` — `interface SettingsRepository { val config: Flow<MeasurementConfig>; suspend fun updateCalibrationOffset(db: Float); suspend fun updateFrequencyWeighting(w: FrequencyWeighting); suspend fun updateTimeWeighting(t: TimeWeighting) }` (полная реализация — Phase 4; в Phase 2 создаём только интерфейс плюс `DefaultSettingsRepository` который возвращает `flowOf(MeasurementConfig())` и no-op для setters)
-- [ ] создать `usecase/StartMeasurementUseCase.kt` — оператор `operator fun invoke(config: MeasurementConfig): Flow<MeasurementSnapshot>` композирует поток `SoundSample` из `AudioRepository.samples`, считает накапливаемые min/avg/max и `recent`-окно через `runningFold`
-- [ ] создать `usecase/StopMeasurementUseCase.kt` — задаёт сигнал останова через `MutableStateFlow<Boolean>` (передаётся как `cancel()` в `Flow`-обвес) ИЛИ через простой `cancel` корутины из caller-стороны (выбираем второй вариант — проще, состояние держит ViewModel)
-- [ ] создать `usecase/ResetMeasurementUseCase.kt` — возвращает пустой `MeasurementSnapshot.empty` для сброса аккумулятора
-- [ ] создать `fakes/FakeAudioRepository.kt` в `:core:testing/src/main/kotlin/ru/dmdp/tishina/core/testing/fakes/` — `class FakeAudioRepository : AudioRepository` с возможностью `emit(sample: SoundSample)` и `setAvailable(value: Boolean)`; используется в use-case и ViewModel-тестах
-- [ ] **сначала тест:** `StartMeasurementUseCaseTest` (JUnit 5 + Turbine): подаём через FakeAudioRepository последовательность `[40, 60, 80, 60, 40]` dB, проверяем что snapshot накапливает `min=40, max=80, avg=56, current=40` (последнее значение); проверяем что `recent` обрезается окном 60 секунд
-- [ ] **сначала тест:** `StartMeasurementUseCaseEmptyTest` — пустой Flow → snapshot не эмиттится / NaN safety
-- [ ] реализовать use-cases чтобы тесты позеленели
-- [ ] run `./gradlew :core:domain:testDebugUnitTest :core:testing:testDebugUnitTest` — must pass before next task
+- [x] создать `core/domain/src/main/kotlin/ru/dmdp/tishina/core/domain/repository/AudioRepository.kt` — `interface AudioRepository { fun samples(config: MeasurementConfig): Flow<SoundSample>; suspend fun isAvailable(): Boolean }` (`isAvailable` — для проверки наличия микрофона при cold start)
+- [x] создать `repository/SettingsRepository.kt` — `interface SettingsRepository { val config: Flow<MeasurementConfig>; suspend fun updateCalibrationOffset(db: Float); suspend fun updateFrequencyWeighting(w: FrequencyWeighting); suspend fun updateTimeWeighting(t: TimeWeighting) }` (полная реализация — Phase 4; в Phase 2 создаём только интерфейс плюс `DefaultSettingsRepository` который возвращает `flowOf(MeasurementConfig())` и no-op для setters)
+- [x] создать `usecase/StartMeasurementUseCase.kt` — оператор `operator fun invoke(config: MeasurementConfig): Flow<MeasurementSnapshot>` композирует поток `SoundSample` из `AudioRepository.samples`, считает накапливаемые min/avg/max и `recent`-окно через `runningFold`
+- [x] создать `usecase/StopMeasurementUseCase.kt` — задаёт сигнал останова через `MutableStateFlow<Boolean>` (передаётся как `cancel()` в `Flow`-обвес) ИЛИ через простой `cancel` корутины из caller-стороны (выбираем второй вариант — проще, состояние держит ViewModel)
+- [x] создать `usecase/ResetMeasurementUseCase.kt` — возвращает пустой `MeasurementSnapshot.empty` для сброса аккумулятора
+- [x] создать `fakes/FakeAudioRepository.kt` в `:core:testing/src/main/kotlin/ru/dmdp/tishina/core/testing/fakes/` — `class FakeAudioRepository : AudioRepository` с возможностью `emit(sample: SoundSample)` и `setAvailable(value: Boolean)`; используется в use-case и ViewModel-тестах
+- [x] **сначала тест:** `StartMeasurementUseCaseTest` (JUnit 5 + Turbine): подаём последовательность `[40, 60, 80, 60, 40]` dB, проверяем что snapshot накапливает `min=40, max=80, avg=56, current=40` (последнее значение); проверяем что `recent` обрезается окном 60 секунд (используем `mockk<AudioRepository>` + `flowOf` вместо `FakeAudioRepository`, потому что `:core:domain` — pure Kotlin и не может зависеть от Android-модуля `:core:testing`; `FakeAudioRepository` остаётся для Android-фича-модулей)
+- [x] **сначала тест:** `StartMeasurementUseCaseEmptyTest` — пустой Flow → snapshot не эмиттится / NaN safety (объединён в `StartMeasurementUseCaseTest.empty input flow does not emit a snapshot`)
+- [x] реализовать use-cases чтобы тесты позеленели
+- [x] run `./gradlew :core:domain:test :core:testing:testDebugUnitTest` — must pass before next task (примечание: для `:core:domain` (pure Kotlin) корректная задача `test`, не `testDebugUnitTest`)
 
 ### Task 3: DSP foundation — RingBuffer + DcBlockFilter
 
