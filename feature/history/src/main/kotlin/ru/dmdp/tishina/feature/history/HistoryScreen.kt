@@ -32,7 +32,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.collect
 import ru.dmdp.tishina.feature.history.ui.HistoryEmptyState
 import ru.dmdp.tishina.feature.history.ui.HistoryItemCard
 
@@ -69,12 +68,11 @@ fun HistoryScreen(
                     val result = snackbarHostState.showSnackbar(
                         message = context.getString(effect.messageRes),
                         actionLabel = context.getString(effect.actionRes),
-                        // Long ≈ 10 s — enough that even on slow-finger taps the user can
-                        // still hit Undo without the snackbar auto-dismissing. The VM
-                        // commits at 5 s regardless; if the snackbar lingers slightly
-                        // longer the action button just becomes a no-op (UndoConfirmed
-                        // with no pending delete is handled).
-                        duration = SnackbarDuration.Short,
+                        // Long ≈ 10 s — outlasts the VM's 5 s Undo window so the Undo
+                        // affordance is available for the whole window. After the VM
+                        // commits, UndoConfirmed becomes a safe no-op (handled by the
+                        // VM's "no pending delete" branch).
+                        duration = SnackbarDuration.Long,
                     )
                     if (result == SnackbarResult.ActionPerformed) {
                         viewModel.onEvent(HistoryUiEvent.UndoConfirmed)

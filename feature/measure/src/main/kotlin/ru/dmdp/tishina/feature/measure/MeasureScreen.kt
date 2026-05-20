@@ -24,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -36,7 +37,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.collect
 import ru.dmdp.tishina.core.ui.components.chart.SplLineChart
 import ru.dmdp.tishina.core.ui.components.chart.SplStatsRow
 import ru.dmdp.tishina.feature.measure.ui.MeasureBottomBar
@@ -73,8 +73,13 @@ fun MeasureScreen(
     val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var showRationale by remember { mutableStateOf(false) }
-    var showSaveDialog by remember { mutableStateOf(false) }
+    // Dialog visibility flags use `rememberSaveable` so they survive configuration changes
+    // (rotation, dark-mode toggle) and process death. The `ShowSaveDialog` / rationale effects
+    // are one-shot through a buffered Channel; replaying them after restore would re-show the
+    // dialog uninvited. The form contents inside MeasureSaveDialog are independently saved
+    // via their own `rememberSaveable` blocks.
+    var showRationale by rememberSaveable { mutableStateOf(false) }
+    var showSaveDialog by rememberSaveable { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),

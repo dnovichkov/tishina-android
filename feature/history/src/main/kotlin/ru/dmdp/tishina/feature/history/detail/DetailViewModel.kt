@@ -55,7 +55,11 @@ class DetailViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val details = getMeasurementById(measurementId)
+            // Wrap the use-case in runCatching so a Room IO error or a mapper exception during
+            // cold start doesn't leave the screen pinned at loading=true forever. Both
+            // "not found" (null) and "load failed" (throw) route to the same UX: snackbar
+            // + NavigateBack — the user has nothing useful to do on a broken Detail screen.
+            val details = runCatching { getMeasurementById(measurementId) }.getOrNull()
             if (details == null) {
                 effectChannel.send(DetailUiEffect.ShowSnackbar(R.string.detail_not_found))
                 effectChannel.send(DetailUiEffect.NavigateBack)
@@ -124,8 +128,17 @@ class DetailViewModel @Inject constructor(
                         )
                     }
                 },
-                onFailure = {
-                    effectChannel.send(DetailUiEffect.ShowSnackbar(R.string.detail_note_too_long))
+                onFailure = { error ->
+                    // The in-VM length guard above catches the > 200 case before we reach the
+                    // use-case; any failure that lands here is therefore from a deeper layer
+                    // (Room IO, FK constraint, dispatcher cancellation). Show a generic message
+                    // rather than misleading the user with "note too long".
+                    val messageRes = if (error is IllegalArgumentException) {
+                        R.string.detail_note_too_long
+                    } else {
+                        R.string.detail_note_save_failed
+                    }
+                    effectChannel.send(DetailUiEffect.ShowSnackbar(messageRes))
                 },
             )
         }

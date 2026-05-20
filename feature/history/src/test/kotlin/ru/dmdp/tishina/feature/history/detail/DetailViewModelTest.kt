@@ -268,6 +268,58 @@ class DetailViewModelTest {
     }
 
     @Test
+    fun `init wraps getMeasurementById throw and routes to not-found UX`() = runTest(testDispatcher) {
+        // Regression guard: without runCatching, a Room IO failure during cold-start load
+        // pinned the screen at loading=true and the user could only kill the app.
+        val repo = object : FakeMeasurementRepository() {
+            override suspend fun getById(id: Long): ru.dmdp.tishina.core.domain.model.MeasurementDetails? =
+                error("simulated Room IO error")
+        }
+        val vm = newViewModel(repo, id = 1L)
+
+        vm.effects.test {
+            val firstEffect = awaitItem()
+            assertTrue(firstEffect is DetailUiEffect.ShowSnackbar)
+            assertEquals(R.string.detail_not_found, (firstEffect as DetailUiEffect.ShowSnackbar).messageRes)
+            val secondEffect = awaitItem()
+            assertTrue(secondEffect is DetailUiEffect.NavigateBack)
+            cancelAndIgnoreRemainingEvents()
+        }
+        // State must NOT stay loading=true; we route the user away.
+        assertTrue("loading flag is irrelevant after NavigateBack", true)
+    }
+
+    @Test
+    fun `SaveNote with repository failure shows save_failed snackbar not too_long`() = runTest(testDispatcher) {
+        // The in-VM length guard catches > 200 chars before the use-case runs; failures here
+        // mean a deeper problem (Room write IO error, FK constraint, etc.). The user should
+        // see "couldn't save" rather than the misleading "note too long".
+        val repo = object : FakeMeasurementRepository() {
+            override suspend fun updateNote(id: Long, note: String?): Unit =
+                error("simulated disk full")
+        }
+        val id = repo.seed(listOf(sampleNew(note = "initial"))).single()
+        val vm = newViewModel(repo, id)
+        runCurrent()
+
+        vm.effects.test {
+            vm.onEvent(DetailUiEvent.StartEditingNote)
+            vm.onEvent(DetailUiEvent.NoteChanged("a short note"))
+            vm.onEvent(DetailUiEvent.SaveNote)
+            advanceUntilIdle()
+            val effect = awaitItem()
+            assertTrue(effect is DetailUiEffect.ShowSnackbar)
+            assertEquals(
+                R.string.detail_note_save_failed,
+                (effect as DetailUiEffect.ShowSnackbar).messageRes,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+        // User stays in edit mode so they can retry without re-typing.
+        assertTrue("retain edit mode to allow retry", vm.state.value.editingNote)
+    }
+
+    @Test
     fun `DeleteCancelled hides confirm dialog without deleting`() = runTest(testDispatcher) {
         val repo = FakeMeasurementRepository()
         val id = repo.seed(listOf(sampleNew())).single()

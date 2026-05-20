@@ -29,7 +29,9 @@ import ru.dmdp.tishina.core.domain.repository.MeasurementRepository
  * spaced points). Tests that don't care about that wire pass empty samples in
  * via [seed] / [save].
  */
-class FakeMeasurementRepository : MeasurementRepository {
+// `open` so tests can override individual operations to simulate Room IO failures
+// without expanding the knob surface (e.g. `getByIdError`, `updateNoteError`, …).
+open class FakeMeasurementRepository : MeasurementRepository {
 
     private val store = MutableStateFlow<Map<Long, MeasurementDetails>>(emptyMap())
     private var nextId: Long = 1L

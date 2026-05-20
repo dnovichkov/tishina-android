@@ -149,6 +149,33 @@ class SaveMeasurementUseCaseTest {
     }
 
     @Test
+    fun `NaN avg dB is rejected with IllegalArgumentException`() = runTest {
+        val result = useCase(newMeasurement().copy(avgDb = Float.NaN))
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        coVerify(exactly = 0) { repository.save(any()) }
+    }
+
+    @Test
+    fun `infinite min dB is rejected`() = runTest {
+        val result = useCase(newMeasurement().copy(minDb = Float.NEGATIVE_INFINITY))
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        coVerify(exactly = 0) { repository.save(any()) }
+    }
+
+    @Test
+    fun `infinite max dB is rejected`() = runTest {
+        val result = useCase(newMeasurement().copy(maxDb = Float.POSITIVE_INFINITY))
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        coVerify(exactly = 0) { repository.save(any()) }
+    }
+
+    @Test
     fun `validation order title before note before samples short-circuits`() = runTest {
         // All three rules violated at once; the title rule fires first.
         val title = "a".repeat(NewMeasurement.MAX_TITLE_LENGTH + 1)

@@ -18,6 +18,10 @@ import ru.dmdp.tishina.core.domain.repository.MeasurementRepository
  * - At least one entry in [NewMeasurement.samples] — saving a graph-less
  *   measurement is a UX nonsense ("nothing to save"), so we surface it as an
  *   error rather than silently writing an aggregate-only row.
+ * - All aggregate dB scalars ([NewMeasurement.avgDb], [NewMeasurement.minDb],
+ *   [NewMeasurement.maxDb]) must be finite. SQLite stores NaN/Infinity without
+ *   complaint, which then poisons every UI surface that formats the row
+ *   ("NaN dB" in History card, axis crash in Detail chart). Reject early.
  */
 class SaveMeasurementUseCase(private val repository: MeasurementRepository) {
 
@@ -37,6 +41,8 @@ class SaveMeasurementUseCase(private val repository: MeasurementRepository) {
             note != null && note.length > NewMeasurement.MAX_NOTE_LENGTH ->
                 "note length ${note.length} exceeds ${NewMeasurement.MAX_NOTE_LENGTH}"
             samples.isEmpty() -> "samples must not be empty"
+            !avgDb.isFinite() || !minDb.isFinite() || !maxDb.isFinite() ->
+                "dB scalars must be finite (got avg=$avgDb min=$minDb max=$maxDb)"
             else -> null
         }
     }
