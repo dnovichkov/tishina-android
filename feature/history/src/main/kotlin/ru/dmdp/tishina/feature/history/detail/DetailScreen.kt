@@ -41,6 +41,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import ru.dmdp.tishina.core.domain.model.FrequencyWeighting
 import ru.dmdp.tishina.core.domain.model.MeasurementDetails
 import ru.dmdp.tishina.core.domain.model.NewMeasurement
@@ -82,7 +83,13 @@ fun DetailScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 is DetailUiEffect.ShowSnackbar -> {
-                    snackbarHostState.showSnackbar(context.getString(effect.messageRes))
+                    // Launch in a child coroutine so the snackbar's suspend (~4s for Short) does
+                    // NOT block the effect collector. Otherwise an "id not found" emission of
+                    // ShowSnackbar + NavigateBack would leave the user staring at a blank Detail
+                    // screen for ~4s before pop-back fires.
+                    launch {
+                        snackbarHostState.showSnackbar(context.getString(effect.messageRes))
+                    }
                 }
                 DetailUiEffect.NavigateBack -> onNavigateBack()
             }

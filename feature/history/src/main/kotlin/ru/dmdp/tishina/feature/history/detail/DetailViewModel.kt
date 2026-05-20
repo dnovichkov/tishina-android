@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ru.dmdp.tishina.core.domain.model.MeasurementDetails
 import ru.dmdp.tishina.core.domain.model.NewMeasurement
 import ru.dmdp.tishina.core.domain.usecase.DeleteMeasurementUseCase
 import ru.dmdp.tishina.core.domain.usecase.GetMeasurementByIdUseCase
@@ -55,11 +57,21 @@ class DetailViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            // Wrap the use-case in runCatching so a Room IO error or a mapper exception during
-            // cold start doesn't leave the screen pinned at loading=true forever. Both
-            // "not found" (null) and "load failed" (throw) route to the same UX: snackbar
-            // + NavigateBack — the user has nothing useful to do on a broken Detail screen.
-            val details = runCatching { getMeasurementById(measurementId) }.getOrNull()
+            // Catch Exception (not Throwable) so a Room IO error or mapper failure during cold
+            // start doesn't leave the screen pinned at loading=true forever. Both "not found"
+            // (null) and "load failed" (Exception) route to the same UX: snackbar + NavigateBack —
+            // the user has nothing useful to do on a broken Detail screen.
+            //
+            // CancellationException must propagate untouched: if viewModelScope is cancelled (the
+            // user backs out while Room is still streaming), swallowing it would let the post-load
+            // effect emissions race a cancelled scope. This matches HistoryViewModel.commitDeleteInternal.
+            val details: MeasurementDetails? = try {
+                getMeasurementById(measurementId)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                null
+            }
             if (details == null) {
                 effectChannel.send(DetailUiEffect.ShowSnackbar(R.string.detail_not_found))
                 effectChannel.send(DetailUiEffect.NavigateBack)
@@ -149,15 +161,28 @@ class DetailViewModel @Inject constructor(
     private fun performDelete() {
         viewModelScope.launch {
             _state.update { it.copy(deleteConfirmVisible = false) }
-            // Wrap deleteMeasurement so a Room IO failure doesn't take down the viewModelScope
-            // job AND leave the user pinned on Detail with the confirm dialog already closed.
-            // On failure we stay on the screen (so they can retry or pick another action) and
-            // surface a snackbar; success path is unchanged — pop back to History.
-            val outcome = runCatching { deleteMeasurement(measurementId) }
-            outcome.fold(
-                onSuccess = { effectChannel.send(DetailUiEffect.NavigateBack) },
-                onFailure = { effectChannel.send(DetailUiEffect.ShowSnackbar(R.string.detail_delete_failed)) },
-            )
+            // Catch Exception (not Throwable) so a Room IO failure doesn't tear down the
+            // viewModelScope job AND leave the user pinned on Detail with the confirm dialog
+            // already closed. On failure we stay on the screen (so they can retry or pick
+            // another action) and surface a snackbar; success path is unchanged — pop back to
+            // History.
+            //
+            // CancellationException is rethrown so structured cancellation propagates: if the
+            // user navigates away mid-delete, we don't want a spurious detail_delete_failed
+            // snackbar emitted on the way out. Mirrors HistoryViewModel.commitDeleteInternal.
+            val failure: Throwable? = try {
+                deleteMeasurement(measurementId)
+                null
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Exception) {
+                throwable
+            }
+            if (failure == null) {
+                effectChannel.send(DetailUiEffect.NavigateBack)
+            } else {
+                effectChannel.send(DetailUiEffect.ShowSnackbar(R.string.detail_delete_failed))
+            }
         }
     }
 }

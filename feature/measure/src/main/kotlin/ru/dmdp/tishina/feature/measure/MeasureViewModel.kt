@@ -160,8 +160,11 @@ class MeasureViewModel @Inject constructor(
     }
 
     private fun handleSaveDialogConfirmed(event: MeasureUiEvent.SaveDialogConfirmed) {
-        val title = event.title?.takeIf { it.isNotEmpty() }
-        val note = event.note?.takeIf { it.isNotEmpty() }
+        // Whitespace-only title/note → null persisted. Matches DetailViewModel.saveNote so that
+        // a draft of "   " typed on the Save dialog cannot survive as an invisible truthy value
+        // in Room (which History card / Detail's NoteReadOnly would render as empty).
+        val title = event.title?.takeIf { it.isNotBlank() }
+        val note = event.note?.takeIf { it.isNotBlank() }
         // Defense in depth: the use-case and DAO both validate, but we report up-front so the user
         // does not eat a Room round-trip just to be told their title was one character too long.
         if (title != null && title.length > NewMeasurement.MAX_TITLE_LENGTH) {
