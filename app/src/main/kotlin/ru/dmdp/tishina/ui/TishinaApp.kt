@@ -19,6 +19,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
@@ -34,6 +35,7 @@ import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import ru.dmdp.tishina.feature.history.detail.DetailRoute
 import ru.dmdp.tishina.feature.measure.MeasureScreen
 import ru.dmdp.tishina.navigation.AboutIcon
 import ru.dmdp.tishina.navigation.AboutLabelRes
@@ -89,6 +91,9 @@ fun TishinaApp(
         }
     }
     val isOnAbout = currentDestination.matchesAbout()
+    // DetailScreen brings its own Scaffold + TopAppBar (VM-driven title plus back/delete
+    // actions). Suppress the outer chrome here so the two TopAppBars don't stack on phones.
+    val isOnDetail = currentDestination.matchesDetail()
 
     Surface(
         modifier = Modifier
@@ -118,19 +123,27 @@ fun TishinaApp(
         } else {
             Scaffold(
                 topBar = {
-                    TishinaTopAppBar(
-                        currentDestination = currentDestination,
-                        isOnAbout = isOnAbout,
-                        onAboutClick = onAboutClick,
-                        onBackClick = onBackClick,
-                    )
+                    if (!isOnDetail) {
+                        TishinaTopAppBar(
+                            currentDestination = currentDestination,
+                            isOnAbout = isOnAbout,
+                            onAboutClick = onAboutClick,
+                            onBackClick = onBackClick,
+                        )
+                    }
                 },
                 bottomBar = {
-                    TishinaNavigationBar(
-                        currentDestination = currentDestination,
-                        onItemSelected = { dest -> navController.navigateTopLevel(dest) },
-                    )
+                    if (!isOnDetail) {
+                        TishinaNavigationBar(
+                            currentDestination = currentDestination,
+                            onItemSelected = { dest -> navController.navigateTopLevel(dest) },
+                        )
+                    }
                 },
+                // Detail brings its own Scaffold with full system-bar handling, so we zero out
+                // the outer Scaffold's contentWindowInsets to avoid double-padding the status
+                // bar. Top-level destinations still consume insets via their bars.
+                contentWindowInsets = if (isOnDetail) WindowInsets(0) else ScaffoldDefaults.contentWindowInsets,
             ) { padding ->
                 Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                     TishinaNavHost(
@@ -256,6 +269,11 @@ private fun NavDestination?.matches(item: TopLevelDestination): Boolean {
 private fun NavDestination?.matchesAbout(): Boolean {
     if (this == null) return false
     return hasRoute(TishinaDestination.About::class)
+}
+
+private fun NavDestination?.matchesDetail(): Boolean {
+    if (this == null) return false
+    return hasRoute(DetailRoute::class)
 }
 
 private fun NavHostController.navigateTopLevel(destination: TopLevelDestination) {

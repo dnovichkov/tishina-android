@@ -1,5 +1,6 @@
 package ru.dmdp.tishina.core.domain.usecase
 
+import kotlinx.coroutines.CancellationException
 import ru.dmdp.tishina.core.domain.model.NewMeasurement
 import ru.dmdp.tishina.core.domain.repository.MeasurementRepository
 
@@ -20,6 +21,16 @@ class UpdateMeasurementNoteUseCase(private val repository: MeasurementRepository
                 ),
             )
         }
-        return runCatching { repository.updateNote(id, note) }
+        // `runCatching` would swallow CancellationException — rethrow it so structured
+        // concurrency cancels the rest of the calling coroutine instead of producing a
+        // misleading `Result.failure` that the UI maps to "save failed". Errors (OOM etc.)
+        // propagate unchanged; only recoverable Exception subtypes are wrapped.
+        return try {
+            Result.success(repository.updateNote(id, note))
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Exception) {
+            Result.failure(failure)
+        }
     }
 }

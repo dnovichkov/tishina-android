@@ -111,8 +111,10 @@ class DetailViewModel @Inject constructor(
             // Stay in edit mode so the user can shorten the text.
             return
         }
-        // Empty TextField input → null persisted note (NULL in Room, hides the note card in detail).
-        val normalized: String? = draft.takeIf { it.isNotEmpty() }
+        // Whitespace-only draft → null persisted note. `isNotBlank` (not `isNotEmpty`) so a
+        // draft of `"   "` doesn't survive as a note while `NoteReadOnly` blanks it out on
+        // re-render, leaving an invisible-but-truthy value in Room.
+        val normalized: String? = draft.takeIf { it.isNotBlank() }
         viewModelScope.launch {
             val result = updateNote(measurementId, normalized)
             result.fold(

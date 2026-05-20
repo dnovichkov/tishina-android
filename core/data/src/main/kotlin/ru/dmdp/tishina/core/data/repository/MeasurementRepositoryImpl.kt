@@ -59,8 +59,11 @@ class MeasurementRepositoryImpl @Inject constructor(
 
     override suspend fun getById(id: Long): MeasurementDetails? = withContext(ioDispatcher) {
         dao.getDetailsById(id)?.let { wrapper ->
+            // Room's `@Relation` query has no ORDER BY clause, so SQLite is free to return
+            // child rows in any order. Sort by tOffsetMs here so the Detail chart's
+            // first/last-sample time-window calculation can rely on a chronological list.
             wrapper.measurement.toDetails(
-                samples = wrapper.samples.map { it.toDomain() },
+                samples = wrapper.samples.sortedBy { it.tOffsetMs }.map { it.toDomain() },
                 sparkline = dao.loadSparklinePreview(id),
             )
         }

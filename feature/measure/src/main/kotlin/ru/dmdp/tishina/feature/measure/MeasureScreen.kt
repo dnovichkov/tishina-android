@@ -197,10 +197,12 @@ internal fun MeasureScreenContent(
                 },
                 onReset = { onEvent(MeasureUiEvent.ResetRequested) },
                 onSave = { onEvent(MeasureUiEvent.SaveRequested) },
-                // "Save is available iff there is something worth saving". `recent` is the visible
-                // tail of buffered samples; Paused without samples is impossible by VM guard
-                // (PauseRequested is a no-op when phase == Idle), so paused ⇒ data exists.
-                saveEnabled = state.recent.isNotEmpty() || state.phase == MeasurementPhase.Paused,
+                // "Save is available iff there is something worth saving". `recent` is the
+                // visible tail of buffered samples; it's empty whenever the in-memory buffer
+                // is empty (fresh launch, post-Reset, or after process death — the buffer is
+                // not persisted across kills). Tying Save to `recent` alone keeps the FAB
+                // honest: an enabled Save FAB always has data to feed [SaveMeasurementUseCase].
+                saveEnabled = state.recent.isNotEmpty(),
             )
         },
     ) { padding ->

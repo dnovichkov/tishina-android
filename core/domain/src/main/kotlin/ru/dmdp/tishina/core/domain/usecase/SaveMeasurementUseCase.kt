@@ -1,5 +1,6 @@
 package ru.dmdp.tishina.core.domain.usecase
 
+import kotlinx.coroutines.CancellationException
 import ru.dmdp.tishina.core.domain.model.NewMeasurement
 import ru.dmdp.tishina.core.domain.repository.MeasurementRepository
 
@@ -27,10 +28,19 @@ class SaveMeasurementUseCase(private val repository: MeasurementRepository) {
 
     suspend operator fun invoke(measurement: NewMeasurement): Result<Long> {
         val errorMessage = validate(measurement)
-        return if (errorMessage != null) {
-            Result.failure(IllegalArgumentException(errorMessage))
-        } else {
-            runCatching { repository.save(measurement) }
+        if (errorMessage != null) {
+            return Result.failure(IllegalArgumentException(errorMessage))
+        }
+        // `runCatching` swallows CancellationException — if the caller's scope is cancelled
+        // mid-save we must surface the cancellation through structured concurrency, not as
+        // `Result.failure` (which would mislead the UI into showing "save failed"). Errors
+        // (OOM etc.) propagate unchanged; only recoverable Exception subtypes are wrapped.
+        return try {
+            Result.success(repository.save(measurement))
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Exception) {
+            Result.failure(failure)
         }
     }
 
