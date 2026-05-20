@@ -149,8 +149,15 @@ class DetailViewModel @Inject constructor(
     private fun performDelete() {
         viewModelScope.launch {
             _state.update { it.copy(deleteConfirmVisible = false) }
-            deleteMeasurement(measurementId)
-            effectChannel.send(DetailUiEffect.NavigateBack)
+            // Wrap deleteMeasurement so a Room IO failure doesn't take down the viewModelScope
+            // job AND leave the user pinned on Detail with the confirm dialog already closed.
+            // On failure we stay on the screen (so they can retry or pick another action) and
+            // surface a snackbar; success path is unchanged — pop back to History.
+            val outcome = runCatching { deleteMeasurement(measurementId) }
+            outcome.fold(
+                onSuccess = { effectChannel.send(DetailUiEffect.NavigateBack) },
+                onFailure = { effectChannel.send(DetailUiEffect.ShowSnackbar(R.string.detail_delete_failed)) },
+            )
         }
     }
 }

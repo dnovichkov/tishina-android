@@ -335,4 +335,34 @@ class DetailViewModelTest {
         assertFalse(vm.state.value.deleteConfirmVisible)
         assertEquals(1, repo.size())
     }
+
+    @Test
+    fun `DeleteConfirmed with repository failure shows delete_failed snackbar and stays`() = runTest(testDispatcher) {
+        // Regression: without runCatching the IO failure took down the viewModelScope job AFTER
+        // the confirm dialog had already been dismissed by performDelete, so the user was
+        // left on a Detail screen with no feedback and no way to recover except killing the app.
+        val repo = object : FakeMeasurementRepository() {
+            override suspend fun delete(id: Long): Unit = error("simulated Room IO error")
+        }
+        val id = repo.seed(listOf(sampleNew())).single()
+        val vm = newViewModel(repo, id)
+        runCurrent()
+
+        vm.effects.test {
+            vm.onEvent(DetailUiEvent.DeleteRequested)
+            vm.onEvent(DetailUiEvent.DeleteConfirmed)
+            advanceUntilIdle()
+            val effect = awaitItem()
+            assertTrue("expected ShowSnackbar(delete_failed) on failure", effect is DetailUiEffect.ShowSnackbar)
+            assertEquals(
+                R.string.detail_delete_failed,
+                (effect as DetailUiEffect.ShowSnackbar).messageRes,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+        // Confirm dialog stays closed (we dismissed it before attempting delete), the row is
+        // still on disk because the repository threw, and no NavigateBack effect fired.
+        assertFalse("confirm dialog should remain hidden after the failed attempt", vm.state.value.deleteConfirmVisible)
+        assertEquals("row must still exist after a failed delete", 1, repo.size())
+    }
 }

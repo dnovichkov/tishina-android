@@ -10,6 +10,14 @@
          tapping "Undo" cancels the pending delete. -->
     <string name="history_undo_snackbar_message">Measurement deleted</string>
     <string name="history_undo_action">Undo</string>
+    <string name="history_delete_failed">Couldn\'t delete measurement</string>
+
+    <!-- Upstream Room read failure — items may exist on disk but couldn't be loaded. Distinct from
+         the empty state so the screen doesn't tell the user to start over when their data is intact. -->
+    <string name="history_load_failed">Couldn\'t load measurements</string>
+    <string name="history_load_failed_title">Couldn\'t load measurements</string>
+    <string name="history_load_failed_description">Try reopening the app</string>
+    <string name="history_load_failed_icon_cd">Load error</string>
 
     <!-- Card content descriptions / fallbacks. -->
     <string name="history_card_no_title">Measurement</string>
@@ -20,6 +28,7 @@
 
     <!-- Detail screen (FR-10) — full chart + inline-edit note + delete with confirmation. -->
     <string name="detail_not_found">Measurement not found</string>
+    <string name="detail_delete_failed">Couldn\'t delete measurement</string>
     <string name="detail_note_label">Note</string>
     <string name="detail_note_card_label">Note</string>
     <string name="detail_add_note">Add a note</string>

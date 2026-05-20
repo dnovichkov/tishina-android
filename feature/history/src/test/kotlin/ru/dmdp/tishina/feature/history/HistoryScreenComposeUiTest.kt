@@ -4,6 +4,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -15,6 +16,7 @@ import org.robolectric.annotation.GraphicsMode
 import ru.dmdp.tishina.core.designsystem.theme.TishinaTheme
 import ru.dmdp.tishina.core.domain.model.MeasurementSummary
 import ru.dmdp.tishina.core.ui.components.AppEmptyStateCtaTestTag
+import ru.dmdp.tishina.core.ui.components.AppEmptyStateTestTag
 import ru.dmdp.tishina.feature.history.ui.HistoryItemCardTestTagPrefix
 
 /**
@@ -107,6 +109,83 @@ class HistoryScreenComposeUiTest {
         composeTestRule.onNodeWithTag(HistoryListTestTag).assertIsDisplayed()
         composeTestRule.onNodeWithTag(HistoryItemCardTestTagPrefix + "1").assertIsDisplayed()
         composeTestRule.onNodeWithTag(HistoryItemCardTestTagPrefix + "2").assertIsDisplayed()
+    }
+
+    @Test
+    fun load_failed_state_shows_error_panel_without_make_measurement_cta() {
+        // Regression: previously a Room IO failure surfaced as items=empty → the screen
+        // dropped into the "Make first measurement" CTA, telling the user to start over when
+        // their data was intact on disk. The fix branches on loadFailed and shows a distinct
+        // error panel with NO CTA (since starting a new measurement wouldn't fix the load).
+        composeTestRule.setContent {
+            TishinaTheme(dynamicColor = false) {
+                HistoryScreenContent(
+                    state = HistoryUiState(items = emptyList(), loading = false, loadFailed = true),
+                    onEvent = {},
+                    snackbarHostState = SnackbarHostState(),
+                    onNavigateToDetail = {},
+                    onNavigateToMeasure = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag(AppEmptyStateTestTag).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(AppEmptyStateCtaTestTag).assertDoesNotExist()
+        composeTestRule.onNodeWithText("Couldn't load measurements").assertIsDisplayed()
+    }
+
+    @Test
+    fun pending_undo_id_drives_snackbar_so_rotation_reattaches_affordance() {
+        // Regression: previously the Undo snackbar was triggered by a one-shot effect emission
+        // from the ViewModel. After rotation / theme change, the recreated screen never saw
+        // the already-consumed effect, so the user lost the Undo button while the VM's 5 s
+        // commit timer kept running — silently committing the delete.
+        //
+        // Fix: the snackbar is driven by `state.pendingUndoId`. A re-entry into the screen
+        // with the same non-null id triggers the LaunchedEffect again and shows the snackbar,
+        // matching what a rotated screen would observe.
+        composeTestRule.setContent {
+            TishinaTheme(dynamicColor = false) {
+                HistoryScreenContent(
+                    state = HistoryUiState(
+                        items = listOf(sampleSummary(1L)),
+                        loading = false,
+                        pendingUndoId = 1L,
+                    ),
+                    onEvent = {},
+                    snackbarHostState = SnackbarHostState(),
+                    onNavigateToDetail = {},
+                    onNavigateToMeasure = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Measurement deleted").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Undo").assertIsDisplayed()
+    }
+
+    @Test
+    fun undo_action_invokes_UndoConfirmed_on_owning_view_model() {
+        // The Undo button must wire to onEvent(UndoConfirmed); previously this routing went
+        // through the effect-loop closure in the wrapper composable. After moving the snackbar
+        // logic into HistoryScreenContent, the testable composable owns the binding.
+        val received = mutableListOf<HistoryUiEvent>()
+        composeTestRule.setContent {
+            TishinaTheme(dynamicColor = false) {
+                HistoryScreenContent(
+                    state = HistoryUiState(
+                        items = listOf(sampleSummary(1L)),
+                        loading = false,
+                        pendingUndoId = 1L,
+                    ),
+                    onEvent = { received += it },
+                    snackbarHostState = SnackbarHostState(),
+                    onNavigateToDetail = {},
+                    onNavigateToMeasure = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("Undo").performClick()
+        composeTestRule.waitForIdle()
+        assertEquals(listOf<HistoryUiEvent>(HistoryUiEvent.UndoConfirmed), received)
     }
 
     @Test

@@ -32,10 +32,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 import ru.dmdp.tishina.feature.history.ui.HistoryEmptyState
+import ru.dmdp.tishina.feature.history.ui.HistoryErrorState
 import ru.dmdp.tishina.feature.history.ui.HistoryItemCard
 
 const val HistoryScreenTestTag: String = "history_screen"
@@ -65,35 +63,17 @@ fun HistoryScreen(
     val context = LocalContext.current
 
     LaunchedEffect(viewModel) {
-        // `collectLatest` cancels the in-flight `showSnackbar` when a new effect arrives —
-        // critical for back-to-back swipe-deletes: the previous snackbar is dismissed before
-        // the new one shows, which prevents the user from tapping Undo on the OLD snackbar
-        // while the VM's `pendingUndoId` already points at the NEW soft-delete (that would
-        // restore the wrong row and leave the first one permanently deleted).
-        viewModel.effects.collectLatest { effect ->
+        // Only error snackbars go through the effect channel — Undo lives in state
+        // (see HistoryScreenContent below). One-shot effects are appropriate for ephemeral
+        // notifications that don't need to survive recomposition; the Undo affordance does,
+        // so it's bound to the VM's pendingUndoId state instead.
+        viewModel.effects.collect { effect ->
             when (effect) {
-                is HistoryUiEffect.ShowUndoSnackbar -> {
-                    // Indefinite duration + a manual timed dismiss matching the VM's Undo window.
-                    // SnackbarDuration.Long (~10 s) outlasts the VM's 5 s commit window, so tapping
-                    // Undo at t=5..10 s would silently fail (the VM has already cleared
-                    // pendingUndoId). With Indefinite we control the timing precisely: the
-                    // snackbar disappears at the same moment the soft-delete commits.
-                    val dismissJob = launch {
-                        delay(effect.durationMs)
-                        snackbarHostState.currentSnackbarData?.dismiss()
-                    }
-                    try {
-                        val result = snackbarHostState.showSnackbar(
-                            message = context.getString(effect.messageRes),
-                            actionLabel = context.getString(effect.actionRes),
-                            duration = SnackbarDuration.Indefinite,
-                        )
-                        if (result == SnackbarResult.ActionPerformed) {
-                            viewModel.onEvent(HistoryUiEvent.UndoConfirmed)
-                        }
-                    } finally {
-                        dismissJob.cancel()
-                    }
+                is HistoryUiEffect.ShowErrorSnackbar -> {
+                    snackbarHostState.showSnackbar(
+                        message = context.getString(effect.messageRes),
+                        duration = SnackbarDuration.Short,
+                    )
                 }
             }
         }
@@ -118,6 +98,36 @@ internal fun HistoryScreenContent(
     onNavigateToMeasure: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    // Undo snackbar is driven by `state.pendingUndoId`, NOT by a one-shot effect.
+    //
+    // Rationale (rotation): a one-shot effect is consumed by the previous Composition;
+    // after rotation or theme-change the recreated screen never sees it and the user
+    // loses the Undo affordance while the VM's commit timer keeps running. Driving
+    // from state means a mid-window recomposition re-attaches the snackbar with the
+    // same id, and when the VM clears `pendingUndoId` (commit or undo) the
+    // LaunchedEffect re-keys, cancelling `showSnackbar` and dismissing the snackbar
+    // at the exact moment of the commit.
+    //
+    // Rationale (queued snackbar): we explicitly dismiss any currently-visible snackbar
+    // before queuing the Undo. Otherwise the Undo would queue behind an in-flight error
+    // toast and the visible Undo window would compress (or vanish entirely), while the
+    // VM's independent 5 s commit timer still fires.
+    val pendingUndoId = state.pendingUndoId
+    LaunchedEffect(pendingUndoId) {
+        if (pendingUndoId == null) return@LaunchedEffect
+        snackbarHostState.currentSnackbarData?.dismiss()
+        val result = snackbarHostState.showSnackbar(
+            message = context.getString(R.string.history_undo_snackbar_message),
+            actionLabel = context.getString(R.string.history_undo_action),
+            // Indefinite — the VM owns the lifetime; we dismiss on `pendingUndoId` clear.
+            duration = SnackbarDuration.Indefinite,
+        )
+        if (result == SnackbarResult.ActionPerformed) {
+            onEvent(HistoryUiEvent.UndoConfirmed)
+        }
+    }
+
     Scaffold(
         modifier = modifier
             .fillMaxSize()
@@ -131,6 +141,11 @@ internal fun HistoryScreenContent(
                 // typically flicker for one frame and disappear. NFR-1 (cold start ≤ 1 s) is
                 // best served by *not* mounting a transient progress indicator.
                 Box(modifier = Modifier.fillMaxSize().padding(padding))
+            }
+            state.loadFailed -> {
+                // Distinct from the empty-state branch: an error means the data might still be
+                // on disk but unreadable — the CTA "make first measurement" would be misleading.
+                HistoryErrorState(modifier = Modifier.padding(padding))
             }
             state.items.isEmpty() -> {
                 HistoryEmptyState(

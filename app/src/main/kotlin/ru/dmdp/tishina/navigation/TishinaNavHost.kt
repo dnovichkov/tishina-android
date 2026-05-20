@@ -52,7 +52,11 @@ fun TishinaNavHost(
         composable<TishinaDestination.History> {
             historyContent(
                 { id -> navController.navigate(DetailRoute(measurementId = id)) },
-                { navController.navigate(TishinaDestination.Measure) },
+                // Empty-state CTA → switch to the Measure tab using the same top-level navigation
+                // policy as the bottom NavigationBar / NavigationRail. A plain navigate(Measure)
+                // would push a duplicate Measure entry above History so Back from Measure would
+                // pop back to History — that's not how a top-level tab switch should behave.
+                { navController.navigateToTopLevel(TishinaDestination.Measure) },
             )
         }
         composable<DetailRoute> { backStackEntry ->

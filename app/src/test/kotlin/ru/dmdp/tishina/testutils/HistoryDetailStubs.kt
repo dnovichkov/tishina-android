@@ -1,5 +1,6 @@
 package ru.dmdp.tishina.testutils
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -19,14 +20,24 @@ import androidx.compose.ui.platform.testTag
  * that only need to assert routing/destination state inject these stubs instead.
  */
 const val HistoryContentStubTestTag: String = "history_content_stub"
+const val HistoryEmptyCtaStubTestTag: String = "history_content_stub_empty_cta"
 const val DetailContentStubTestTag: String = "detail_content_stub"
 
 @Composable
 fun HistoryScreenTestStub(
     @Suppress("UNUSED_PARAMETER") onNavigateToDetail: (Long) -> Unit = {},
-    @Suppress("UNUSED_PARAMETER") onNavigateToMeasure: () -> Unit = {},
+    onNavigateToMeasure: () -> Unit = {},
 ) {
-    Box(modifier = Modifier.fillMaxSize().testTag(HistoryContentStubTestTag))
+    Box(modifier = Modifier.fillMaxSize().testTag(HistoryContentStubTestTag)) {
+        // CTA region — tests click this to simulate the History empty-state "Make first
+        // measurement" button without needing the full empty-state composable wired up.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(onClick = onNavigateToMeasure)
+                .testTag(HistoryEmptyCtaStubTestTag),
+        )
+    }
 }
 
 @Composable

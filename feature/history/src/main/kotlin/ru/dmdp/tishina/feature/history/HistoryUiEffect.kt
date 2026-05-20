@@ -5,18 +5,17 @@ import androidx.annotation.StringRes
 /**
  * One-shot side effects from the History ViewModel to the screen.
  *
- * `ShowUndoSnackbar` carries the localized message resource and a duration in ms; the
- * screen wires it to [androidx.compose.material3.SnackbarHostState.showSnackbar] with
- * a 5 s timeout so the user has the same window the ViewModel uses internally before
- * committing the delete.
+ * Undo is intentionally NOT an effect here: the Undo affordance is tied to the VM's
+ * `pendingUndoId` state, which survives configuration changes (rotation, theme switch).
+ * A one-shot effect would be consumed by the previous Composition and never replay onto
+ * the recreated screen, while the VM's commit timer keeps running — silently committing
+ * the delete without a usable Undo button. The screen drives the snackbar from state
+ * instead so re-entering the screen mid-window reattaches the affordance.
+ *
+ * `ShowErrorSnackbar` stays as an effect because it's genuinely one-shot — losing a
+ * "Couldn't delete" toast on rotation is benign (the row reappeared from the soft-delete
+ * shadow already; the user can see that), unlike losing the actionable Undo button.
  */
 sealed interface HistoryUiEffect {
-    data class ShowUndoSnackbar(@StringRes val messageRes: Int, @StringRes val actionRes: Int, val durationMs: Long = UNDO_WINDOW_MS) :
-        HistoryUiEffect
-
-    companion object {
-        /** Matches HistoryViewModel's internal timer window — the snackbar disappears at the
-         *  same moment the soft-delete is committed. */
-        const val UNDO_WINDOW_MS: Long = 5_000L
-    }
+    data class ShowErrorSnackbar(@StringRes val messageRes: Int) : HistoryUiEffect
 }

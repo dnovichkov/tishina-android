@@ -7,6 +7,12 @@
 
     <string name="history_undo_snackbar_message">Замер удалён</string>
     <string name="history_undo_action">Отменить</string>
+    <string name="history_delete_failed">Не удалось удалить замер</string>
+
+    <string name="history_load_failed">Не удалось загрузить замеры</string>
+    <string name="history_load_failed_title">Не удалось загрузить замеры</string>
+    <string name="history_load_failed_description">Попробуйте перезапустить приложение</string>
+    <string name="history_load_failed_icon_cd">Ошибка загрузки</string>
 
     <string name="history_card_no_title">Замер</string>
     <string name="history_card_avg_db_cd">Среднее %1$.1f дБ</string>
@@ -15,6 +21,7 @@
     <string name="history_card_sparkline_cd">Изменение громкости</string>
 
     <string name="detail_not_found">Замер не найден</string>
+    <string name="detail_delete_failed">Не удалось удалить замер</string>
     <string name="detail_note_label">Заметка</string>
     <string name="detail_note_card_label">Заметка</string>
     <string name="detail_add_note">Добавить заметку</string>

@@ -22,6 +22,7 @@ import org.robolectric.annotation.Config
 import ru.dmdp.tishina.core.designsystem.theme.TishinaTheme
 import ru.dmdp.tishina.navigation.TishinaDestination
 import ru.dmdp.tishina.navigation.TopLevelDestination
+import ru.dmdp.tishina.testutils.HistoryEmptyCtaStubTestTag
 import ru.dmdp.tishina.testutils.HistoryScreenTestStub
 import ru.dmdp.tishina.testutils.MeasureContentStubTestTag
 import ru.dmdp.tishina.testutils.MeasureScreenTestStub
@@ -174,6 +175,65 @@ class TishinaNavHostTest {
         assertTrue(
             "Back from About launched from History must return to History, not to Measure",
             current!!.hasRoute(TishinaDestination.History::class),
+        )
+    }
+
+    @Test
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
+    fun `History empty-state CTA uses top-level navigation to Measure (back stack stays shallow)`() {
+        // Regression for codex review finding: History → Measure CTA used a plain navigate(Measure)
+        // that pushed a duplicate Measure entry above History. After the fix, the CTA routes
+        // through `navigateToTopLevel(Measure)` — same policy as the NavigationBar — so the back
+        // stack collapses to [Measure] instead of [Measure, History, Measure].
+        var capturedController: NavHostController? = null
+        composeTestRule.setContent {
+            TishinaTheme(darkTheme = false, dynamicColor = false) {
+                val navController = rememberNavController()
+                capturedController = navController
+                val sizeClass = WindowSizeClass.calculateFromSize(DpSize(360.dp, 640.dp))
+                TishinaApp(
+                    windowSizeClass = sizeClass,
+                    navController = navController,
+                    measureContent = { MeasureScreenTestStub() },
+                    historyContent = { onNavigateToDetail, onNavigateToMeasure ->
+                        HistoryScreenTestStub(
+                            onNavigateToDetail = onNavigateToDetail,
+                            onNavigateToMeasure = onNavigateToMeasure,
+                        )
+                    },
+                )
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        // Switch to History via the NavigationBar — the start destination is Measure.
+        composeTestRule
+            .onNodeWithTag(navigationItemTestTag(TopLevelDestination.History))
+            .performClick()
+        composeTestRule.waitForIdle()
+
+        // Click the empty-state CTA via the stub's clickable region.
+        composeTestRule.onNodeWithTag(HistoryEmptyCtaStubTestTag).performClick()
+        composeTestRule.waitForIdle()
+
+        // The CTA must land us on Measure (top-level switch).
+        val afterCta = capturedController!!.currentBackStackEntry?.destination
+        assertTrue(
+            "After CTA the destination should be Measure, got ${afterCta?.route}",
+            afterCta!!.hasRoute(TishinaDestination.Measure::class),
+        )
+
+        // popUpTo(startId) collapsed History — popping from Measure must NOT resurface History.
+        // (Without the fix the stack would be [Measure, History, Measure] and a pop would land
+        // back on History.)
+        composeTestRule.runOnUiThread {
+            capturedController!!.popBackStack()
+        }
+        composeTestRule.waitForIdle()
+        val afterPop = capturedController!!.currentBackStackEntry?.destination
+        assertTrue(
+            "After popping from Measure we should NOT be on History, got ${afterPop?.route}",
+            afterPop == null || !afterPop.hasRoute(TishinaDestination.History::class),
         )
     }
 

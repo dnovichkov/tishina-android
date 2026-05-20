@@ -42,6 +42,7 @@ import ru.dmdp.tishina.navigation.AboutLabelRes
 import ru.dmdp.tishina.navigation.TishinaDestination
 import ru.dmdp.tishina.navigation.TishinaNavHost
 import ru.dmdp.tishina.navigation.TopLevelDestination
+import ru.dmdp.tishina.navigation.navigateToTopLevel
 import ru.dmdp.tishina.core.ui.R as CoreUiR
 
 const val TishinaAppRootTestTag: String = "tishina_app_root"
@@ -277,16 +278,7 @@ private fun NavDestination?.matchesDetail(): Boolean {
 }
 
 private fun NavHostController.navigateTopLevel(destination: TopLevelDestination) {
-    // graph is only set after NavHost composes its first pass. A synthetic accessibility
-    // click on the NavigationBar/Rail before that frame would throw IllegalStateException
-    // ("setGraph must be called"). Guard via runCatching — if the graph isn't ready, the
-    // click is effectively a no-op until the next frame.
-    val startId = runCatching { graph.startDestinationId }.getOrNull() ?: return
-    navigate(destination.destination) {
-        launchSingleTop = true
-        restoreState = true
-        popUpTo(startId) { saveState = true }
-    }
+    navigateToTopLevel(destination.destination)
 }
 
 private fun NavHostController.navigateToAbout() {
