@@ -1,0 +1,155 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "21623b002dfeaa72d982718383d72ace",
+    "entities": [
+      {
+        "tableName": "measurements",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `createdAtEpochMs` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL, `avgDb` REAL NOT NULL, `minDb` REAL NOT NULL, `maxDb` REAL NOT NULL, `title` TEXT, `note` TEXT, `weighting` TEXT NOT NULL, `timeWeighting` TEXT NOT NULL, `calibrationOffsetDb` REAL NOT NULL, `sampleRateHz` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMs",
+            "columnName": "createdAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durationMs",
+            "columnName": "durationMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "avgDb",
+            "columnName": "avgDb",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minDb",
+            "columnName": "minDb",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "maxDb",
+            "columnName": "maxDb",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "note",
+            "columnName": "note",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "weighting",
+            "columnName": "weighting",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timeWeighting",
+            "columnName": "timeWeighting",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "calibrationOffsetDb",
+            "columnName": "calibrationOffsetDb",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sampleRateHz",
+            "columnName": "sampleRateHz",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "samples",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `measurementId` INTEGER NOT NULL, `tOffsetMs` INTEGER NOT NULL, `db` REAL NOT NULL, FOREIGN KEY(`measurementId`) REFERENCES `measurements`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "measurementId",
+            "columnName": "measurementId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tOffsetMs",
+            "columnName": "tOffsetMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "db",
+            "columnName": "db",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_samples_measurementId",
+            "unique": false,
+            "columnNames": [
+              "measurementId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_samples_measurementId` ON `${TABLE_NAME}` (`measurementId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "measurements",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "measurementId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '21623b002dfeaa72d982718383d72ace')"
+    ]
+  }
+}

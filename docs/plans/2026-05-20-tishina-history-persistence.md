@@ -181,40 +181,28 @@ Phase 3 наполняет Phase 1 (foundation) и Phase 2 (audio engine + measu
 
 ### Task 2: Room foundation — `:core:data` module + entities + DAO + database
 
-- [ ] обновить `core/data/build.gradle.kts`:
-  - подключить `alias(libs.plugins.tishina.android.library)`, `alias(libs.plugins.tishina.android.hilt)`, `alias(libs.plugins.tishina.jvm.testing)`, `alias(libs.plugins.ksp)`, `alias(libs.plugins.roborazzi)` (последний для Robolectric-based DAO-тестов)
-  - `dependencies { implementation(projects.core.domain); implementation(libs.room.runtime); implementation(libs.room.ktx); ksp(libs.room.compiler); testImplementation(projects.core.testing); testImplementation(libs.room.testing) }`
-  - в `android { defaultConfig { javaCompileOptions.annotationProcessorOptions.arguments["room.schemaLocation"] = "$projectDir/schemas" } }` — экспорт схем
-  - **примечание:** проверить что `room.runtime`, `room.ktx`, `room.compiler`, `room.testing` уже объявлены в `libs.versions.toml` Phase 1; если нет — добавить
-- [ ] **сначала тест:** `MeasurementDaoTest` (`@RunWith(RobolectricTestRunner)`) — Room.inMemoryDatabaseBuilder. Тесты:
-  - `saveMeasurementWithSamples_storesAggregateAndAllSamples` — insert measurement + 5 samples в одной транзакции → query returns matching counts
-  - `observeSummaries_emitsInDescendingCreatedAtOrder` — вставить 3 замера с разными timestamps → Flow эмиттит отсортированный список (newest first)
-  - `observeSummaries_emitsAfterDelete` — Turbine: подписка, удаление одного → второй emission без удалённого
-  - `getById_returnsNullForUnknownId` — null-safety
-  - `getById_returnsDetailsWithSamples` — полный round-trip
-  - `delete_cascadesToSamples` — после delete у measurement, count(samples for that id) == 0
-  - `updateNote_changesOnlyNoteColumn` — другие поля неизменны
-  - `insertMeasurement_rejectsTitleOver80Chars` — Room constraint через `@CheckResult` или CHECK в SQL → throws SQLException (или возвращает -1 в зависимости от подхода — выберем CHECK constraint в SQL для гарантии валидации даже мимо use-case)
-  - `insertMeasurement_acceptsNullNote` — null проходит
-- [ ] **сначала тест:** `TishinaDatabaseTest` — конструктор корректно открывает БД, версия = 1, схема экспортируется в `core/data/schemas/ru.dmdp.tishina.core.data.db.TishinaDatabase/1.json`
-- [ ] **сначала тест:** `TishinaDatabaseMigrationTest` — `MigrationTestHelper` инфра: открывает БД v1, закрывает, переоткрывает; placeholder для будущих v1→v2 миграций
-- [ ] создать `core/data/src/main/kotlin/ru/dmdp/tishina/core/data/db/entity/MeasurementEntity.kt`:
-  - `@Entity(tableName = "measurements")` с полями из спеки § 9 + CHECK constraints на длины title/note
-- [ ] создать `core/data/.../db/entity/SampleEntity.kt`:
-  - `@Entity(tableName = "samples", foreignKeys = [ForeignKey(MeasurementEntity::class, parentColumns=["id"], childColumns=["measurementId"], onDelete=ForeignKey.CASCADE)], indices=[Index("measurementId")])`
-- [ ] создать `core/data/.../db/dao/MeasurementDao.kt`:
-  - `@Transaction @Insert suspend fun insertWithSamples(measurement: MeasurementEntity, samples: List<SampleEntity>): Long` (через приватный `@Insert` для measurement + `@Insert` для samples с подстановкой полученного id)
-  - `@Query("SELECT m.id, m.createdAt, m.durationMs, m.avgDb, m.minDb, m.maxDb, m.title, m.note FROM measurements m ORDER BY m.createdAt DESC") fun observeSummaries(): Flow<List<MeasurementSummaryRow>>` — отдельный POJO `MeasurementSummaryRow` без samples (для эффективного запроса)
-  - `@Query("SELECT db FROM samples WHERE measurementId = :id ORDER BY tOffsetMs ASC LIMIT 20") suspend fun loadSparklinePreview(id: Long): List<Float>` — параллельный запрос для карточки; объединяется в repository через `combine` или загружается ленью при первом отображении
-  - `@Transaction @Query("SELECT * FROM measurements WHERE id = :id") suspend fun getDetailsById(id: Long): MeasurementWithSamples?` — `@Relation` для samples
-  - `@Query("DELETE FROM measurements WHERE id = :id") suspend fun delete(id: Long)`
-  - `@Query("UPDATE measurements SET note = :note WHERE id = :id") suspend fun updateNote(id: Long, note: String?)`
-- [ ] создать `core/data/.../db/TishinaDatabase.kt`:
-  - `@Database(entities = [MeasurementEntity::class, SampleEntity::class], version = 1, exportSchema = true)`
-  - `abstract class TishinaDatabase : RoomDatabase { abstract fun measurementDao(): MeasurementDao }`
-- [ ] **сначала тест:** проверить что `core/data/schemas/ru.dmdp.tishina.core.data.db.TishinaDatabase/1.json` сгенерирован и закоммичен (проверка через `Files.exists`)
-- [ ] реализовать entities, DAO, database — чтобы тесты позеленели
-- [ ] run `./gradlew :core:data:testDebugUnitTest` — must pass before next task
+- [x] обновить `core/data/build.gradle.kts`:
+  - подключены `tishina.android.library` + `tishina.android.hilt` (KSP применяется им транзитивно) + `tishina.jvm.testing`; **отказались от `roborazzi`-alias** — в Task 2 не нужны screenshot-тесты, только Robolectric DAO-тесты, поэтому добавили `testImplementation(libs.robolectric)` + `testRuntimeOnly(libs.junit.vintage.engine)` напрямую (тот же паттерн что в `:core:audio`)
+  - добавлены `implementation(libs.room.runtime/ktx)` + `ksp(libs.room.compiler)` + `testImplementation(libs.room.testing)`
+  - `android.defaultConfig.javaCompileOptions.annotationProcessorOptions.arguments["room.schemaLocation"]` + `ksp { arg("room.schemaLocation", ...) }` оба добавлены (Room 2.8 KMP-ветка читает через KSP-аргумент, javaCompileOptions оставлены для совместимости)
+  - `sourceSets.test.assets.srcDirs("$projectDir/schemas")` — чтобы `MigrationTestHelper`-style тесты в Robolectric могли читать exported schema
+- [x] **сначала тест:** `MeasurementDaoTest` (`@RunWith(RobolectricTestRunner)`) — 13 тестов в `core/data/src/test/.../db/MeasurementDaoTest.kt`. Покрывают все запрошенные сценарии: атомарный insert+samples, descending order, Turbine flow re-emit after delete, null-safety getById, round-trip, CASCADE, updateNote only-note column, CHECK на title/note > limits, null-title/note, sparkline ≤ 20 + < 20
+- [x] **сначала тест:** `TishinaDatabaseTest` — 2 теста: open + версия 1; проверка наличия `schemas/.../1.json`
+- [x] **сначала тест:** `TishinaDatabaseMigrationTest` — переосмыслен с `MigrationTestHelper` на `Room.databaseBuilder` напрямую, потому что в Room 2.8.4 + Robolectric `MigrationTestHelper` падает с `IllegalArgumentException: This driver is configured to open a database named 'X' but '<absolute path>/X' was requested`. ⚠️ Известный bug несовместимости Room 2.8 KMP-driver + Robolectric. Полноценный `MigrationTestHelper` будет работать в androidTest на эмуляторе в Phase Release. В Phase 3 проверяем: (a) schema JSON v1 присутствует, (b) Room открывает on-disk БД и переоткрывает её идемпотентно
+- [x] создан `core/data/src/main/kotlin/ru/dmdp/tishina/core/data/db/entity/MeasurementEntity.kt` (PK autoGenerate + все поля из спеки)
+- [x] создан `core/data/.../db/entity/SampleEntity.kt` с FK CASCADE + Index
+- [x] создан `core/data/.../db/dao/MeasurementDao.kt`:
+  - `@Transaction insertWithSamples` (composes protected `@Insert insertMeasurement` + `@Insert insertSamples`, подставляет реальный id в samples)
+  - `observeSummaries(): Flow<List<MeasurementSummaryRow>>` — slim projection без samples; отдельный POJO `MeasurementSummaryRow.kt`
+  - `loadSparklinePreview(id): List<Float>` — LIMIT 20 ORDER BY tOffsetMs
+  - `getDetailsById(id): MeasurementWithSamples?` — `@Relation` POJO `MeasurementWithSamples.kt`
+  - `delete`, `updateNote`, плюс `countSamplesForMeasurement` (test helper для CASCADE-assertions)
+- [x] создан `core/data/.../db/TishinaDatabase.kt`:
+  - `@Database(entities = [...], version = 1, exportSchema = true)`
+  - **➕ внеплановая подзадача:** Room 2.8 не поддерживает CHECK в `@Entity` — длины title/note контролируются через `LENGTH_GUARD_CALLBACK` (RoomDatabase.Callback), который ставит BEFORE INSERT/UPDATE триггеры с `RAISE(ABORT, 'CHECK constraint failed: ...')`. Триггеры идемпотентны (`IF NOT EXISTS`); ставятся в `onCreate` + `onOpen` чтобы существующие установки тоже подхватили
+- [x] **сначала тест:** проверка `schemas/.../1.json` — `TishinaDatabaseTest.room schema for version 1 is exported and committed to the repository`
+- [x] реализовано — все 17 тестов зелёные
+- [x] `./gradlew :core:data:testDebugUnitTest` — 17/17 passed; `:core:data:detektAll spotlessCheck lintDebug` — 0 warnings; `:app:assembleDebug` — SUCCESSFUL
 
 ### Task 3: Data layer — MeasurementRepositoryImpl + mappers + Hilt module
 
