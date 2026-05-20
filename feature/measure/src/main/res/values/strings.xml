@@ -26,11 +26,7 @@
     <string name="measure_ref_thunder">Thunder, ambulance siren</string>
     <string name="measure_ref_jet">Jet engine, gunshot</string>
 
-    <!-- Stats row -->
-    <string name="measure_stats_min">Min</string>
-    <string name="measure_stats_avg">Avg</string>
-    <string name="measure_stats_max">Max</string>
-    <string name="measure_stats_placeholder">—</string>
+    <!-- Stats row strings live in :core:ui (spl_stats_min/avg/max/placeholder) — shared with Detail screen. -->
 
     <!-- Duration label, formatted mm:ss -->
     <string name="measure_duration_label">Duration: %1$s</string>

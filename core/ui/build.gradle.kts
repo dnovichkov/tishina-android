@@ -15,6 +15,10 @@ android {
 
 dependencies {
     implementation(projects.core.designsystem)
+    // `SplLineChart` consumes `SoundSample` from the domain layer. Domain stays the lowest
+    // shared dependency: features depend on :core:ui which depends on :core:domain, never
+    // feature → feature.
+    implementation(projects.core.domain)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.compose.material.icons.extended)
 
@@ -25,4 +29,7 @@ dependencies {
     testImplementation(libs.roborazzi.compose)
     testImplementation(libs.roborazzi.junit.rule)
     testRuntimeOnly(libs.junit.vintage.engine)
+    // PreviewSheet wraps screenshot tests in the standard TishinaTheme frame — using the
+    // same wrapper across modules keeps baselines pixel-comparable when components migrate.
+    testImplementation(projects.core.testing)
 }

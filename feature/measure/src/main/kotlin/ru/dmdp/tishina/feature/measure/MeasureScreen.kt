@@ -37,13 +37,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.collect
+import ru.dmdp.tishina.core.ui.components.chart.SplLineChart
+import ru.dmdp.tishina.core.ui.components.chart.SplStatsRow
 import ru.dmdp.tishina.feature.measure.ui.MeasureBottomBar
 import ru.dmdp.tishina.feature.measure.ui.MeasureSaveDialog
 import ru.dmdp.tishina.feature.measure.ui.PermissionRationaleDialog
 import ru.dmdp.tishina.feature.measure.ui.SplArcGauge
-import ru.dmdp.tishina.feature.measure.ui.SplLineChart
 import ru.dmdp.tishina.feature.measure.ui.SplReadout
-import ru.dmdp.tishina.feature.measure.ui.SplStatsRow
 
 const val MeasureScreenTestTag: String = "measure_screen"
 const val MeasureScreenDurationTestTag: String = "measure_screen_duration"

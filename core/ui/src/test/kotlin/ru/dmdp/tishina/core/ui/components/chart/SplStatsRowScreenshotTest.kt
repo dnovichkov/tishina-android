@@ -1,4 +1,4 @@
-package ru.dmdp.tishina.feature.measure.ui
+package ru.dmdp.tishina.core.ui.components.chart
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot

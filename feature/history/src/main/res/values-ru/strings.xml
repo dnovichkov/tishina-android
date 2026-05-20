@@ -13,4 +13,26 @@
     <string name="history_card_duration_cd">Длительность %1$s</string>
     <string name="history_card_delete_cd">Удалить</string>
     <string name="history_card_sparkline_cd">Изменение громкости</string>
+
+    <string name="detail_not_found">Замер не найден</string>
+    <string name="detail_note_label">Заметка</string>
+    <string name="detail_note_card_label">Заметка</string>
+    <string name="detail_add_note">Добавить заметку</string>
+    <string name="detail_note_too_long">Заметка длиннее 200 символов</string>
+    <string name="detail_note_save">Сохранить</string>
+    <string name="detail_note_cancel">Отмена</string>
+    <string name="detail_note_counter">%1$d / %2$d</string>
+    <string name="detail_delete_confirm_title">Удалить замер?</string>
+    <string name="detail_delete_confirm_body">Действие нельзя отменить</string>
+    <string name="detail_delete_confirm_action">Удалить</string>
+    <string name="detail_delete_cancel_action">Отмена</string>
+    <string name="detail_meta_weighting">Взвешивание</string>
+    <string name="detail_meta_time_weighting">Тип усреднения</string>
+    <string name="detail_meta_duration">Длительность</string>
+    <string name="detail_meta_offset">Калибровка</string>
+    <string name="detail_meta_offset_value">%1$+.1f дБ</string>
+    <string name="detail_meta_created_at">Дата записи</string>
+    <string name="detail_delete_cd">Удалить замер</string>
+    <string name="detail_back_cd">Назад</string>
+    <string name="detail_note_default_title">Замер</string>
 </resources>

@@ -17,4 +17,27 @@
     <string name="history_card_duration_cd">Duration %1$s</string>
     <string name="history_card_delete_cd">Delete</string>
     <string name="history_card_sparkline_cd">Loudness over time</string>
+
+    <!-- Detail screen (FR-10) — full chart + inline-edit note + delete with confirmation. -->
+    <string name="detail_not_found">Measurement not found</string>
+    <string name="detail_note_label">Note</string>
+    <string name="detail_note_card_label">Note</string>
+    <string name="detail_add_note">Add a note</string>
+    <string name="detail_note_too_long">Note longer than 200 characters</string>
+    <string name="detail_note_save">Save</string>
+    <string name="detail_note_cancel">Cancel</string>
+    <string name="detail_note_counter">%1$d / %2$d</string>
+    <string name="detail_delete_confirm_title">Delete measurement?</string>
+    <string name="detail_delete_confirm_body">This cannot be undone</string>
+    <string name="detail_delete_confirm_action">Delete</string>
+    <string name="detail_delete_cancel_action">Cancel</string>
+    <string name="detail_meta_weighting">Weighting</string>
+    <string name="detail_meta_time_weighting">Time weighting</string>
+    <string name="detail_meta_duration">Duration</string>
+    <string name="detail_meta_offset">Calibration offset</string>
+    <string name="detail_meta_offset_value">%1$+.1f dB</string>
+    <string name="detail_meta_created_at">Recorded</string>
+    <string name="detail_delete_cd">Delete measurement</string>
+    <string name="detail_back_cd">Back</string>
+    <string name="detail_note_default_title">Measurement</string>
 </resources>

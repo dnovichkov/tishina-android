@@ -13,4 +13,9 @@
     <string name="nav_open_about">Открыть «О приложении»</string>
     <string name="nav_open_settings">Открыть настройки</string>
     <string name="nav_back">Назад</string>
+
+    <string name="spl_stats_min">Мин</string>
+    <string name="spl_stats_avg">Сред</string>
+    <string name="spl_stats_max">Макс</string>
+    <string name="spl_stats_placeholder">—</string>
 </resources>

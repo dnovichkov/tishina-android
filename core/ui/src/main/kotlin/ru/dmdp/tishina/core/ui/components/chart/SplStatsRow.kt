@@ -1,4 +1,4 @@
-package ru.dmdp.tishina.feature.measure.ui
+package ru.dmdp.tishina.core.ui.components.chart
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
@@ -19,13 +19,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import ru.dmdp.tishina.feature.measure.R
+import ru.dmdp.tishina.core.ui.R
 import java.util.Locale
 
-const val SplStatsRowTestTag: String = "measure_spl_stats_row"
-const val SplStatsMinTestTag: String = "measure_spl_stats_min"
-const val SplStatsAvgTestTag: String = "measure_spl_stats_avg"
-const val SplStatsMaxTestTag: String = "measure_spl_stats_max"
+const val SplStatsRowTestTag: String = "core_ui_spl_stats_row"
+const val SplStatsMinTestTag: String = "core_ui_spl_stats_min"
+const val SplStatsAvgTestTag: String = "core_ui_spl_stats_avg"
+const val SplStatsMaxTestTag: String = "core_ui_spl_stats_max"
 
 /**
  * Min / Avg / Max strip below the readout. Filled Material 3 cards make each cell visually
@@ -50,19 +50,19 @@ fun SplStatsRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         StatCell(
-            labelRes = R.string.measure_stats_min,
+            labelRes = R.string.spl_stats_min,
             value = min,
             tag = SplStatsMinTestTag,
             modifier = Modifier.weight(1f),
         )
         StatCell(
-            labelRes = R.string.measure_stats_avg,
+            labelRes = R.string.spl_stats_avg,
             value = avg,
             tag = SplStatsAvgTestTag,
             modifier = Modifier.weight(1f),
         )
         StatCell(
-            labelRes = R.string.measure_stats_max,
+            labelRes = R.string.spl_stats_max,
             value = max,
             tag = SplStatsMaxTestTag,
             modifier = Modifier.weight(1f),
@@ -98,7 +98,7 @@ private fun StatCell(
                 text = if (value.isFinite()) {
                     String.format(Locale.ROOT, "%.1f", value)
                 } else {
-                    stringResource(id = R.string.measure_stats_placeholder)
+                    stringResource(id = R.string.spl_stats_placeholder)
                 },
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,

@@ -1,6 +1,10 @@
 plugins {
     alias(libs.plugins.tishina.android.feature)
     alias(libs.plugins.roborazzi)
+    // Detail route declares `@Serializable data class DetailRoute(val measurementId: Long)` so
+    // `SavedStateHandle.toRoute<DetailRoute>()` in DetailViewModel can recover the id without
+    // string keys. The serialization plugin generates the companion serializer at compile time.
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -20,4 +24,12 @@ dependencies {
 
     // `collectAsStateWithLifecycle` ships in lifecycle-runtime-compose (separate from -ktx).
     implementation(libs.androidx.lifecycle.runtime.compose)
+
+    // `androidx.navigation.compose.composable<T>` and `SavedStateHandle.toRoute<T>()` —
+    // pulled here so DetailRoute / DetailViewModel can use type-safe arguments without
+    // requiring the :app module to declare the route.
+    implementation(libs.androidx.navigation.compose)
+
+    // Backing format for `@Serializable` route descriptors.
+    implementation(libs.kotlinx.serialization.json)
 }

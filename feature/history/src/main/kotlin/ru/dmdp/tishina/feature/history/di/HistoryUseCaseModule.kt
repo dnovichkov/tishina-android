@@ -6,7 +6,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import ru.dmdp.tishina.core.domain.repository.MeasurementRepository
 import ru.dmdp.tishina.core.domain.usecase.DeleteMeasurementUseCase
+import ru.dmdp.tishina.core.domain.usecase.GetMeasurementByIdUseCase
 import ru.dmdp.tishina.core.domain.usecase.GetMeasurementsUseCase
+import ru.dmdp.tishina.core.domain.usecase.UpdateMeasurementNoteUseCase
 import javax.inject.Singleton
 
 /**
@@ -33,4 +35,14 @@ internal object HistoryUseCaseModule {
     @Singleton
     fun provideDeleteMeasurementUseCase(repository: MeasurementRepository): DeleteMeasurementUseCase =
         DeleteMeasurementUseCase(repository)
+
+    @Provides
+    @Singleton
+    fun provideGetMeasurementByIdUseCase(repository: MeasurementRepository): GetMeasurementByIdUseCase =
+        GetMeasurementByIdUseCase(repository)
+
+    @Provides
+    @Singleton
+    fun provideUpdateMeasurementNoteUseCase(repository: MeasurementRepository): UpdateMeasurementNoteUseCase =
+        UpdateMeasurementNoteUseCase(repository)
 }

@@ -1,4 +1,4 @@
-package ru.dmdp.tishina.feature.measure.ui
+package ru.dmdp.tishina.core.ui.components.chart
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
@@ -15,10 +15,8 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * Visual regression for [SplLineChart]. Generates 60 synthetic samples oscillating between
- * 40 and 80 dB so the polyline shape is deterministic and conveys "wave-like fluctuation"
- * at a glance — a regression that flattens the curve to a single line would be visually
- * obvious in the diff.
+ * Visual regression for [SplLineChart]. 60 synthetic samples oscillate between 40 and 80 dB —
+ * a flatten regression would be visually obvious in the Roborazzi diff.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)

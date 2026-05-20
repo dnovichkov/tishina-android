@@ -320,70 +320,48 @@ Phase 3 наполняет Phase 1 (foundation) и Phase 2 (audio engine + measu
 
 ### Task 6: DetailViewModel + DetailScreen — полный график + inline-edit заметки
 
-- [ ] **сначала тест:** `DetailViewModelTest`:
-  - инжект id через `SavedStateHandle` (route argument) → loadById вызван
-  - id найден → `DetailUiState(details = ..., loading = false)`
-  - id не найден → `DetailUiState(error = R.string.detail_not_found, loading = false)` + один effect `NavigateBack` через 2 секунды (или сразу — выберем "сразу", тест проверяет одну эмиссию `NavigateBack`)
-  - `onEvent(StartEditingNote)` → `editingNote = true`
-  - `onEvent(NoteChanged("new note"))` → `noteDraft = "new note"`
-  - `onEvent(SaveNote)` с note ≤ 200 → `updateMeasurementNote` вызван, `editingNote = false`, состояние обновлено локально (для optimistic UI)
-  - `onEvent(SaveNote)` с note > 200 → effect `ShowSnackbar(R.string.detail_note_too_long)`, не вызывает useCase
-  - `onEvent(CancelEditingNote)` → `editingNote = false`, `noteDraft = details.note`
-  - `onEvent(DeleteRequested)` + confirm-диалог → `deleteMeasurement(id)` вызван → effect `NavigateBack`
-- [ ] **сначала тест:** `DetailScreenScreenshotTest` — 6 baseline:
-  - readonly mode (заметка-текст), light + dark
-  - edit-mode (TextField активен с counter), light + dark
-  - пустая заметка (placeholder "Добавить заметку"), light + dark
-- [ ] **сначала тест:** `DetailScreenComposeUiTest`:
-  - клик по карточке заметки в readonly → переход в edit-mode (TextField появляется)
-  - ввод 201 символа → counter "201/200" красный, кнопка `Save` disabled
-  - клик "Сохранить" с валидным значением → `viewModel.onEvent(SaveNote)` вызван
-  - клик иконки удаления → AlertDialog подтверждения; "Удалить" → `viewModel.onEvent(DeleteRequested)`; "Отмена" → диалог закрывается без действия
-- [ ] создать `feature/history/.../detail/DetailUiState.kt`:
-  - `data class DetailUiState(val details: MeasurementDetails? = null, val loading: Boolean = true, val editingNote: Boolean = false, val noteDraft: String = "", val error: Int? = null, val deleteConfirmVisible: Boolean = false)`
-- [ ] создать `DetailUiEvent.kt`:
-  - `sealed interface DetailUiEvent`
-  - `data object StartEditingNote : DetailUiEvent`
-  - `data class NoteChanged(val value: String) : DetailUiEvent`
-  - `data object SaveNote : DetailUiEvent`
-  - `data object CancelEditingNote : DetailUiEvent`
-  - `data object DeleteRequested : DetailUiEvent`
-  - `data object DeleteConfirmed : DetailUiEvent`
-  - `data object DeleteCancelled : DetailUiEvent`
-- [ ] создать `DetailUiEffect.kt`:
-  - `sealed interface DetailUiEffect`
-  - `data class ShowSnackbar(@StringRes val messageRes: Int) : DetailUiEffect`
-  - `data object NavigateBack : DetailUiEffect`
-- [ ] создать `feature/history/.../detail/DetailViewModel.kt`:
-  - `@HiltViewModel class DetailViewModel @Inject constructor(savedStateHandle: SavedStateHandle, private val getMeasurementById: GetMeasurementByIdUseCase, private val updateNote: UpdateMeasurementNoteUseCase, private val deleteMeasurement: DeleteMeasurementUseCase)`
-  - id извлекается из `savedStateHandle.toRoute<DetailRoute>().measurementId` (type-safe navigation)
-  - в init: `viewModelScope.launch { val details = getMeasurementById(id); if (details == null) { _effects.send(ShowSnackbar(R.string.detail_not_found)); _effects.send(NavigateBack) } else { _state.update { it.copy(details = details, noteDraft = details.summary.note.orEmpty(), loading = false) } } }`
-- [ ] создать `feature/history/.../detail/DetailScreen.kt`:
-  - `TopAppBar` с navigation-icon back, title = `details.summary.title ?: stringResource(R.string.history_card_no_title)`, action — IconButton Delete
-  - body: полный `SplLineChart` (переиспользуем из `:feature:measure/ui/`) — нужно либо переместить в `:core:ui` либо дублировать; **решение:** переместить `SplLineChart`, `SplStatsRow`, `SplReadout` (если нужно), `levelToSplColor` уже в `:core:designsystem` → нет конфликта; перемещаем `SplLineChart` + `SplStatsRow` в `:core:ui` для переиспользования (это **➕ внеплановая подзадача**)
-  - `SplStatsRow(min = details.minDb, avg = details.avgDb, max = details.maxDb)`
-  - Card "Метаданные": дата создания (formatted), длительность (mm:ss), weighting ("A" / "Z"), time-weighting ("Fast" / "Slow"), calibration offset
-  - Card "Заметка" с inline-edit: при `editingNote=false` — `Text(noteDraft.takeIf { it.isNotBlank() } ?: stringResource(R.string.detail_add_note))` с кликом → `StartEditingNote`; при `editingNote=true` — `OutlinedTextField` + кнопки "Сохранить"/"Отмена" + counter `${draft.length}/200`
-  - AlertDialog подтверждения удаления при `deleteConfirmVisible=true`
-- [ ] добавить локализационные строки:
-  - `detail_not_found` ("Замер не найден" / "Measurement not found")
-  - `detail_note_label` ("Заметка" / "Note")
-  - `detail_add_note` ("Добавить заметку" / "Add note")
-  - `detail_note_too_long` ("Заметка длиннее 200 символов" / "Note longer than 200 characters")
-  - `detail_delete_confirm_title` ("Удалить замер?" / "Delete measurement?")
-  - `detail_delete_confirm_body` ("Действие нельзя отменить" / "This cannot be undone")
-  - `detail_delete_confirm_action` ("Удалить" / "Delete")
-  - `detail_delete_cancel_action` ("Отмена" / "Cancel")
-  - `detail_meta_weighting` ("Взвешивание" / "Weighting")
-  - `detail_meta_duration` ("Длительность" / "Duration")
-  - `detail_meta_offset` ("Калибровка" / "Calibration offset")
-- [ ] **➕ внеплановое:** переместить `feature/measure/.../ui/SplLineChart.kt`, `SplStatsRow.kt` в `:core:ui/components/` (или создать новый пакет `:core:ui/.../chart/`) для переиспользования между `:feature:measure` и `:feature:history.detail`. Это требует:
-  - обновить импорты в `MeasureScreen.kt`
-  - проверить что screenshot baselines не сломались
-  - убедиться что `:feature:measure` всё ещё подключает `:core:ui` (он подключён транзитивно через `tishina.android.feature`)
-- [ ] добавить в `HistoryUseCaseModule` `@Provides` для `GetMeasurementByIdUseCase`, `UpdateMeasurementNoteUseCase` (DeleteMeasurementUseCase уже добавлен в Task 5)
-- [ ] реализовать composables, ViewModel — чтобы тесты позеленели
-- [ ] run `./gradlew :feature:history:testDebugUnitTest :feature:measure:testDebugUnitTest verifyRoborazziDebug` — must pass before next task
+- [x] **сначала тест:** `DetailViewModelTest` (12 кейсов, `@RunWith(RobolectricTestRunner)` потому что `SavedStateHandle.toRoute<DetailRoute>()` дёргает `bundleOf(...)` → `BaseBundle.putLong`, который под голым JVM-stub бросает "not mocked"):
+  - id восстанавливается из `SavedStateHandle` через type-safe `DetailRoute` (contract test);
+  - id найден → `DetailUiState(details=…, loading=false, noteDraft=summary.note.orEmpty())`;
+  - id не найден → `effects = ShowSnackbar(detail_not_found) → NavigateBack` (две эмиссии подряд, без задержки);
+  - `StartEditingNote` → `editingNote=true`, draft seed-нится из persisted note;
+  - `NoteChanged("typed")` → обновляет только draft; репозиторий не трогаем;
+  - `SaveNote` ≤ 200 → repository.updateNote вызван, `editingNote=false`, локальный optimistic-update `details.summary.note`;
+  - `SaveNote` с пустой строкой → persisted note=null (`takeIf { isNotEmpty() }`);
+  - `SaveNote` > 200 → effect `ShowSnackbar(detail_note_too_long)`, useCase НЕ вызван, остаёмся в edit-mode;
+  - `CancelEditingNote` → editing=false, draft возвращается к persisted значению;
+  - `DeleteRequested` → `deleteConfirmVisible=true`, repository не трогаем;
+  - `DeleteConfirmed` → repository.delete + effect `NavigateBack`;
+  - `DeleteCancelled` → закрывает диалог без удаления
+- [x] **сначала тест:** `DetailScreenScreenshotTest` — 6 baseline (readonly/edit/empty_note × light/dark) с фиксированным `STABLE_CREATED_AT = 2024-10-02 UTC` для воспроизводимого `SimpleDateFormat`; синтетические 60 семплов синусоиды для графика
+- [x] **➕ изменено:** `DetailScreenComposeUiTest` не пишем в Phase 3 — Material 3 `AlertDialog` + `OutlinedTextField` в Robolectric страдает от той же `AppNotIdleException`, что и `MeasureSaveDialogValidationTest` (focus animations не settling). Compose UI Test покрытие для AlertDialog + TextField counter — Phase Release с instrumentation на эмуляторе. Все callback-сценарии и валидация уже покрыты `DetailViewModelTest` (12 кейсов)
+- [x] создан `feature/history/.../detail/DetailUiState.kt` — `data class` с `details`, `loading`, `editingNote`, `noteDraft`, `error: @StringRes`, `deleteConfirmVisible`
+- [x] создан `feature/history/.../detail/DetailUiEvent.kt` — `sealed interface` с 7 событиями (StartEditingNote/NoteChanged/SaveNote/CancelEditingNote/DeleteRequested/DeleteConfirmed/DeleteCancelled)
+- [x] создан `feature/history/.../detail/DetailUiEffect.kt` — `ShowSnackbar(@StringRes messageRes)` + `NavigateBack`
+- [x] создан `feature/history/.../detail/DetailRoute.kt` — `@Serializable data class DetailRoute(val measurementId: Long)` (живёт в `:feature:history`, а не в `:app/navigation`, потому что VM и Screen — здесь; в Task 7 NavHost импортирует этот тип)
+- [x] создан `feature/history/.../detail/DetailViewModel.kt`:
+  - `@HiltViewModel`, инжект `SavedStateHandle`, `GetMeasurementByIdUseCase`, `UpdateMeasurementNoteUseCase`, `DeleteMeasurementUseCase`;
+  - `measurementId = savedStateHandle.toRoute<DetailRoute>().measurementId`;
+  - `init { … }` загружает MeasurementDetails; null → ShowSnackbar + NavigateBack (две эмиссии через `Channel.send`);
+  - `onEvent` exhaustively обрабатывает все 7 событий; `saveNote()` нормализует draft (empty → null) и применяет `UpdateMeasurementNoteUseCase`; на success — optimistic update `details.summary.note`
+- [x] создан `feature/history/.../detail/DetailScreen.kt`:
+  - публичный `DetailScreen(onNavigateBack, modifier, viewModel = hiltViewModel())` + internal `DetailScreenContent(state, onEvent, onNavigateBack, snackbarHostState, modifier)` для unit-тестов;
+  - `CenterAlignedTopAppBar` с back-icon (`Icons.AutoMirrored.Filled.ArrowBack`) + actions delete-icon (`Icons.Outlined.Delete`);
+  - body: `SplLineChart(samples = details.samples, height = 160.dp)` + `SplStatsRow(min/avg/max)` + `MetadataCard` (createdAt formatted, duration mm:ss, weighting, time-weighting, calibration offset) + `NoteCard` с edit/readonly режимами;
+  - `NoteEditor`: `OutlinedTextField` (minLines=2/maxLines=6) + counter `${draft.length}/200` (error-цвет при overflow); кнопка Save заблокирована при overflow;
+  - `NoteReadOnly`: показывает заметку или placeholder `R.string.detail_add_note`; справа кнопка "Заметка" → `StartEditingNote`;
+  - `DeleteConfirmDialog` (Material 3 `AlertDialog`) при `deleteConfirmVisible == true`;
+  - тест-теги: `DetailScreenTestTag`, `DetailNoteCardTestTag`, `DetailNoteFieldTestTag`, `DetailNoteSaveTestTag`, `DetailNoteCancelTestTag`, `DetailDeleteIconTestTag`, `DetailDeleteDialogTestTag`, `DetailBackIconTestTag`
+- [x] добавлены 19 локализационных строк × 2 локали (`values/` + `values-ru/`): `detail_not_found`, `detail_note_label`, `detail_note_card_label`, `detail_add_note`, `detail_note_too_long`, `detail_note_save`, `detail_note_cancel`, `detail_note_counter`, `detail_delete_confirm_*` (×4), `detail_meta_*` (×5), `detail_delete_cd`, `detail_back_cd`, `detail_note_default_title`
+- [x] **➕ внеплановое:** перемещены `SplLineChart.kt` + `SplStatsRow.kt` из `:feature:measure/ui/` в `:core:ui/components/chart/`:
+  - `core/ui/build.gradle.kts` — добавлен `implementation(projects.core.domain)` (для `SoundSample`) и `testImplementation(projects.core.testing)` (для `PreviewSheet` чтобы сохранить совместимость baselines);
+  - `core/ui/.../strings.xml` (+`values-ru/`) — перенесены `spl_stats_min/avg/max/placeholder` (ранее `measure_stats_*` в `:feature:measure`);
+  - testTag-константы переименованы: `measure_spl_line_chart` → `core_ui_spl_line_chart`, `measure_spl_stats_*` → `core_ui_spl_stats_*`;
+  - `MeasureScreen.kt` импорты обновлены на `ru.dmdp.tishina.core.ui.components.chart.*`;
+  - screenshot baselines перенесены в `core/ui/src/test/snapshots/`; тесты `SplLineChartScreenshotTest` + `SplStatsRowScreenshotTest` пересозданы в `:core:ui` с тем же содержимым (PreviewSheet wrapper для пиксельной совместимости)
+- [x] в `HistoryUseCaseModule` добавлены `@Provides` для `GetMeasurementByIdUseCase` и `UpdateMeasurementNoteUseCase` (DeleteMeasurementUseCase уже был добавлен в Task 5)
+- [x] реализованы composables, ViewModel — все 12 unit-тестов VM зелёные + 6 screenshot baseline записаны через `recordRoborazziDebug` + `verifyRoborazziDebug` зелёный
+- [x] `./gradlew :feature:history:testDebugUnitTest :feature:history:verifyRoborazziDebug :feature:measure:testDebugUnitTest :feature:measure:verifyRoborazziDebug :core:ui:verifyRoborazziDebug :app:assembleDebug` — все SUCCESS; lint+detekt чистые; spotless применён (через `:feature:history:spotlessApply --no-configuration-cache`)
 
 ### Task 7: Navigation wiring + cold start guard
 

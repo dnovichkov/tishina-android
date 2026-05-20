@@ -26,12 +26,6 @@
     <string name="measure_ref_thunder">Гром, сирена скорой помощи</string>
     <string name="measure_ref_jet">Реактивный самолёт, выстрел</string>
 
-    <!-- Stats row -->
-    <string name="measure_stats_min">Мин</string>
-    <string name="measure_stats_avg">Сред</string>
-    <string name="measure_stats_max">Макс</string>
-    <string name="measure_stats_placeholder">—</string>
-
     <string name="measure_duration_label">Длительность: %1$s</string>
 
     <string name="measure_action_start">Старт</string>

@@ -1,4 +1,4 @@
-package ru.dmdp.tishina.feature.measure.ui
+package ru.dmdp.tishina.core.ui.components.chart
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,9 +19,9 @@ import ru.dmdp.tishina.core.designsystem.theme.LocalSplLevelPalette
 import ru.dmdp.tishina.core.designsystem.theme.levelToSplColor
 import ru.dmdp.tishina.core.domain.model.SoundSample
 
-const val SplLineChartTestTag: String = "measure_spl_line_chart"
+const val SplLineChartTestTag: String = "core_ui_spl_line_chart"
 
-/** Y-axis bounds in dB. Matches [SplArcGauge] for visual coherence between the two widgets. */
+/** Y-axis bounds in dB. Matches `SplArcGauge` for visual coherence between widgets. */
 private const val CHART_MIN_DB = 30f
 private const val CHART_MAX_DB = 110f
 
@@ -29,15 +29,11 @@ private const val CHART_MAX_DB = 110f
 private const val CHART_WINDOW_MS = 60_000L
 
 /**
- * Polyline of recent dB samples over the last [CHART_WINDOW_MS] milliseconds.
+ * Polyline of dB samples over a rolling [CHART_WINDOW_MS] window.
  *
- * No axes/labels in Phase 2 — keeps the widget visually quiet during active measurement
- * (the readout + gauge already communicate the absolute value). The polyline color is driven
- * by the *latest* sample so the chart conveys "is the level safe right now?" at a glance —
- * not "what was the level when we plotted this point?" which would require per-segment
- * coloring and an extra pass.
- *
- * Empty / single-sample inputs draw nothing rather than a degenerate line.
+ * Shared between live measurement (Measure screen) and historical playback (Detail screen).
+ * Empty / single-sample inputs draw nothing rather than a degenerate line. Color is driven
+ * by the *latest* sample so the chart conveys "is the current level safe?" at a glance.
  */
 @Composable
 fun SplLineChart(
@@ -80,8 +76,6 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPolyline(
     color: Color,
 ) {
     val latestTs = samples.last().timestampMs
-    // Use the actual data window when the buffer holds <60s of samples — otherwise an early
-    // chart would render all points squashed into the right edge.
     val earliestTs = samples.first().timestampMs
     val windowMs = maxOf(CHART_WINDOW_MS, latestTs - earliestTs)
     val range = CHART_MAX_DB - CHART_MIN_DB
@@ -93,7 +87,6 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPolyline(
         val x = xRatio * size.width
         val clampedDb = sample.db.coerceIn(CHART_MIN_DB, CHART_MAX_DB)
         val yRatio = (clampedDb - CHART_MIN_DB) / range
-        // Y is inverted: high dB → top of canvas.
         val y = size.height - yRatio * size.height
         if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
     }
