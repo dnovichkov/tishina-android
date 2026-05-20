@@ -159,39 +159,39 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
 
 ### Task 1: Domain — AppearanceSettings + расширение SettingsRepository + новые use-cases
 
-- [ ] **сначала тест:** `AppearanceSettingsTest`, `ThemeModeTest`, `AppLocaleTest` — конструкторы immutable классов, equality, copy, проверка enum-значений (System/Light/Dark для ThemeMode; System/Russian/English для AppLocale); дефолтные значения (System theme, dynamicColors=true, System locale)
-- [ ] **сначала тест:** `UpdateCalibrationUseCaseTest` (JUnit 5 + mockk<SettingsRepository>): счастливый путь `invoke(+3.5f)` → `repository.updateCalibrationOffset(+3.5f)`; out-of-range (`-20.1f`, `+20.1f`) → `Result.failure(IllegalArgumentException)`; граничные значения `-20.0f`, `+20.0f`, `0.0f` — допустимы; precision: `3.55f` округляется до `3.5f` (шаг 0.1) — `Result.success` с округлённым значением
-- [ ] **сначала тест:** `ResetCalibrationUseCaseTest` — `invoke()` вызывает `repository.updateCalibrationOffset(0f)`; success path; идемпотентность (повторный reset тоже успешен)
-- [ ] **сначала тест:** `UpdateTimeWeightingUseCaseTest` — `invoke(SLOW)` → `repository.updateTimeWeighting(SLOW)`; invoke(FAST) тоже работает
-- [ ] **сначала тест:** `UpdateThemeModeUseCaseTest`, `UpdateDynamicColorsUseCaseTest`, `UpdateAppLocaleUseCase` — каждый вызывает соответствующий repository-метод
-- [ ] **сначала тест:** `ObserveAppSettingsUseCaseTest` — combine `config` + `appearance` → `AppSettingsSnapshot(config, appearance)`; эмиссия при изменении любого из двух flows
-- [ ] создать `core/domain/src/main/kotlin/ru/dmdp/tishina/core/domain/model/AppearanceSettings.kt`:
+- [x] **сначала тест:** `AppearanceSettingsTest`, `ThemeModeTest`, `AppLocaleTest` — конструкторы immutable классов, equality, copy, проверка enum-значений (System/Light/Dark для ThemeMode; System/Russian/English для AppLocale); дефолтные значения (System theme, dynamicColors=true, System locale)
+- [x] **сначала тест:** `UpdateCalibrationUseCaseTest` (JUnit 5 + mockk<SettingsRepository>): счастливый путь `invoke(+3.5f)` → `repository.updateCalibrationOffset(+3.5f)`; out-of-range (`-20.1f`, `+20.1f`) → `Result.failure(IllegalArgumentException)`; граничные значения `-20.0f`, `+20.0f`, `0.0f` — допустимы; precision: `3.55f` округляется до `3.5f` (шаг 0.1) — `Result.success` с округлённым значением
+- [x] **сначала тест:** `ResetCalibrationUseCaseTest` — `invoke()` вызывает `repository.updateCalibrationOffset(0f)`; success path; идемпотентность (повторный reset тоже успешен)
+- [x] **сначала тест:** `UpdateTimeWeightingUseCaseTest` — `invoke(SLOW)` → `repository.updateTimeWeighting(SLOW)`; invoke(FAST) тоже работает
+- [x] **сначала тест:** `UpdateThemeModeUseCaseTest`, `UpdateDynamicColorsUseCaseTest`, `UpdateAppLocaleUseCase` — каждый вызывает соответствующий repository-метод
+- [x] **сначала тест:** `ObserveAppSettingsUseCaseTest` — combine `config` + `appearance` → `AppSettingsSnapshot(config, appearance)`; эмиссия при изменении любого из двух flows
+- [x] создать `core/domain/src/main/kotlin/ru/dmdp/tishina/core/domain/model/AppearanceSettings.kt`:
   - `enum class ThemeMode { System, Light, Dark }`
   - `enum class AppLocale(val tag: String) { System(""), Russian("ru"), English("en") }` (пустой tag для System означает "follow OS")
   - `data class AppearanceSettings(val themeMode: ThemeMode = ThemeMode.System, val dynamicColors: Boolean = true, val locale: AppLocale = AppLocale.System)`
   - `data class AppSettingsSnapshot(val config: MeasurementConfig, val appearance: AppearanceSettings)` — комбинированный snapshot для подписок
   - companion object: `const val CALIBRATION_MIN_DB = -20.0f`, `const val CALIBRATION_MAX_DB = 20.0f`, `const val CALIBRATION_STEP_DB = 0.1f`
-- [ ] обновить `core/domain/.../repository/SettingsRepository.kt`:
+- [x] обновить `core/domain/.../repository/SettingsRepository.kt`:
   - оставить `val config: Flow<MeasurementConfig>` (используется уже Phase 2/3 stub'ом)
   - добавить `val appearance: Flow<AppearanceSettings>`
   - оставить `suspend fun updateCalibrationOffset(db: Float)`, `suspend fun updateFrequencyWeighting(weighting: FrequencyWeighting)` (Phase 4 не вызывает, но интерфейс готов к v1.1), `suspend fun updateTimeWeighting(weighting: TimeWeighting)`
   - добавить `suspend fun updateThemeMode(mode: ThemeMode)`, `suspend fun updateDynamicColors(enabled: Boolean)`, `suspend fun updateAppLocale(locale: AppLocale)`
   - добавить `suspend fun resetCalibration()` (равно `updateCalibrationOffset(0f)`, но имеет смысл иметь отдельный метод для тестирования reset-кнопки)
-- [ ] обновить `core/domain/.../repository/DefaultSettingsRepository.kt`:
+- [x] обновить `core/domain/.../repository/DefaultSettingsRepository.kt`:
   - добавить `override val appearance: Flow<AppearanceSettings> = flowOf(AppearanceSettings())`
   - добавить no-op реализации новых suspend-методов
   - этот stub остаётся доступным для модулей которые не хотят тянуть `:core:data` (например, screenshot-тестам `:core:designsystem`)
-- [ ] создать use-cases в `core/domain/.../usecase/`:
+- [x] создать use-cases в `core/domain/.../usecase/`:
   - `UpdateCalibrationUseCase.kt` — `operator fun invoke(db: Float): Result<Float>` — валидация диапазона, округление до шага 0.1, проксирование
   - `ResetCalibrationUseCase.kt` — `suspend operator fun invoke() = repository.resetCalibration()`
   - `UpdateTimeWeightingUseCase.kt`, `UpdateThemeModeUseCase.kt`, `UpdateDynamicColorsUseCase.kt`, `UpdateAppLocaleUseCase.kt` — простые пробросы
   - `ObserveAppSettingsUseCase.kt` — `operator fun invoke(): Flow<AppSettingsSnapshot> = combine(repository.config, repository.appearance) { c, a -> AppSettingsSnapshot(c, a) }`
-- [ ] обновить `core/testing/src/main/kotlin/ru/dmdp/tishina/core/testing/fakes/FakeSettingsRepository.kt`:
+- [x] обновить `core/testing/src/main/kotlin/ru/dmdp/tishina/core/testing/fakes/FakeSettingsRepository.kt`:
   - in-memory `MutableStateFlow<MeasurementConfig>` + `MutableStateFlow<AppearanceSettings>`
   - все setter-методы обновляют соответствующий StateFlow
   - `seed(config: MeasurementConfig? = null, appearance: AppearanceSettings? = null)` для предзаполнения тестов
-- [ ] реализовать модели, расширенный интерфейс, обновлённый stub, use-cases, fake — чтобы все тесты позеленели
-- [ ] run `./gradlew :core:domain:test :core:testing:testDebugUnitTest` — must pass before next task
+- [x] реализовать модели, расширенный интерфейс, обновлённый stub, use-cases, fake — чтобы все тесты позеленели
+- [x] run `./gradlew :core:domain:test :core:testing:testDebugUnitTest` — must pass before next task
 
 ### Task 2: Data — SettingsRepositoryImpl на DataStore Preferences + DI
 
