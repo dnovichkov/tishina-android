@@ -206,44 +206,44 @@ Phase 3 наполняет Phase 1 (foundation) и Phase 2 (audio engine + measu
 
 ### Task 3: Data layer — MeasurementRepositoryImpl + mappers + Hilt module
 
-- [ ] **сначала тест:** `MeasurementMapperTest` — round-trip Entity↔Domain:
+- [x] **сначала тест:** `MeasurementMapperTest` — round-trip Entity↔Domain:
   - `MeasurementEntity.toSummary(sparkline)` корректно копирует все поля
   - `MeasurementEntity.toDetails(samples)` строит `MeasurementDetails`
   - `NewMeasurement.toEntity()` отбрасывает `samples` (они идут отдельной таблицей) и корректно сериализует enum'ы в строки ("A"/"Z", "FAST"/"SLOW")
   - `SoundSample.toEntity(measurementId)` устанавливает FK
   - `SampleEntity.toDomain()` восстанавливает SoundSample
   - граничный случай: `title = null` остаётся null
-- [ ] **сначала тест:** `MeasurementRepositoryImplTest` (Robolectric + in-memory Room + реальный mapper):
+- [x] **сначала тест:** `MeasurementRepositoryImplTest` (Robolectric + in-memory Room + реальный mapper):
   - `save → getById` round-trip: данные идентичны (modulo автогенерация id и conversion enum'ов)
   - `observeSummaries` Turbine: подписка → save → новая эмиссия с новым summary
   - `delete` удаляет measurement и его samples через CASCADE (проверка через прямой DAO-запрос на samples count)
   - `updateNote(null)` устанавливает note=null; getById возвращает null note
   - `getById(99999)` → null
   - параллельные save через `Dispatchers.IO` не интерферируют (n=5 параллельных save → все сохранены с разными id)
-- [ ] **сначала тест:** `MeasurementRepositoryImplSparklineTest` — `observeSummaries` дёргает `loadSparklinePreview` для каждого summary; sparkline содержит ≤ 20 точек; если в БД меньше 20 samples — возвращает все (без padding)
-- [ ] создать `core/data/.../mapper/MeasurementMapper.kt`:
+- [x] **сначала тест:** `MeasurementRepositoryImplSparklineTest` — `observeSummaries` дёргает `loadSparklinePreview` для каждого summary; sparkline содержит ≤ 20 точек; если в БД меньше 20 samples — возвращает все (без padding)
+- [x] создан `core/data/.../mapper/MeasurementMapper.kt`:
   - extension `MeasurementEntity.toSummary(sparkline: List<Float>): MeasurementSummary`
-  - extension `MeasurementEntity.toDetails(samples: List<SoundSample>): MeasurementDetails`
-  - extension `NewMeasurement.toEntity(): MeasurementEntity` (приватный, для repository)
+  - extension `MeasurementEntity.toDetails(samples: List<SoundSample>, sparkline: List<Float>): MeasurementDetails` (сигнатура расширена sparkline-параметром, чтобы repository мог переиспользовать ту же sparkline-выборку для Detail-экрана без двойного запроса)
+  - extension `NewMeasurement.toEntity(): MeasurementEntity` (internal, для repository)
   - extension `SoundSample.toEntity(measurementId: Long): SampleEntity`
   - extension `SampleEntity.toDomain(): SoundSample`
-  - вспомогательные `String.toFrequencyWeighting()` / `FrequencyWeighting.toDbString()` и т. п.
-- [ ] создать `core/data/.../repository/MeasurementRepositoryImpl.kt`:
-  - `class MeasurementRepositoryImpl @Inject constructor(private val dao: MeasurementDao, @IoDispatcher private val ioDispatcher: CoroutineDispatcher) : MeasurementRepository`
-  - `observeSummaries()` — `dao.observeSummaries().map { rows -> rows.map { row -> row.toSummary(dao.loadSparklinePreview(row.id)) } }` (flow + suspend внутри — через `combine` или `flatMapLatest`); решение: на каждый emit получаем sparklines одной пачкой через `dao.loadSparklinePreviewBatch(ids)` если хотим оптимизации, или индивидуально через `coroutineScope { rows.map { async { row.toSummary(dao.loadSparklinePreview(row.id)) } }.awaitAll() }` — выбираем второй (проще, асинхронно параллельно, нагрузка приемлемая для MVP объёмов до 1000 замеров)
-  - `getById(id)` — `dao.getDetailsById(id)?.let { it.measurement.toDetails(it.samples.map(SampleEntity::toDomain)) }`
-  - `save(measurement)` — `dao.insertWithSamples(measurement.toEntity(), measurement.samples.map { it.toEntity(measurementId = 0) })` (DAO внутри подставляет реальный id после insert measurement; alternative — две `@Insert` метода и ручная транзакция)
-  - `delete(id)` — `dao.delete(id)`
-  - `updateNote(id, note)` — валидация на use-case-уровне, тут только проксирование
-  - всё под `withContext(ioDispatcher)`
-- [ ] создать `core/data/.../di/DataModule.kt`:
-  - `@Module @InstallIn(SingletonComponent::class) abstract class DataModule`
+  - private helpers `String.toFrequencyWeighting()` / `String.toTimeWeighting()` с defensive fallback на A/FAST для неизвестных значений (защита от ручного редактирования БД и downgrade-сценариев Phase 4+)
+- [x] создан `core/data/.../repository/MeasurementRepositoryImpl.kt`:
+  - `@Singleton class MeasurementRepositoryImpl @Inject constructor(private val dao: MeasurementDao, @IoDispatcher private val ioDispatcher: CoroutineDispatcher) : MeasurementRepository`
+  - `observeSummaries()` — `dao.observeSummaries().map { rows -> coroutineScope { rows.map { async { row.toSummary(dao.loadSparklinePreview(row.id)) } }.awaitAll() } }.flowOn(ioDispatcher)` (выбран параллельный async per-row)
+  - `getById(id)` — `dao.getDetailsById(id)?.measurement.toDetails(samples=..., sparkline=dao.loadSparklinePreview(id))`
+  - `save(measurement)` — `dao.insertWithSamples(measurement.toEntity(), measurement.samples.map { it.toEntity(0L) })` под `withContext(ioDispatcher)`
+  - `delete(id)` / `updateNote(id, note)` — проксирование под `withContext(ioDispatcher)`
+- [x] создан `core/data/.../di/CoroutineDispatchers.kt` — qualifier `@IoDispatcher` для `:core:data` (отдельный от `:core:audio` IoDispatcher, чтобы не тянуть транзитивную зависимость на audio)
+- [x] создан `core/data/.../di/DataModule.kt`:
+  - `interface DataModule` (паттерн как в `AudioModule`)
   - `@Binds @Singleton fun bindMeasurementRepository(impl: MeasurementRepositoryImpl): MeasurementRepository`
-  - в `companion object`: `@Provides @Singleton fun provideTishinaDatabase(@ApplicationContext context: Context): TishinaDatabase = Room.databaseBuilder(context, TishinaDatabase::class.java, "tishina.db").build()` — без `.allowMainThreadQueries()`, без `.fallbackToDestructiveMigration()` (миграции обязательны)
-  - `@Provides @Singleton fun provideMeasurementDao(db: TishinaDatabase): MeasurementDao = db.measurementDao()`
-- [ ] обновить `:app/build.gradle.kts` — добавить `implementation(projects.core.data)` (если ещё не подключён транзитивно)
-- [ ] реализовать mapper, repository, DI — чтобы тесты позеленели
-- [ ] run `./gradlew :core:data:testDebugUnitTest :app:assembleDebug` — must pass before next task; `:app:assembleDebug` доказывает что Hilt-граф валиден
+  - companion `@Provides @Singleton fun provideTishinaDatabase(@ApplicationContext context: Context): TishinaDatabase` через `Room.databaseBuilder(...).addCallback(LENGTH_GUARD_CALLBACK).build()` — без `.allowMainThreadQueries()`, без `.fallbackToDestructiveMigration()`
+  - `@Provides fun provideMeasurementDao(db: TishinaDatabase): MeasurementDao = db.measurementDao()`
+  - `@Provides @IoDispatcher fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO` (с `@Suppress("InjectDispatcher")` как в AudioModule)
+- [x] `:app/build.gradle.kts` уже подключал `implementation(projects.core.data)` после Task 2 — изменения не требуются
+- [x] реализован mapper, repository, DI — все тесты позеленели
+- [x] `./gradlew :core:data:testDebugUnitTest :core:data:detektAll :core:data:lintDebug :app:assembleDebug` — SUCCESSFUL; `:core:data:spotlessCheck` (с `--no-configuration-cache` из-за известного бага spotless + config cache) — SUCCESSFUL; Hilt-граф валиден (assembleDebug собирает APK без ошибок MissingBinding)
 
 ### Task 4: Measure → Save flow (RAM 5Hz buffer + SaveDialog + ViewModel wiring)
 
