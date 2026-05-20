@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import app.cash.turbine.test
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -34,7 +35,7 @@ class AudioRepositoryImplTest {
     @Test
     fun `1 kHz at 90 dB with A-weighting emits ~90 dB`() = runTest {
         val source = FakePcmAudioSource()
-        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true))
+        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true), Dispatchers.Unconfined)
 
         repo.samples(MeasurementConfig(FrequencyWeighting.A, TimeWeighting.FAST)).test {
             source.emitTone(frequencyHz = 1_000f, amplitudeDb = 90f, durationMs = 800)
@@ -48,7 +49,7 @@ class AudioRepositoryImplTest {
     fun `1 kHz at 90 dB with Z-weighting also emits ~90 dB`() = runTest {
         // 1 kHz is the A-weighting reference, so A and Z must agree there.
         val source = FakePcmAudioSource()
-        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true))
+        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true), Dispatchers.Unconfined)
 
         repo.samples(MeasurementConfig(FrequencyWeighting.Z, TimeWeighting.FAST)).test {
             source.emitTone(frequencyHz = 1_000f, amplitudeDb = 90f, durationMs = 800)
@@ -61,7 +62,7 @@ class AudioRepositoryImplTest {
     @Test
     fun `100 Hz A-weighting is ~19 dB below Z-weighting`() = runTest {
         val source = FakePcmAudioSource()
-        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true))
+        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true), Dispatchers.Unconfined)
 
         val aDb = repo.samples(MeasurementConfig(FrequencyWeighting.A, TimeWeighting.FAST))
             .also { source.emitTone(100f, 90f, 800) }
@@ -77,7 +78,7 @@ class AudioRepositoryImplTest {
     @Test
     fun `calibration offset shifts the dB value`() = runTest {
         val source = FakePcmAudioSource()
-        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true))
+        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true), Dispatchers.Unconfined)
 
         repo.samples(MeasurementConfig(FrequencyWeighting.A, TimeWeighting.FAST, calibrationOffsetDb = 5f)).test {
             source.emitTone(frequencyHz = 1_000f, amplitudeDb = 90f, durationMs = 800)
@@ -91,7 +92,7 @@ class AudioRepositoryImplTest {
     @Test
     fun `timestamp is monotonic non-decreasing`() = runTest {
         val source = FakePcmAudioSource()
-        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true))
+        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true), Dispatchers.Unconfined)
 
         repo.samples(MeasurementConfig()).test {
             source.emitTone(1_000f, 90f, 500)
@@ -109,7 +110,7 @@ class AudioRepositoryImplTest {
     @Test
     fun `first sample timestamp starts at zero`() = runTest {
         val source = FakePcmAudioSource()
-        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true))
+        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true), Dispatchers.Unconfined)
 
         repo.samples(MeasurementConfig()).test {
             source.emitTone(1_000f, 90f, 200)
@@ -125,6 +126,7 @@ class AudioRepositoryImplTest {
             FakePcmAudioSource(),
             AudioProcessorFactory(),
             microphoneContext(present = true),
+            Dispatchers.Unconfined,
         )
         assertTrue(repo.isAvailable())
     }
@@ -135,6 +137,7 @@ class AudioRepositoryImplTest {
             FakePcmAudioSource(),
             AudioProcessorFactory(),
             microphoneContext(present = false),
+            Dispatchers.Unconfined,
         )
         assertFalse(repo.isAvailable())
     }

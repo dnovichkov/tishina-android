@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -26,7 +27,7 @@ class AudioRepositoryImplCancellationTest {
     @Test
     fun `take(1) cancels upstream source after one emission`() = runTest {
         val source = FakePcmAudioSource()
-        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true))
+        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true), Dispatchers.Unconfined)
 
         source.emitTone(1_000f, 90f, 200)
         repo.samples(MeasurementConfig()).take(1).toList()
@@ -37,7 +38,7 @@ class AudioRepositoryImplCancellationTest {
     @Test
     fun `take(3) cancels upstream source after three emissions`() = runTest {
         val source = FakePcmAudioSource()
-        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true))
+        val repo = AudioRepositoryImpl(source, AudioProcessorFactory(), microphoneContext(present = true), Dispatchers.Unconfined)
 
         repeat(3) { source.emitTone(1_000f, 90f, 100) }
         val out = repo.samples(MeasurementConfig()).take(3).toList()

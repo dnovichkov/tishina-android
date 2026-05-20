@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.dmdp.tishina.core.domain.model.MeasurementConfig
+import ru.dmdp.tishina.core.domain.model.SessionSeed
 import ru.dmdp.tishina.core.domain.usecase.ResetMeasurementUseCase
 import ru.dmdp.tishina.core.domain.usecase.StartMeasurementUseCase
 import javax.inject.Inject
@@ -62,6 +63,20 @@ class MeasureViewModel @Inject constructor(
     /** Active subscription to the audio engine. Cancelled on Pause / Reset. */
     private var collectJob: Job? = null
 
+    /**
+     * Side-band accumulator state kept by the ViewModel so a Pause → Resume cycle continues the
+     * session min / max / avg / duration / recent window instead of restarting from zero.
+     *
+     * `sumDb`/`count` are not part of the public `MeasurementSnapshot`, so they cannot be
+     * recovered from the UI state alone — the ViewModel tracks them here, increments them on each
+     * snapshot, and hands them back as a [SessionSeed] when Resume relaunches the upstream.
+     *
+     * Reset zeroes them; process death drops them (a restored session lands on Paused and only the
+     * scalar snapshot is preserved — see plan "Известные ограничения" line 482).
+     */
+    private var sessionSumDb: Double = 0.0
+    private var sessionCount: Long = 0L
+
     fun onEvent(event: MeasureUiEvent) {
         when (event) {
             is MeasureUiEvent.StartRequested -> handleStartRequested()
@@ -84,6 +99,10 @@ class MeasureViewModel @Inject constructor(
     }
 
     private fun handlePauseRequested() {
+        // Guarded so ON_STOP-driven Pause cannot promote an Idle session to Paused. Idle has no
+        // captured aggregate; landing in Paused there would show "Paused 00:00 / 0.0 dB" and a
+        // disabled Reset button, which is confusing.
+        if (_state.value.phase != MeasurementPhase.Running) return
         collectJob?.cancel()
         collectJob = null
         _state.update { it.copy(phase = MeasurementPhase.Paused) }
@@ -92,6 +111,8 @@ class MeasureViewModel @Inject constructor(
     private fun handleResetRequested() {
         collectJob?.cancel()
         collectJob = null
+        sessionSumDb = 0.0
+        sessionCount = 0L
         val empty = resetMeasurement()
         _state.update {
             // Preserve permissionState — the user already accepted RECORD_AUDIO.
@@ -145,14 +166,33 @@ class MeasureViewModel @Inject constructor(
 
     private fun startCollecting() {
         if (collectJob?.isActive == true) return
+        // Resume = fresh upstream + seeded accumulator. Empty session = empty seed (sessionCount
+        // stays 0). The seed carries the side-band sumDb/count plus the visible scalars so the
+        // use-case's fold continues from the pre-pause aggregate instead of overwriting it on the
+        // first new sample.
+        val current = _state.value
+        val seed = if (sessionCount == 0L) {
+            SessionSeed.empty
+        } else {
+            SessionSeed(
+                minDb = current.min,
+                maxDb = current.max,
+                sumDb = sessionSumDb,
+                count = sessionCount,
+                durationOffsetMs = current.durationMs,
+                recent = current.recent,
+            )
+        }
         _state.update { it.copy(phase = MeasurementPhase.Running) }
         collectJob = viewModelScope.launch {
-            startMeasurement(MeasurementConfig())
+            startMeasurement(MeasurementConfig(), seed)
                 .onEach { snapshot ->
                     // A SharedFlow-backed upstream may still flush a buffered item between
                     // `cancel()` and the subscriber unhooking. Guarding here keeps Pause atomic
                     // from the UI's perspective.
                     if (_state.value.phase != MeasurementPhase.Running) return@onEach
+                    sessionSumDb += snapshot.currentDb.toDouble()
+                    sessionCount += 1L
                     _state.update {
                         it.copy(
                             current = snapshot.currentDb,

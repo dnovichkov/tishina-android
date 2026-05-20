@@ -1,5 +1,6 @@
 package ru.dmdp.tishina.core.testing.fakes
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -69,6 +70,20 @@ class FakeAudioRepository : AudioRepository {
     /** Toggle the value returned by [isAvailable]. */
     fun setAvailable(value: Boolean) {
         available = value
+    }
+
+    /**
+     * Drop everything in the replay buffer.
+     *
+     * The default buffer (`replay = 64`) is great for tests that want to emit before the
+     * collector subscribes. It is wrong for tests that simulate a Pause → Resume cycle: the new
+     * collector resurrects all pre-pause samples, masking bugs where the ViewModel forgets to
+     * seed the use-case fold with the pre-pause aggregate. Tests that need to model "the upstream
+     * truly restarted" call this between cancellation of the old collector and re-subscription.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun resetReplayCache() {
+        flow.resetReplayCache()
     }
 
     private companion object {

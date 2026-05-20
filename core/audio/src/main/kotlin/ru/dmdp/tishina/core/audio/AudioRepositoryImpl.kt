@@ -3,8 +3,11 @@ package ru.dmdp.tishina.core.audio
 import android.content.Context
 import android.content.pm.PackageManager
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import ru.dmdp.tishina.core.audio.di.DefaultDispatcher
 import ru.dmdp.tishina.core.audio.dsp.AudioProcessorFactory
 import ru.dmdp.tishina.core.audio.source.PcmAudioSource
 import ru.dmdp.tishina.core.domain.model.MeasurementConfig
@@ -34,8 +37,15 @@ class AudioRepositoryImpl @Inject internal constructor(
     private val source: PcmAudioSource,
     private val processorFactory: AudioProcessorFactory,
     @ApplicationContext private val context: Context,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : AudioRepository {
 
+    // .flowOn(defaultDispatcher) pushes the DSP pipeline (DC block + biquad cascade +
+    // per-sample TimeWeightedRms + SPL) off the consumer's dispatcher. The consumer is
+    // viewModelScope (Main.immediate); without this, ~4800 samples per 100 ms chunk would be
+    // processed on the UI thread. NFR-2 needs the CPU-bound work to land on Dispatchers.Default.
+    // source.samples() has its own .flowOn(ioDispatcher) for the AudioRecord.read() loop, which
+    // is unaffected — that boundary stays IO.
     override fun samples(config: MeasurementConfig): Flow<SoundSample> = flow {
         val processor = processorFactory.create(source.sampleRateHz, config)
         var startNanos: Long = -1L
@@ -46,7 +56,7 @@ class AudioRepositoryImpl @Inject internal constructor(
             val timestampMs = (now - startNanos) / NANOS_PER_MILLI
             emit(SoundSample(db = db, timestampMs = timestampMs))
         }
-    }
+    }.flowOn(defaultDispatcher)
 
     override suspend fun isAvailable(): Boolean =
         context.packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)

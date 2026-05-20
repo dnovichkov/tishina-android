@@ -14,6 +14,8 @@ import ru.dmdp.tishina.core.audio.source.AudioRecordPcmSource
 import ru.dmdp.tishina.core.audio.source.AudioRecordSessionFactory
 import ru.dmdp.tishina.core.audio.source.PcmAudioSource
 import ru.dmdp.tishina.core.domain.repository.AudioRepository
+import ru.dmdp.tishina.core.domain.repository.DefaultSettingsRepository
+import ru.dmdp.tishina.core.domain.repository.SettingsRepository
 import javax.inject.Singleton
 
 /**
@@ -58,6 +60,13 @@ internal interface AudioModule {
         @Singleton
         fun provideAudioProcessorFactory(): AudioProcessorFactory = AudioProcessorFactory()
 
+        // Phase 2 stub. Returns a Flow that always emits MeasurementConfig() defaults and no-ops on
+        // setters. Phase 4 will replace this with a DataStore-backed implementation; the binding
+        // lives here now so any Phase-4 @Inject SettingsRepository call site already compiles.
+        @Provides
+        @Singleton
+        fun provideSettingsRepository(): SettingsRepository = DefaultSettingsRepository()
+
         // The @Provides method is itself the canonical seam where Dispatchers.IO becomes
         // injectable; detekt's InjectDispatcher rule cannot see that the @IoDispatcher qualifier
         // mediates this, so we suppress the warning at the binding site rather than smearing it
@@ -66,5 +75,12 @@ internal interface AudioModule {
         @Provides
         @IoDispatcher
         fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
+
+        // Default = CPU-bound pool. Used by AudioRepositoryImpl to run the DSP pipeline off the
+        // Main thread. Same InjectDispatcher rationale as above.
+        @Suppress("InjectDispatcher")
+        @Provides
+        @DefaultDispatcher
+        fun provideDefaultDispatcher(): CoroutineDispatcher = Dispatchers.Default
     }
 }

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import ru.dmdp.tishina.core.domain.model.MeasurementConfig
+import ru.dmdp.tishina.core.domain.model.SessionSeed
 import ru.dmdp.tishina.core.domain.model.SoundSample
 import ru.dmdp.tishina.core.domain.repository.AudioRepository
 
@@ -114,6 +115,36 @@ class StartMeasurementUseCaseTest {
 
         useCase(config).test {
             // No items expected; the flow simply completes.
+            awaitComplete()
+        }
+    }
+
+    @Test
+    fun `seeded session continues min, max, avg, and duration across the upstream restart`() = runTest {
+        // Seed represents the state from a pre-pause session: min=40, max=80, avg=60 over 3 samples
+        // summing to 180, with the clock at 200 ms. A single new sample at 60 dB on a re-zeroed
+        // upstream must (a) keep min at 40, (b) keep max at 80, (c) compute avg = 240/4 = 60, and
+        // (d) emit durationMs = 200 + 0 = 200 (timestamp shifted into session clock).
+        val seed = SessionSeed(
+            minDb = 40f,
+            maxDb = 80f,
+            sumDb = 180.0,
+            count = 3L,
+            durationOffsetMs = 200L,
+            recent = emptyList(),
+        )
+        val repo = mockk<AudioRepository>()
+        every { repo.samples(config) } returns flowOf(SoundSample(db = 60f, timestampMs = 0L))
+
+        val useCase = StartMeasurementUseCase(repo)
+
+        useCase(config, seed).test {
+            val snapshot = awaitItem()
+            assertEquals(60f, snapshot.currentDb)
+            assertEquals(40f, snapshot.minDb)
+            assertEquals(80f, snapshot.maxDb)
+            assertEquals(60f, snapshot.avgDb, 0.001f)
+            assertEquals(200L, snapshot.durationMs)
             awaitComplete()
         }
     }

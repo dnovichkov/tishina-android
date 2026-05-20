@@ -100,6 +100,16 @@ fun MeasureScreen(
         viewModel.onEvent(MeasureUiEvent.PermissionRefreshed(granted))
     }
 
+    // ON_STOP releases the microphone whenever the user backgrounds the app (Home button, lock
+    // screen, switch to another nav destination). Without this, AudioRecord keeps reading in the
+    // background — battery drain, mic indicator on API 31+ stays lit, and it's a real privacy
+    // concern for a noise-meter app. PauseRequested is a no-op if already Paused/Idle, so this is
+    // safe to fire on every ON_STOP. Pre-pause aggregate is preserved by the SessionSeed pathway,
+    // so the user sees the same numbers on return.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        viewModel.onEvent(MeasureUiEvent.PauseRequested)
+    }
+
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
