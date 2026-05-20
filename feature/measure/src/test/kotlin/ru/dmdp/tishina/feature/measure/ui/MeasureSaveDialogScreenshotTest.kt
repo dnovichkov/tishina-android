@@ -12,7 +12,6 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,6 +19,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import ru.dmdp.tishina.core.designsystem.theme.TishinaTheme
+import ru.dmdp.tishina.core.testing.rules.captureSnapshot
 
 /**
  * Screenshot baselines for the FR-6 Save form. We render the Window-less
@@ -99,9 +99,7 @@ class MeasureSaveDialogScreenshotTest {
                 }
             }
         }
-        composeTestRule.onRoot().captureRoboImage(
-            "src/test/snapshots/MeasureSaveDialogScreenshotTest_$name.png",
-        )
+        composeTestRule.onRoot().captureSnapshot("MeasureSaveDialogScreenshotTest_$name")
     }
 
     private companion object {

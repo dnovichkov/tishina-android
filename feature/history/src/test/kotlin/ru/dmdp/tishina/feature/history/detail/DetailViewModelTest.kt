@@ -285,8 +285,10 @@ class DetailViewModelTest {
             assertTrue(secondEffect is DetailUiEffect.NavigateBack)
             cancelAndIgnoreRemainingEvents()
         }
-        // State must NOT stay loading=true; we route the user away.
-        assertTrue("loading flag is irrelevant after NavigateBack", true)
+        // We routed the user away, so the screen never received any details to render.
+        // Crucially, no state mutation should have happened during the failed load.
+        assertNull("no details should be loaded on IO failure", vm.state.value.details)
+        assertEquals("noteDraft stays empty on IO failure", "", vm.state.value.noteDraft)
     }
 
     @Test

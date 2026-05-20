@@ -7,7 +7,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,6 +15,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import ru.dmdp.tishina.core.domain.model.MeasurementSummary
 import ru.dmdp.tishina.core.testing.composables.PreviewSheet
+import ru.dmdp.tishina.core.testing.rules.captureSnapshot
 
 /**
  * Baselines for the FR-9 card variants we want to lock in:
@@ -107,9 +107,7 @@ class HistoryItemCardScreenshotTest {
                 }
             }
         }
-        composeTestRule.onRoot().captureRoboImage(
-            "src/test/snapshots/HistoryItemCardScreenshotTest_$name.png",
-        )
+        composeTestRule.onRoot().captureSnapshot("HistoryItemCardScreenshotTest_$name")
     }
 
     private companion object {

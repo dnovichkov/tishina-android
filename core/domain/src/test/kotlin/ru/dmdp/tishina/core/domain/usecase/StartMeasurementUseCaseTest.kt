@@ -3,11 +3,11 @@ package ru.dmdp.tishina.core.domain.usecase
 import app.cash.turbine.test
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import ru.dmdp.tishina.core.domain.model.MeasurementConfig
@@ -158,7 +158,8 @@ class StartMeasurementUseCaseTest {
         val useCase = StartMeasurementUseCase(repo)
 
         useCase(customConfig).test { awaitComplete() }
-        // mockk would throw on un-stubbed config — assertion is implicit via call match.
-        assertTrue(true)
+        // Explicit verification that the exact customConfig instance was forwarded to the
+        // repository — far less ambiguous than relying on mockk's strict-mode-throws.
+        verify(exactly = 1) { repo.samples(customConfig) }
     }
 }

@@ -2,7 +2,6 @@ package ru.dmdp.tishina.feature.measure.ui
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -10,6 +9,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import ru.dmdp.tishina.core.testing.composables.PreviewSheet
+import ru.dmdp.tishina.core.testing.rules.captureSnapshot
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -49,8 +49,6 @@ class SplArcGaugeScreenshotTest {
                 SplArcGauge(db = db)
             }
         }
-        composeTestRule.onRoot().captureRoboImage(
-            "src/test/snapshots/SplArcGaugeScreenshotTest_$name.png",
-        )
+        composeTestRule.onRoot().captureSnapshot("SplArcGaugeScreenshotTest_$name")
     }
 }

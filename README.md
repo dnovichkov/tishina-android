@@ -74,7 +74,7 @@
 
 - Phase 1: [docs/plans/completed/2026-05-19-tishina-foundation.md](docs/plans/completed/2026-05-19-tishina-foundation.md).
 - Phase 2: [docs/plans/completed/2026-05-19-tishina-audio-engine.md](docs/plans/completed/2026-05-19-tishina-audio-engine.md).
-- Phase 3: [docs/plans/2026-05-20-tishina-history-persistence.md](docs/plans/2026-05-20-tishina-history-persistence.md).
+- Phase 3: [docs/plans/completed/2026-05-20-tishina-history-persistence.md](docs/plans/completed/2026-05-20-tishina-history-persistence.md).
 - Полная спецификация продукта: [docs/specs/tishina-spec.md](docs/specs/tishina-spec.md).
 
 ## Сборка

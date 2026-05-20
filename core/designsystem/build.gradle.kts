@@ -16,6 +16,7 @@ dependencies {
 
     // Robolectric (JUnit 4) bridged onto the JUnit 5 platform via the vintage engine.
     // Roborazzi captures Compose composables under Robolectric without an emulator.
+    testImplementation(projects.core.testing)
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.compose.ui.test.junit4)

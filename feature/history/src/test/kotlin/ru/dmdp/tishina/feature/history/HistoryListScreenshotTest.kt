@@ -3,7 +3,6 @@ package ru.dmdp.tishina.feature.history
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -12,6 +11,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import ru.dmdp.tishina.core.designsystem.theme.TishinaTheme
 import ru.dmdp.tishina.core.domain.model.MeasurementSummary
+import ru.dmdp.tishina.core.testing.rules.captureSnapshot
 
 /**
  * Baseline for the FR-8 / FR-9 list view rendered via the testable [HistoryScreenContent].
@@ -63,9 +63,7 @@ class HistoryListScreenshotTest {
                 )
             }
         }
-        composeTestRule.onRoot().captureRoboImage(
-            "src/test/snapshots/HistoryListScreenshotTest_$name.png",
-        )
+        composeTestRule.onRoot().captureSnapshot("HistoryListScreenshotTest_$name")
     }
 
     private fun summary(

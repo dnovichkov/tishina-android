@@ -3,7 +3,6 @@ package ru.dmdp.tishina.feature.history.detail
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,6 +15,7 @@ import ru.dmdp.tishina.core.domain.model.MeasurementDetails
 import ru.dmdp.tishina.core.domain.model.MeasurementSummary
 import ru.dmdp.tishina.core.domain.model.SoundSample
 import ru.dmdp.tishina.core.domain.model.TimeWeighting
+import ru.dmdp.tishina.core.testing.rules.captureSnapshot
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -81,9 +81,7 @@ class DetailScreenScreenshotTest {
                 )
             }
         }
-        composeTestRule.onRoot().captureRoboImage(
-            "src/test/snapshots/DetailScreenScreenshotTest_$name.png",
-        )
+        composeTestRule.onRoot().captureSnapshot("DetailScreenScreenshotTest_$name")
     }
 
     private fun sampleDetails(note: String?): MeasurementDetails {

@@ -8,7 +8,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onLast
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,6 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import ru.dmdp.tishina.core.designsystem.theme.TishinaTheme
+import ru.dmdp.tishina.core.testing.rules.captureSnapshot
 
 /**
  * Material 3 [androidx.compose.material3.AlertDialog] renders in a separate Compose root
@@ -50,8 +50,6 @@ class PermissionRationaleDialogScreenshotTest {
                 }
             }
         }
-        composeTestRule.onAllNodes(isRoot()).onLast().captureRoboImage(
-            "src/test/snapshots/PermissionRationaleDialogScreenshotTest_$name.png",
-        )
+        composeTestRule.onAllNodes(isRoot()).onLast().captureSnapshot("PermissionRationaleDialogScreenshotTest_$name")
     }
 }

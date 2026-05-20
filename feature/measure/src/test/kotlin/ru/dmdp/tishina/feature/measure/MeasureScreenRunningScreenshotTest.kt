@@ -3,7 +3,6 @@ package ru.dmdp.tishina.feature.measure
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -12,6 +11,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import ru.dmdp.tishina.core.designsystem.theme.TishinaTheme
 import ru.dmdp.tishina.core.domain.model.SoundSample
+import ru.dmdp.tishina.core.testing.rules.captureSnapshot
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -61,9 +61,7 @@ class MeasureScreenRunningScreenshotTest {
                 )
             }
         }
-        composeTestRule.onRoot().captureRoboImage(
-            "src/test/snapshots/MeasureScreenRunningScreenshotTest_$name.png",
-        )
+        composeTestRule.onRoot().captureSnapshot("MeasureScreenRunningScreenshotTest_$name")
     }
 
     private companion object {

@@ -32,7 +32,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import ru.dmdp.tishina.feature.history.ui.HistoryEmptyState
 import ru.dmdp.tishina.feature.history.ui.HistoryItemCard
 
@@ -71,17 +73,26 @@ fun HistoryScreen(
         viewModel.effects.collectLatest { effect ->
             when (effect) {
                 is HistoryUiEffect.ShowUndoSnackbar -> {
-                    val result = snackbarHostState.showSnackbar(
-                        message = context.getString(effect.messageRes),
-                        actionLabel = context.getString(effect.actionRes),
-                        // Long ≈ 10 s — outlasts the VM's 5 s Undo window so the Undo
-                        // affordance is available for the whole window. After the VM
-                        // commits, UndoConfirmed becomes a safe no-op (handled by the
-                        // VM's "no pending delete" branch).
-                        duration = SnackbarDuration.Long,
-                    )
-                    if (result == SnackbarResult.ActionPerformed) {
-                        viewModel.onEvent(HistoryUiEvent.UndoConfirmed)
+                    // Indefinite duration + a manual timed dismiss matching the VM's Undo window.
+                    // SnackbarDuration.Long (~10 s) outlasts the VM's 5 s commit window, so tapping
+                    // Undo at t=5..10 s would silently fail (the VM has already cleared
+                    // pendingUndoId). With Indefinite we control the timing precisely: the
+                    // snackbar disappears at the same moment the soft-delete commits.
+                    val dismissJob = launch {
+                        delay(effect.durationMs)
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                    }
+                    try {
+                        val result = snackbarHostState.showSnackbar(
+                            message = context.getString(effect.messageRes),
+                            actionLabel = context.getString(effect.actionRes),
+                            duration = SnackbarDuration.Indefinite,
+                        )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            viewModel.onEvent(HistoryUiEvent.UndoConfirmed)
+                        }
+                    } finally {
+                        dismissJob.cancel()
                     }
                 }
             }

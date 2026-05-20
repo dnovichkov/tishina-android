@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -18,6 +17,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import ru.dmdp.tishina.core.designsystem.theme.TishinaTheme
+import ru.dmdp.tishina.core.testing.rules.captureSnapshot
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -34,9 +34,7 @@ class AppEmptyStateScreenshotTest {
                 EmptyStateHost()
             }
         }
-        composeTestRule.onRoot().captureRoboImage(
-            "src/test/snapshots/AppEmptyStateScreenshotTest_empty_state_light.png",
-        )
+        composeTestRule.onRoot().captureSnapshot("AppEmptyStateScreenshotTest_empty_state_light")
     }
 
     @Test
@@ -46,9 +44,7 @@ class AppEmptyStateScreenshotTest {
                 EmptyStateHost()
             }
         }
-        composeTestRule.onRoot().captureRoboImage(
-            "src/test/snapshots/AppEmptyStateScreenshotTest_empty_state_dark.png",
-        )
+        composeTestRule.onRoot().captureSnapshot("AppEmptyStateScreenshotTest_empty_state_dark")
     }
 }
 

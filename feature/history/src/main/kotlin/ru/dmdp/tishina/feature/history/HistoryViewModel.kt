@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -61,7 +62,12 @@ class HistoryViewModel @Inject constructor(
             loading = false,
             pendingUndoId = undoId,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_KEEPALIVE_MS), initialState)
+    }
+        // Catch any upstream Room IO failure so the screen doesn't get pinned at loading=true.
+        // We surface an empty list with loading=false — the empty-state CTA gives the user a
+        // sensible recovery path (start a new measurement) rather than a blank pinned screen.
+        .catch { emit(HistoryUiState(items = emptyList(), loading = false, pendingUndoId = null)) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_KEEPALIVE_MS), initialState)
 
     private val effectChannel = Channel<HistoryUiEffect>(Channel.BUFFERED)
     val effects: Flow<HistoryUiEffect> = effectChannel.receiveAsFlow()
@@ -104,16 +110,23 @@ class HistoryViewModel @Inject constructor(
         pendingDeleteJob = null
         viewModelScope.launch {
             orphans.forEach { id ->
-                softDeletedIds.update { it - id }
+                // Delete from Room first, then drop the soft-delete shadow. The reverse order
+                // would create a one-frame window where the row reappears (because the combine
+                // re-evaluates with the id no longer filtered, but Room's Flow hasn't yet
+                // emitted the post-delete list).
                 deleteMeasurement(id)
+                softDeletedIds.update { it - id }
             }
         }
     }
 
     private suspend fun commitDelete(id: Long) {
+        // Same ordering as commitOrphanedSoftDeletes — delete the row from Room, then clear the
+        // soft-delete shadow. Room's Flow will emit the new list around the same time we drop
+        // the shadow, so the filter stays consistent throughout.
+        deleteMeasurement(id)
         softDeletedIds.update { it - id }
         if (pendingUndoId.value == id) pendingUndoId.value = null
-        deleteMeasurement(id)
     }
 
     private fun cancelPendingDelete() {
