@@ -49,12 +49,7 @@ class StartMeasurementUseCase(private val audioRepository: AudioRepository) {
      * emitted `durationMs` is monotonic across Pause→Resume cycles (the
      * underlying `AudioRecord` restarts its own zero each time).
      */
-    private data class Accumulator(
-        val snapshot: MeasurementSnapshot,
-        val sumDb: Double,
-        val count: Long,
-        val durationOffsetMs: Long,
-    ) {
+    private data class Accumulator(val snapshot: MeasurementSnapshot, val sumDb: Double, val count: Long, val durationOffsetMs: Long) {
         fun update(sample: SoundSample): Accumulator {
             val newCount = count + 1L
             val newSum = sumDb + sample.db.toDouble()

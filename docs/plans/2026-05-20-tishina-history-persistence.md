@@ -148,36 +148,36 @@ Phase 3 наполняет Phase 1 (foundation) и Phase 2 (audio engine + measu
 
 ### Task 1: Domain layer — Measurement models + MeasurementRepository interface + use-cases
 
-- [ ] **сначала тест:** `MeasurementSummaryTest`, `MeasurementDetailsTest`, `NewMeasurementTest` — конструкторы immutable классов, equality, copy, граничные значения (title=null/empty/80symbols/81symbols; note=null/empty/200symbols/201symbols)
-- [ ] **сначала тест:** `SaveMeasurementUseCaseTest` (JUnit 5 + mockk<MeasurementRepository>): счастливый путь возвращает `Result.success(newId)`; title>80 → `Result.failure(IllegalArgumentException)`; note>200 → `Result.failure`; пустой `samples` список → `Result.failure` (бессмысленно сохранять без графика); samples с возрастающим timestampMs передаются в repository без изменений
-- [ ] **сначала тест:** `GetMeasurementsUseCaseTest` — Flow из repository пробрасывается напрямую; пустой список из repository превращается в пустой список на выходе (sanity)
-- [ ] **сначала тест:** `GetMeasurementByIdUseCaseTest` — id найден → `MeasurementDetails`; id не найден → `null`
-- [ ] **сначала тест:** `DeleteMeasurementUseCaseTest` — вызов с id → repository.delete(id) вызван; идемпотентность для несуществующего id (repository отвечает Unit)
-- [ ] **сначала тест:** `UpdateMeasurementNoteUseCaseTest` — новая заметка ≤ 200 → repository.updateNote вызван с новым значением; null заметка очищает поле; >200 → `Result.failure`
-- [ ] создать `core/domain/src/main/kotlin/ru/dmdp/tishina/core/domain/model/Measurement.kt`:
+- [x] **сначала тест:** `MeasurementSummaryTest`, `MeasurementDetailsTest`, `NewMeasurementTest` — конструкторы immutable классов, equality, copy, граничные значения (title=null/empty/80symbols/81symbols; note=null/empty/200symbols/201symbols)
+- [x] **сначала тест:** `SaveMeasurementUseCaseTest` (JUnit 5 + mockk<MeasurementRepository>): счастливый путь возвращает `Result.success(newId)`; title>80 → `Result.failure(IllegalArgumentException)`; note>200 → `Result.failure`; пустой `samples` список → `Result.failure` (бессмысленно сохранять без графика); samples с возрастающим timestampMs передаются в repository без изменений
+- [x] **сначала тест:** `GetMeasurementsUseCaseTest` — Flow из repository пробрасывается напрямую; пустой список из repository превращается в пустой список на выходе (sanity)
+- [x] **сначала тест:** `GetMeasurementByIdUseCaseTest` — id найден → `MeasurementDetails`; id не найден → `null`
+- [x] **сначала тест:** `DeleteMeasurementUseCaseTest` — вызов с id → repository.delete(id) вызван; идемпотентность для несуществующего id (repository отвечает Unit)
+- [x] **сначала тест:** `UpdateMeasurementNoteUseCaseTest` — новая заметка ≤ 200 → repository.updateNote вызван с новым значением; null заметка очищает поле; >200 → `Result.failure`
+- [x] создать `core/domain/src/main/kotlin/ru/dmdp/tishina/core/domain/model/Measurement.kt`:
   - `data class MeasurementSummary(val id: Long, val createdAtEpochMs: Long, val durationMs: Long, val avgDb: Float, val minDb: Float, val maxDb: Float, val title: String?, val note: String?, val sparklinePreview: List<Float>)` — `sparklinePreview` это downsampled-до-20-точек массив avg dB для мини-графика в карточке
   - `data class MeasurementDetails(val summary: MeasurementSummary, val samples: List<SoundSample>, val weighting: FrequencyWeighting, val timeWeighting: TimeWeighting, val calibrationOffsetDb: Float, val sampleRateHz: Int)` — для DetailScreen
   - `data class NewMeasurement(val createdAtEpochMs: Long, val durationMs: Long, val avgDb: Float, val minDb: Float, val maxDb: Float, val title: String?, val note: String?, val weighting: FrequencyWeighting, val timeWeighting: TimeWeighting, val calibrationOffsetDb: Float, val sampleRateHz: Int, val samples: List<SoundSample>)` — DTO для Save
   - В companion object: `const val MAX_TITLE_LENGTH = 80`, `const val MAX_NOTE_LENGTH = 200`
-- [ ] создать `core/domain/.../repository/MeasurementRepository.kt`:
+- [x] создать `core/domain/.../repository/MeasurementRepository.kt`:
   - `interface MeasurementRepository`
   - `fun observeSummaries(): Flow<List<MeasurementSummary>>` — реактивный список для HistoryScreen
   - `suspend fun getById(id: Long): MeasurementDetails?`
   - `suspend fun save(measurement: NewMeasurement): Long` — возвращает сгенерированный id
   - `suspend fun delete(id: Long)` — удаление вместе с samples через FK CASCADE
   - `suspend fun updateNote(id: Long, note: String?)`
-- [ ] создать use-cases в `core/domain/.../usecase/`:
+- [x] создать use-cases в `core/domain/.../usecase/`:
   - `SaveMeasurementUseCase.kt` — валидирует длины, проверяет `samples.isNotEmpty()`, вызывает `repository.save`
   - `GetMeasurementsUseCase.kt` — `operator fun invoke(): Flow<List<MeasurementSummary>> = repository.observeSummaries()`
   - `GetMeasurementByIdUseCase.kt`
   - `DeleteMeasurementUseCase.kt`
   - `UpdateMeasurementNoteUseCase.kt`
-- [ ] создать `core/testing/src/main/kotlin/ru/dmdp/tishina/core/testing/fakes/FakeMeasurementRepository.kt`:
+- [x] создать `core/testing/src/main/kotlin/ru/dmdp/tishina/core/testing/fakes/FakeMeasurementRepository.kt`:
   - `class FakeMeasurementRepository : MeasurementRepository`
   - in-memory `MutableMap<Long, MeasurementDetails>`, `MutableStateFlow<List<MeasurementSummary>>`, monotonic id generator
   - метод `seed(measurements: List<NewMeasurement>)` для предзаполнения тестов
-- [ ] реализовать модели, интерфейс, use-cases, fake — чтобы тесты позеленели
-- [ ] run `./gradlew :core:domain:test :core:testing:testDebugUnitTest` — must pass before next task (note: `:core:domain` — pure Kotlin JVM, task `test` без Android-варианта)
+- [x] реализовать модели, интерфейс, use-cases, fake — чтобы тесты позеленели
+- [x] run `./gradlew :core:domain:test :core:testing:testDebugUnitTest` — must pass before next task (note: `:core:domain` — pure Kotlin JVM, task `test` без Android-варианта)
 
 ### Task 2: Room foundation — `:core:data` module + entities + DAO + database
 
