@@ -12,6 +12,16 @@ sealed interface MeasureUiEvent {
     data object SaveRequested : MeasureUiEvent
 
     /**
+     * User confirmed the Save dialog. `null` for [title] / [note] means the user left
+     * the field blank — distinct from an empty string, which the dialog also normalises
+     * to `null` before forwarding so downstream validation only deals with one shape.
+     */
+    data class SaveDialogConfirmed(val title: String?, val note: String?) : MeasureUiEvent
+
+    /** User cancelled the Save dialog. No persistence, no buffer mutation. */
+    data object SaveDialogDismissed : MeasureUiEvent
+
+    /**
      * Result of an in-flight system permission request.
      *
      * @param granted true iff RECORD_AUDIO is now granted.

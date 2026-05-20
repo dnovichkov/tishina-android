@@ -17,9 +17,14 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ru.dmdp.tishina.core.domain.model.FrequencyWeighting
 import ru.dmdp.tishina.core.domain.model.MeasurementConfig
+import ru.dmdp.tishina.core.domain.model.NewMeasurement
 import ru.dmdp.tishina.core.domain.model.SessionSeed
+import ru.dmdp.tishina.core.domain.model.SoundSample
+import ru.dmdp.tishina.core.domain.model.TimeWeighting
 import ru.dmdp.tishina.core.domain.usecase.ResetMeasurementUseCase
+import ru.dmdp.tishina.core.domain.usecase.SaveMeasurementUseCase
 import ru.dmdp.tishina.core.domain.usecase.StartMeasurementUseCase
 import javax.inject.Inject
 
@@ -45,6 +50,7 @@ class MeasureViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val startMeasurement: StartMeasurementUseCase,
     private val resetMeasurement: ResetMeasurementUseCase,
+    private val saveMeasurement: SaveMeasurementUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(restoreInitialState())
@@ -77,12 +83,22 @@ class MeasureViewModel @Inject constructor(
     private var sessionSumDb: Double = 0.0
     private var sessionCount: Long = 0L
 
+    /**
+     * 5 Hz RAM buffer of the on-going session. Drained into Room as part of `Save`.
+     * `lastBufferedMs = -BUFFER_PERIOD_MS` so the very first snapshot always passes
+     * the cadence test and produces a `t=0` entry.
+     */
+    private val sampleBuffer = mutableListOf<SoundSample>()
+    private var lastBufferedMs: Long = -BUFFER_PERIOD_MS
+
     fun onEvent(event: MeasureUiEvent) {
         when (event) {
             is MeasureUiEvent.StartRequested -> handleStartRequested()
             is MeasureUiEvent.PauseRequested -> handlePauseRequested()
             is MeasureUiEvent.ResetRequested -> handleResetRequested()
             is MeasureUiEvent.SaveRequested -> handleSaveRequested()
+            is MeasureUiEvent.SaveDialogConfirmed -> handleSaveDialogConfirmed(event)
+            is MeasureUiEvent.SaveDialogDismissed -> Unit
             is MeasureUiEvent.PermissionResult -> handlePermissionResult(event)
             is MeasureUiEvent.PermissionRefreshed -> handlePermissionRefreshed(event)
         }
@@ -113,6 +129,8 @@ class MeasureViewModel @Inject constructor(
         collectJob = null
         sessionSumDb = 0.0
         sessionCount = 0L
+        sampleBuffer.clear()
+        lastBufferedMs = -BUFFER_PERIOD_MS
         val empty = resetMeasurement()
         _state.update {
             // Preserve permissionState — the user already accepted RECORD_AUDIO.
@@ -134,8 +152,57 @@ class MeasureViewModel @Inject constructor(
     }
 
     private fun handleSaveRequested() {
-        // Phase 2 stub. Phase 3 replaces with SaveMeasurementUseCase invocation.
-        effectChannel.trySend(MeasureUiEffect.ShowSnackbar(R.string.measure_save_unavailable_phase2))
+        if (sampleBuffer.isEmpty()) {
+            effectChannel.trySend(MeasureUiEffect.ShowSnackbar(R.string.measure_save_no_data))
+            return
+        }
+        effectChannel.trySend(MeasureUiEffect.ShowSaveDialog)
+    }
+
+    private fun handleSaveDialogConfirmed(event: MeasureUiEvent.SaveDialogConfirmed) {
+        val title = event.title?.takeIf { it.isNotEmpty() }
+        val note = event.note?.takeIf { it.isNotEmpty() }
+        // Defense in depth: the use-case and DAO both validate, but we report up-front so the user
+        // does not eat a Room round-trip just to be told their title was one character too long.
+        if (title != null && title.length > NewMeasurement.MAX_TITLE_LENGTH) {
+            effectChannel.trySend(MeasureUiEffect.ShowSnackbar(R.string.measure_save_title_too_long))
+            return
+        }
+        if (note != null && note.length > NewMeasurement.MAX_NOTE_LENGTH) {
+            effectChannel.trySend(MeasureUiEffect.ShowSnackbar(R.string.measure_save_note_too_long))
+            return
+        }
+        if (sampleBuffer.isEmpty()) {
+            effectChannel.trySend(MeasureUiEffect.ShowSnackbar(R.string.measure_save_no_data))
+            return
+        }
+        val snapshot = _state.value
+        val newMeasurement = NewMeasurement(
+            createdAtEpochMs = System.currentTimeMillis(),
+            durationMs = snapshot.durationMs,
+            avgDb = snapshot.avg,
+            // Sentinel infinities mean "no samples ever flowed in"; that case is blocked by the
+            // empty-buffer guard above, so this branch only protects against future regressions
+            // (e.g. a sample with NaN db landing in min/max and skipping the buffer guard).
+            minDb = snapshot.min.takeIf { it.isFinite() } ?: snapshot.avg,
+            maxDb = snapshot.max.takeIf { it.isFinite() } ?: snapshot.avg,
+            title = title,
+            note = note,
+            weighting = FrequencyWeighting.A,
+            timeWeighting = TimeWeighting.FAST,
+            calibrationOffsetDb = 0f,
+            sampleRateHz = AUDIO_SAMPLE_RATE_HZ,
+            samples = sampleBuffer.toList(),
+        )
+        viewModelScope.launch {
+            val result = saveMeasurement(newMeasurement)
+            if (result.isSuccess) {
+                effectChannel.trySend(MeasureUiEffect.ShowSnackbar(R.string.measure_saved))
+                handleResetRequested()
+            } else {
+                effectChannel.trySend(MeasureUiEffect.ShowSnackbar(R.string.measure_save_failed))
+            }
+        }
     }
 
     private fun handlePermissionRefreshed(event: MeasureUiEvent.PermissionRefreshed) {
@@ -193,6 +260,14 @@ class MeasureViewModel @Inject constructor(
                     if (_state.value.phase != MeasurementPhase.Running) return@onEach
                     sessionSumDb += snapshot.currentDb.toDouble()
                     sessionCount += 1L
+                    val elapsed = snapshot.durationMs - lastBufferedMs
+                    if (elapsed >= BUFFER_PERIOD_MS) {
+                        sampleBuffer += SoundSample(
+                            db = snapshot.currentDb,
+                            timestampMs = snapshot.durationMs,
+                        )
+                        lastBufferedMs = snapshot.durationMs
+                    }
                     _state.update {
                         it.copy(
                             current = snapshot.currentDb,
@@ -271,5 +346,16 @@ class MeasureViewModel @Inject constructor(
         internal const val KEY_MAX = "measure_max_db"
         internal const val KEY_AVG = "measure_avg_db"
         internal const val KEY_DURATION = "measure_duration_ms"
+
+        // 5 Hz buffer period in milliseconds — one persisted SoundSample per 200 ms keeps the
+        // History sparkline and the Detail full-graph faithful while bounding RAM to ≈ 12 B × 5 Hz
+        // × 8 h = 1.7 MB (per plan "RAM-буфер 5 Гц"). Constants in MeasurementConfig live in
+        // :core:domain and are nominal SPL settings, not buffer cadence, so we keep this here.
+        private const val BUFFER_PERIOD_MS = 200L
+
+        // Audio capture rate used by `:core:audio/AudioRecordPcmSource` (FR-23 / NFR-9). The Save
+        // path persists it per-measurement so Phase 4 settings changes never retroactively reframe
+        // historical data.
+        private const val AUDIO_SAMPLE_RATE_HZ = 48_000
     }
 }

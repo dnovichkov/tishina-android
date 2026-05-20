@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="measure_save_unavailable_phase2">History will be available in the next version</string>
     <string name="measure_permission_denied">Microphone access denied — measurement cannot start</string>
     <string name="measure_engine_error">Microphone unavailable — measurement stopped</string>
     <string name="measure_permission_rationale_title">Microphone access</string>
@@ -41,9 +40,25 @@
     <string name="measure_action_pause">Pause</string>
     <string name="measure_action_reset">Reset</string>
     <string name="measure_action_save">Save</string>
-    <string name="measure_save_disabled_cd">Save (will be available in the next version)</string>
+    <string name="measure_save_disabled_cd">Save (no data yet)</string>
 
     <!-- Permission rationale dialog -->
     <string name="measure_permission_rationale_confirm">Allow</string>
     <string name="measure_permission_rationale_dismiss">Not now</string>
+
+    <!-- Save dialog (FR-6) -->
+    <string name="measure_save_dialog_title">Save measurement</string>
+    <string name="measure_save_title_label">Name</string>
+    <string name="measure_save_title_placeholder">e.g. Bedroom</string>
+    <string name="measure_save_note_label">Note</string>
+    <string name="measure_save_note_placeholder">Brief description (optional)</string>
+    <string name="measure_save_confirm">Save</string>
+    <string name="measure_save_cancel">Cancel</string>
+
+    <!-- Save flow snackbars -->
+    <string name="measure_saved">Measurement saved</string>
+    <string name="measure_save_failed">Failed to save measurement</string>
+    <string name="measure_save_no_data">Nothing to save — start a measurement</string>
+    <string name="measure_save_title_too_long">Name longer than 80 characters</string>
+    <string name="measure_save_note_too_long">Note longer than 200 characters</string>
 </resources>

@@ -247,75 +247,42 @@ Phase 3 наполняет Phase 1 (foundation) и Phase 2 (audio engine + measu
 
 ### Task 4: Measure → Save flow (RAM 5Hz buffer + SaveDialog + ViewModel wiring)
 
-- [ ] **сначала тест:** `MeasureViewModelSampleBufferTest` (Turbine + FakeAudioRepository) — RAM-буфер 5 Гц:
-  - подаём в `FakeAudioRepository` поток с шагом 100 мс (10 Гц) — буфер должен сохранять каждый второй (downsample 1:2 → 5 Гц)
-  - подаём шаг 50 мс (20 Гц) — буфер сохраняет каждый четвёртый
-  - подаём шаг 200 мс (5 Гц) — буфер сохраняет каждый
-  - после Reset буфер пустой
-  - после Pause буфер замораживается (не очищается); после Resume продолжает накапливаться
-- [ ] **сначала тест:** `MeasureViewModelSaveFlowTest`:
-  - `state.recent.isEmpty()`, `SaveRequested` → `ShowSnackbar(R.string.measure_save_no_data)` (не имеет смысла сохранять без данных)
-  - `state.recent.isNotEmpty()`, `SaveRequested` → `ShowSaveDialog` effect; `state` не меняется
-  - `SaveDialogConfirmed(title="Test", note="Description")` → `SaveMeasurementUseCase` вызван с правильными агрегатами; `ShowSnackbar(R.string.measure_saved)` после success; буфер очищается; phase → Idle
-  - `SaveDialogConfirmed` с `title.length > 80` → `ShowSnackbar(R.string.measure_save_title_too_long)`; не вызывает useCase
-  - `SaveDialogConfirmed` с `note.length > 200` → `ShowSnackbar(R.string.measure_save_note_too_long)`
-  - `SaveDialogDismissed` → ничего не делает, диалог закрывается на UI
-- [ ] **сначала тест:** `MeasureSaveDialogScreenshotTest` — 6 baseline:
-  - пустые поля, light + dark
-  - title="Спальня" + note="22:00, поздний вечер", light + dark
-  - note=201символ (counter красный, кнопка Save disabled), light + dark
-- [ ] **сначала тест:** `MeasureSaveDialogValidationTest` (Compose UI Test):
-  - ввод 201 символа в note → counter "201/200" окрашен в error-цвет, "Сохранить" disabled
-  - ввод 80 символов в title → counter "80/80" (warning или normal), "Сохранить" enabled
-  - ввод 81 символа → counter красный, disabled
-  - клик "Сохранить" с валидными данными → `onConfirm(title, note)` вызван
-  - клик "Отмена" → `onDismiss()` вызван
-- [ ] обновить `MeasureViewModel.kt`:
-  - инжектить `SaveMeasurementUseCase`
-  - добавить приватный `private val sampleBuffer = mutableListOf<SoundSample>()` (RAM 5 Гц)
-  - в `startCollecting().onEach { snapshot -> ... }` — downsample: если `snapshot.durationMs - lastBufferedMs >= 200` → `sampleBuffer.add(SoundSample(snapshot.currentDb, snapshot.durationMs))`; `lastBufferedMs = snapshot.durationMs`
-  - в `Reset` → `sampleBuffer.clear()` (буфер обнуляется)
-  - в `Pause` → буфер не трогаем; в `Resume` → продолжаем накапливать
-  - заменить `SaveRequested` логику:
-    - если `sampleBuffer.isEmpty()` → `ShowSnackbar(R.string.measure_save_no_data)`
-    - иначе → `ShowSaveDialog` effect
-  - добавить handler `SaveDialogConfirmed(title, note)`:
-    - валидация длин на ViewModel-уровне (use-case тоже валидирует, но UI должен показать ошибку раньше)
-    - вызвать `saveMeasurement(NewMeasurement(...))` — собрать DTO из текущего state + sampleBuffer
-    - на success → `ShowSnackbar(R.string.measure_saved)` + Reset (`handleResetRequested()` — обнуляет VM state и буфер)
-    - на failure → `ShowSnackbar(R.string.measure_save_failed)`
-  - добавить handler `SaveDialogDismissed` — no-op (UI закрывает диалог)
-- [ ] добавить новые `MeasureUiEvent` варианты: `data class SaveDialogConfirmed(val title: String?, val note: String?) : MeasureUiEvent`, `data object SaveDialogDismissed : MeasureUiEvent`
-- [ ] добавить новый `MeasureUiEffect`: `data object ShowSaveDialog : MeasureUiEffect`
-- [ ] создать `feature/measure/.../ui/MeasureSaveDialog.kt`:
-  - Material 3 `AlertDialog`
-  - два `OutlinedTextField`: title (1 line, maxLines=1, counter под полем `${value.length}/80`); note (multiline до 4 строк, counter `${value.length}/200`)
-  - "Сохранить" кнопка disabled когда title.length > 80 или note.length > 200
-  - "Отмена" всегда enabled
-  - параметры: `onConfirm: (title: String?, note: String?) -> Unit`, `onDismiss: () -> Unit`
-- [ ] обновить `MeasureScreen.kt`:
-  - добавить `var saveDialogVisible by remember { mutableStateOf(false) }`
-  - в эффект-обработчике `ShowSaveDialog` → `saveDialogVisible = true`
-  - если `saveDialogVisible` → отрисовать `MeasureSaveDialog(onConfirm = { t, n -> onEvent(SaveDialogConfirmed(t, n)); saveDialogVisible = false }, onDismiss = { onEvent(SaveDialogDismissed); saveDialogVisible = false })`
-- [ ] обновить `MeasureBottomBar.kt`: Save IconButton `enabled = state.recent.isNotEmpty() || state.phase == MeasurementPhase.Paused` (Save доступен в любом состоянии где есть данные)
-- [ ] добавить локализационные строки в `feature/measure/src/main/res/values/strings.xml` и `values-ru/strings.xml`:
-  - `measure_save_dialog_title` ("Сохранить замер" / "Save measurement")
-  - `measure_save_title_label` ("Имя" / "Name")
-  - `measure_save_title_placeholder` ("Например: Спальня" / "e.g. Bedroom")
-  - `measure_save_note_label` ("Заметка" / "Note")
-  - `measure_save_note_placeholder` ("Краткое описание (опционально)" / "Brief description (optional)")
-  - `measure_save_confirm` ("Сохранить" / "Save")
-  - `measure_save_cancel` ("Отмена" / "Cancel")
-  - `measure_saved` ("Замер сохранён" / "Measurement saved")
-  - `measure_save_failed` ("Не удалось сохранить замер" / "Failed to save measurement")
-  - `measure_save_no_data` ("Нечего сохранять — запустите измерение" / "Nothing to save — start a measurement")
-  - `measure_save_title_too_long` ("Имя длиннее 80 символов" / "Name longer than 80 characters")
-  - `measure_save_note_too_long` ("Заметка длиннее 200 символов" / "Note longer than 200 characters")
-- [ ] удалить старую stub-строку `measure_save_unavailable_phase2` (больше не нужна)
-- [ ] добавить в `MeasureUseCaseModule` `@Provides` для `SaveMeasurementUseCase` (use-case живёт в pure-Kotlin `:core:domain` без `javax.inject`, поэтому provide на feature-уровне)
-- [ ] реализовать composables, ViewModel-логику — чтобы тесты позеленели
-- [ ] обновить `MeasureViewModelSaveStubTest` Phase 2: переименовать в `MeasureViewModelSaveDialogTest` и заменить ассертацию на `ShowSaveDialog` effect (вместо `ShowSnackbar`)
-- [ ] run `./gradlew :feature:measure:testDebugUnitTest verifyRoborazziDebug` — must pass before next task
+- [x] **сначала тест:** `MeasureViewModelSampleBufferTest` (5 тестов): 10 Hz → каждый второй; 20 Hz → каждый четвёртый; 5 Hz → один-к-одному; Reset очищает буфер (Save после Reset ничего не пишет); Pause замораживает + Resume продолжает накопление (sample во время Pause НЕ попадает в буфер)
+- [x] **сначала тест:** `MeasureViewModelSaveFlowTest` (7 тестов): пустой буфер → `ShowSnackbar(measure_save_no_data)`; non-empty → `ShowSaveDialog`; valid confirm → useCase + `ShowSnackbar(measure_saved)` + Reset; title>80 → `measure_save_title_too_long`; note>200 → `measure_save_note_too_long`; repository throws → `measure_save_failed`; `SaveDialogDismissed` — no-op
+- [x] **сначала тест:** `MeasureSaveDialogScreenshotTest` — 6 baseline (empty/filled/note_overflow × light/dark) записаны через `:feature:measure:recordRoborazziDebug`; `verifyRoborazziDebug` зелёный
+- [x] **сначала тест:** `MeasureSaveDialogValidationTest` (Compose UI Test) — 6 тестов: note>200 disabled; title>80 disabled; обе на max-length enabled; confirm callback с правильными значениями; cancel callback; пустые поля → null значения
+- [x] обновить `MeasureViewModel.kt`:
+  - инжектится `SaveMeasurementUseCase`
+  - приватный `sampleBuffer: mutableListOf<SoundSample>()` + `lastBufferedMs: Long = -BUFFER_PERIOD_MS` (5 Гц)
+  - в `startCollecting().onEach` — downsample by elapsed ≥ 200ms (BUFFER_PERIOD_MS)
+  - `Reset` — `sampleBuffer.clear()` + `lastBufferedMs = -BUFFER_PERIOD_MS`
+  - Pause/Resume буфер сохраняется (NF-guard `phase != Running` в onEach предотвращает накопление во время Pause)
+  - `handleSaveRequested()` — empty → `ShowSnackbar(measure_save_no_data)`; иначе `ShowSaveDialog`
+  - `handleSaveDialogConfirmed(event)` — нормализация empty → null; валидация длин (defense-in-depth); собирает `NewMeasurement` из state + buffer; success → snackbar `measure_saved` + Reset; failure → `measure_save_failed`
+  - `handleSaveDialogDismissed` — `Unit` (no-op)
+- [x] добавлены `MeasureUiEvent.SaveDialogConfirmed(title, note)` + `MeasureUiEvent.SaveDialogDismissed`
+- [x] добавлен `MeasureUiEffect.ShowSaveDialog`
+- [x] создан `feature/measure/.../ui/MeasureSaveDialog.kt`:
+  - public `MeasureSaveDialog` (Material 3 `AlertDialog`) — используется production-кодом
+  - **➕ внеплановая подзадача:** internal `MeasureSaveDialogContent` (Material 3 `Surface`-вариант без sub-Window) — тесты используют его, чтобы обойти `AppNotIdleException` от M3 `AlertDialog` + `OutlinedTextField` focus animations под Robolectric. Production вариант с настоящим scrim'ом будет покрыт instrumentation-тестами в Phase Release
+  - оба варианта: 2 `OutlinedTextField` (title 1-line/80 + note 2..4-line/200), counter "current / limit" с error-цветом при overflow, валидация `canSave = !overflow`
+  - `rememberSaveable` для `title`/`note` (ротация)
+- [x] обновлён `MeasureScreen.kt`:
+  - `var showSaveDialog by remember { mutableStateOf(false) }`
+  - `ShowSaveDialog` effect → `showSaveDialog = true`
+  - `MeasureScreenContent` принимает `showSaveDialog` + `onSaveDialogConfirm` + `onSaveDialogDismiss` (с default-параметрами для тестов)
+  - диалог рендерится при `showSaveDialog == true`
+- [x] обновлён `MeasureBottomBar.kt`: добавлен параметр `saveEnabled: Boolean = false`; Save IconButton используется на основе callee-флага; `MeasureScreen` передаёт `state.recent.isNotEmpty() || state.phase == Paused`
+- [x] добавлены локализационные строки (RU/EN) в `values/` и `values-ru/`:
+  - `measure_save_dialog_title`, `measure_save_title_label`, `measure_save_title_placeholder`, `measure_save_note_label`, `measure_save_note_placeholder`, `measure_save_confirm`, `measure_save_cancel`
+  - `measure_saved`, `measure_save_failed`, `measure_save_no_data`, `measure_save_title_too_long`, `measure_save_note_too_long`
+  - обновлён `measure_save_disabled_cd` (раньше "Save (will be available in the next version)" — теперь "Save (no data yet)" / "Сохранить (пока нет данных)")
+- [x] удалена старая stub-строка `measure_save_unavailable_phase2`
+- [x] добавлен `@Provides` для `SaveMeasurementUseCase` в `MeasureUseCaseModule` — биндит `MeasurementRepository` из `:core:data/DataModule`
+- [x] реализованы composables + ViewModel — все тесты зелёные
+- [x] вместо переименования удалён `MeasureViewModelSaveStubTest` (его ассертация на stub-строку устарела); заменён более полным `MeasureViewModelSaveFlowTest` (7 кейсов, включая `ShowSaveDialog` effect и end-to-end save)
+- [x] существующие тесты `MeasureViewModelStartTest`/`PauseResetTest`/`EngineErrorTest`/`SavedStateHandleTest`/`PermissionFlowTest` обновлены — добавлен новый параметр `saveMeasurement = SaveMeasurementUseCase(FakeMeasurementRepository())`
+- [x] `./gradlew :feature:measure:testDebugUnitTest :feature:measure:verifyRoborazziDebug` — 101/101 passed; `:app:assembleDebug` — SUCCESSFUL
 
 ### Task 5: HistoryViewModel + HistoryScreen — list + swipe-delete с Undo
 

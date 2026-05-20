@@ -9,8 +9,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import ru.dmdp.tishina.core.domain.model.SoundSample
 import ru.dmdp.tishina.core.domain.usecase.ResetMeasurementUseCase
+import ru.dmdp.tishina.core.domain.usecase.SaveMeasurementUseCase
 import ru.dmdp.tishina.core.domain.usecase.StartMeasurementUseCase
 import ru.dmdp.tishina.core.testing.fakes.FakeAudioRepository
+import ru.dmdp.tishina.core.testing.fakes.FakeMeasurementRepository
 import ru.dmdp.tishina.core.testing.rules.MainDispatcherRule
 
 /**
@@ -41,6 +43,7 @@ class MeasureViewModelSavedStateHandleTest {
             savedStateHandle = handle,
             startMeasurement = StartMeasurementUseCase(repo),
             resetMeasurement = ResetMeasurementUseCase(),
+            saveMeasurement = SaveMeasurementUseCase(FakeMeasurementRepository()),
         )
 
         viewModel.onEvent(MeasureUiEvent.PermissionResult(granted = true, shouldShowRationale = false))
@@ -70,6 +73,7 @@ class MeasureViewModelSavedStateHandleTest {
             savedStateHandle = handle,
             startMeasurement = StartMeasurementUseCase(FakeAudioRepository()),
             resetMeasurement = ResetMeasurementUseCase(),
+            saveMeasurement = SaveMeasurementUseCase(FakeMeasurementRepository()),
         )
 
         val state = viewModel.state.value

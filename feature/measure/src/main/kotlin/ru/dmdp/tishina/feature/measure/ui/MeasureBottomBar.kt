@@ -39,8 +39,10 @@ const val MeasureBottomBarSaveTestTag: String = "measure_bottom_bar_save"
  *
  * - Reset is only enabled in [MeasurementPhase.Paused] — resetting while idle is a no-op and
  *   resetting while running would silently drop captured data without confirmation.
- * - Save is **always disabled** in Phase 2: history persistence ships in Phase 3, but the
- *   button stays visible (greyed) so the future affordance is discoverable.
+ * - Save is gated by [saveEnabled] — callers compute "there is something worth saving" from the
+ *   ViewModel state (any captured samples, or a Paused session that captured samples earlier).
+ *   The button stays visible-but-disabled when nothing is buffered so the affordance is
+ *   discoverable.
  * - The FAB swaps PlayArrow ↔ Pause based on phase; the click handler is the same — the
  *   ViewModel routes by phase via `StartRequested` / `PauseRequested`.
  */
@@ -51,6 +53,7 @@ fun MeasureBottomBar(
     onReset: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
+    saveEnabled: Boolean = false,
     contentPadding: PaddingValues = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
 ) {
     Surface(
@@ -86,13 +89,14 @@ fun MeasureBottomBar(
 
             IconButton(
                 onClick = onSave,
-                // Phase 2: save is a stub; keep visible but disabled to telegraph future capability.
-                enabled = false,
+                enabled = saveEnabled,
                 modifier = Modifier.testTag(MeasureBottomBarSaveTestTag),
             ) {
                 Icon(
                     imageVector = Icons.Outlined.BookmarkBorder,
-                    contentDescription = stringResource(id = R.string.measure_save_disabled_cd),
+                    contentDescription = stringResource(
+                        id = if (saveEnabled) R.string.measure_action_save else R.string.measure_save_disabled_cd,
+                    ),
                 )
             }
         }

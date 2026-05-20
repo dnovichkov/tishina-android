@@ -5,7 +5,9 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import ru.dmdp.tishina.core.domain.repository.AudioRepository
+import ru.dmdp.tishina.core.domain.repository.MeasurementRepository
 import ru.dmdp.tishina.core.domain.usecase.ResetMeasurementUseCase
+import ru.dmdp.tishina.core.domain.usecase.SaveMeasurementUseCase
 import ru.dmdp.tishina.core.domain.usecase.StartMeasurementUseCase
 import javax.inject.Singleton
 
@@ -33,4 +35,14 @@ internal object MeasureUseCaseModule {
     @Provides
     @Singleton
     fun provideResetMeasurementUseCase(): ResetMeasurementUseCase = ResetMeasurementUseCase()
+
+    /**
+     * `SaveMeasurementUseCase` lives in pure-Kotlin `:core:domain`, so wiring it through Hilt
+     * means binding the [MeasurementRepository] (provided by `:core:data/DataModule`) to a
+     * constructor call here. Single-instance scope mirrors the repository scope.
+     */
+    @Provides
+    @Singleton
+    fun provideSaveMeasurementUseCase(repository: MeasurementRepository): SaveMeasurementUseCase =
+        SaveMeasurementUseCase(repository)
 }

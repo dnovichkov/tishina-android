@@ -24,4 +24,7 @@ sealed interface MeasureUiEffect {
      * RECORD_AUDIO after a permanent denial.
      */
     data object OpenAppSettings : MeasureUiEffect
+
+    /** Request the Compose layer to render the Save dialog (FR-6 title + note capture). */
+    data object ShowSaveDialog : MeasureUiEffect
 }

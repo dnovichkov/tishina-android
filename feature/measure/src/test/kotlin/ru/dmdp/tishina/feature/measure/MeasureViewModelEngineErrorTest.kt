@@ -15,7 +15,9 @@ import ru.dmdp.tishina.core.domain.model.MeasurementConfig
 import ru.dmdp.tishina.core.domain.model.SoundSample
 import ru.dmdp.tishina.core.domain.repository.AudioRepository
 import ru.dmdp.tishina.core.domain.usecase.ResetMeasurementUseCase
+import ru.dmdp.tishina.core.domain.usecase.SaveMeasurementUseCase
 import ru.dmdp.tishina.core.domain.usecase.StartMeasurementUseCase
+import ru.dmdp.tishina.core.testing.fakes.FakeMeasurementRepository
 import ru.dmdp.tishina.core.testing.rules.MainDispatcherRule
 
 /**
@@ -44,6 +46,7 @@ class MeasureViewModelEngineErrorTest {
             savedStateHandle = SavedStateHandle(),
             startMeasurement = StartMeasurementUseCase(repo),
             resetMeasurement = ResetMeasurementUseCase(),
+            saveMeasurement = SaveMeasurementUseCase(FakeMeasurementRepository()),
         )
 
         viewModel.effects.test {

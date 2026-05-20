@@ -38,6 +38,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.collect
 import ru.dmdp.tishina.feature.measure.ui.MeasureBottomBar
+import ru.dmdp.tishina.feature.measure.ui.MeasureSaveDialog
 import ru.dmdp.tishina.feature.measure.ui.PermissionRationaleDialog
 import ru.dmdp.tishina.feature.measure.ui.SplArcGauge
 import ru.dmdp.tishina.feature.measure.ui.SplLineChart
@@ -73,6 +74,7 @@ fun MeasureScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showRationale by remember { mutableStateOf(false) }
+    var showSaveDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -130,6 +132,9 @@ fun MeasureScreen(
                     }
                     context.startActivity(intent)
                 }
+                is MeasureUiEffect.ShowSaveDialog -> {
+                    showSaveDialog = true
+                }
             }
         }
     }
@@ -144,6 +149,15 @@ fun MeasureScreen(
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         },
         onRationaleDismiss = { showRationale = false },
+        showSaveDialog = showSaveDialog,
+        onSaveDialogConfirm = { title, note ->
+            showSaveDialog = false
+            viewModel.onEvent(MeasureUiEvent.SaveDialogConfirmed(title, note))
+        },
+        onSaveDialogDismiss = {
+            showSaveDialog = false
+            viewModel.onEvent(MeasureUiEvent.SaveDialogDismissed)
+        },
         modifier = modifier,
     )
 }
@@ -157,6 +171,9 @@ internal fun MeasureScreenContent(
     onRationaleConfirm: () -> Unit,
     onRationaleDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    showSaveDialog: Boolean = false,
+    onSaveDialogConfirm: (title: String?, note: String?) -> Unit = { _, _ -> },
+    onSaveDialogDismiss: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier
@@ -175,6 +192,10 @@ internal fun MeasureScreenContent(
                 },
                 onReset = { onEvent(MeasureUiEvent.ResetRequested) },
                 onSave = { onEvent(MeasureUiEvent.SaveRequested) },
+                // "Save is available iff there is something worth saving". `recent` is the visible
+                // tail of buffered samples; Paused without samples is impossible by VM guard
+                // (PauseRequested is a no-op when phase == Idle), so paused ⇒ data exists.
+                saveEnabled = state.recent.isNotEmpty() || state.phase == MeasurementPhase.Paused,
             )
         },
     ) { padding ->
@@ -205,6 +226,13 @@ internal fun MeasureScreenContent(
             PermissionRationaleDialog(
                 onConfirm = onRationaleConfirm,
                 onDismiss = onRationaleDismiss,
+            )
+        }
+
+        if (showSaveDialog) {
+            MeasureSaveDialog(
+                onConfirm = onSaveDialogConfirm,
+                onDismiss = onSaveDialogDismiss,
             )
         }
     }
