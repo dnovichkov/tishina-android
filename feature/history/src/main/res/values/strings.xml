@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Empty-state hero copy (no measurements yet). -->
+    <string name="history_empty_title">Your measurements will appear here</string>
+    <string name="history_empty_description">Start a measurement and save it</string>
+    <string name="history_empty_cta">Make first measurement</string>
+    <string name="history_empty_icon_cd">Empty history</string>
+
+    <!-- Swipe-to-delete with Undo (FR-11). The snackbar appears for 5 seconds after a swipe;
+         tapping "Undo" cancels the pending delete. -->
+    <string name="history_undo_snackbar_message">Measurement deleted</string>
+    <string name="history_undo_action">Undo</string>
+
+    <!-- Card content descriptions / fallbacks. -->
+    <string name="history_card_no_title">Measurement</string>
+    <string name="history_card_avg_db_cd">Average %1$.1f dB</string>
+    <string name="history_card_duration_cd">Duration %1$s</string>
+    <string name="history_card_delete_cd">Delete</string>
+    <string name="history_card_sparkline_cd">Loudness over time</string>
+</resources>

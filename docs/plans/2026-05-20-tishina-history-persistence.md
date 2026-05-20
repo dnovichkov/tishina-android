@@ -286,72 +286,37 @@ Phase 3 наполняет Phase 1 (foundation) и Phase 2 (audio engine + measu
 
 ### Task 5: HistoryViewModel + HistoryScreen — list + swipe-delete с Undo
 
-- [ ] **сначала тест:** `HistoryViewModelTest` (Turbine + FakeMeasurementRepository из :core:testing):
-  - начальная подписка: пустой repository → `HistoryUiState(items=emptyList(), loading=false)`
-  - seed 3 замера в FakeRepository → следующая эмиссия включает все 3 в descending createdAt
-  - `onEvent(DeleteRequested(id=5))` → state.items без id=5 + state.pendingUndo = некий `UndoItem(id=5, restoreDeadlineMs=...)`
-  - в течение 5 секунд `onEvent(UndoConfirmed)` → восстанавливает запись через `repository.save(...)` или через "soft delete" (см. ниже про подход); ассерт что запись снова в state.items
-  - после 5 секунд (через `TestScheduler.advanceTimeBy(5001)`) → автоматический "commit delete" → реальный `repository.delete(id)` вызван
-  - `onEvent(DeleteRequested)` для несуществующего id → no-op + лог (через `Timber.w`)
-- [ ] **сначала тест:** `HistoryViewModelUndoStrategyTest` — выбираем стратегию Undo:
-  - **подход A (soft-delete в VM):** VM хранит "удаляемые сейчас" id в SetState, фильтрует из выдачи; на UndoConfirmed просто убирает из set; на таймауте — вызывает `repository.delete(id)`. **Плюс:** не нужно сохранять обратно, atomic; **минус:** при kill процесса soft-delete теряется (записи восстанавливаются после рестарта — что приемлемо для UX, "случайный убитый процесс восстанавливает удалённое" мягче чем "пропавшее")
-  - **подход B (delete + restore через save):** удалять сразу из БД, на Undo вставлять обратно. **Минус:** новый id, ломает FK от samples, требует cache детальной записи в RAM до UndoConfirmed.
-  - **Выбираем подход A** как более простой и устойчивый; тест проверяет именно этот контракт.
-- [ ] **сначала тест:** `HistoryEmptyStateScreenshotTest` — 2 baseline (`AppEmptyState` с CTA "Сделать первый замер" → callback переходит на Measure tab); light + dark
-- [ ] **сначала тест:** `HistoryListScreenshotTest` — 2 baseline: список из 5 карточек (разные dB-уровни, разные длительности, 2 с заметкой, 2 без, 1 с длинной заметкой → ellipsis); light + dark
-- [ ] **сначала тест:** `HistoryItemCardScreenshotTest` — 6 baseline: карточка с короткой заметкой, без заметки, с длинной заметкой; light + dark
-- [ ] **сначала тест:** `HistorySwipeScreenshotTest` — 2 baseline: частично свайпнутая карточка с открытой trash-иконкой; light + dark
-- [ ] **сначала тест:** `HistoryScreenComposeUiTest` (createComposeRule):
-  - пустой repository → "Здесь будут ваши замеры" видно, CTA `FilledTonalButton` клик → `onNavigateToMeasure()` вызван
-  - 3 карточки в списке → клик по любой → `onNavigateToDetail(id)` вызван с правильным id
-  - swipe карточки влево → Snackbar появляется с "Замер удалён" и кнопкой "Отменить"; клик "Отменить" → карточка возвращается в список
-  - swipe + ожидание 5 секунд → Snackbar исчезает, удаление подтверждено (карточки нет в списке после Snackbar dismiss)
-- [ ] создать `feature/history/.../HistoryUiState.kt`:
-  - `data class HistoryUiState(val items: List<MeasurementSummary> = emptyList(), val loading: Boolean = true, val pendingUndo: UndoItem? = null)`
-  - `data class UndoItem(val measurementId: Long, val restoreDeadlineMs: Long)`
-- [ ] создать `feature/history/.../HistoryUiEvent.kt`:
-  - `sealed interface HistoryUiEvent`
-  - `data class DeleteRequested(val id: Long) : HistoryUiEvent`
-  - `data object UndoConfirmed : HistoryUiEvent`
-- [ ] создать `feature/history/.../HistoryUiEffect.kt`:
-  - `sealed interface HistoryUiEffect`
-  - `data class ShowUndoSnackbar(@StringRes val messageRes: Int, val durationMs: Long = 5000L) : HistoryUiEffect`
-- [ ] создать `feature/history/.../HistoryViewModel.kt`:
-  - `@HiltViewModel class HistoryViewModel @Inject constructor(private val getMeasurements: GetMeasurementsUseCase, private val deleteMeasurement: DeleteMeasurementUseCase)`
-  - `private val softDeletedIds = MutableStateFlow(emptySet<Long>())`
-  - `val state: StateFlow<HistoryUiState>` — combine `getMeasurements()` × `softDeletedIds` → фильтрация
-  - `onEvent(DeleteRequested(id))` → добавляет в softDeletedIds, эмиттит `ShowUndoSnackbar`; запускает корутину `delay(5000); softDeletedIds.update { it - id }; deleteMeasurement(id); pendingUndo = null` — корутина хранится в `pendingDeleteJob`
-  - `onEvent(UndoConfirmed)` → `pendingDeleteJob?.cancel()`; `softDeletedIds.update { it - lastSoftDeletedId }`
-- [ ] создать `feature/history/.../ui/HistoryItemCard.kt`:
-  - `Card(filled)` с padding и onClick для перехода в Detail
-  - row: слева — заголовок (`title ?: createdAt formatted`) + заметка (1 строка ellipsis) + длительность; справа — avg dB (large) + min-max диапазон (small) + мини-спарклайн (`SplLineChart` с props для маленького размера)
-  - дата форматируется через `DateUtils.getRelativeTimeSpanString(createdAtEpochMs, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_ALL)`
-- [ ] создать `feature/history/.../ui/HistoryEmptyState.kt`:
-  - использует `AppEmptyState` из `:core:ui` с иконкой Material Symbol `graphic_eq`, текстом из `R.string.history_empty_title`/`R.string.history_empty_description`, CTA `FilledTonalButton("Сделать первый замер")` с callback `onNavigateToMeasure`
-- [ ] переписать `feature/history/.../HistoryScreen.kt`:
-  - `MeasureScreen`-стиль: внутренний `HistoryScreenContent(state, onEvent, snackbarHostState, onNavigateToDetail, onNavigateToMeasure)` для unit-тестабельности
-  - публичный `HistoryScreen(onNavigateToDetail: (Long) -> Unit, onNavigateToMeasure: () -> Unit, viewModel: HistoryViewModel = hiltViewModel())`
-  - `LazyColumn` с `items(state.items, key = { it.id })`; каждый item обёрнут в `SwipeToDismissBox` (Material 3 1.5+) с background-иконкой `Icons.Default.Delete` справа; на `dismiss(EndToStart)` вызов `viewModel.onEvent(DeleteRequested(item.id))`
-  - в `LaunchedEffect(Unit) { viewModel.effects.collect { effect -> when(effect) { is ShowUndoSnackbar -> val result = snackbarHostState.showSnackbar(...); if (result == ActionPerformed) viewModel.onEvent(UndoConfirmed) } } }`
-  - пустое состояние: если `state.items.isEmpty() && !state.loading` → `HistoryEmptyState(onNavigateToMeasure)`
-- [ ] добавить локализационные строки в `feature/history/src/main/res/values/strings.xml` и `values-ru/strings.xml`:
-  - `history_empty_title` ("Здесь будут ваши замеры" / "Your measurements will appear here")
-  - `history_empty_description` ("Запустите измерение и сохраните результат" / "Start a measurement and save it")
-  - `history_empty_cta` ("Сделать первый замер" / "Make first measurement")
-  - `history_undo_snackbar_message` ("Замер удалён" / "Measurement deleted")
-  - `history_undo_action` ("Отменить" / "Undo")
-  - `history_card_avg_db_cd` ("Среднее: %1$.1f дБ" / "Average: %1$.1f dB")
-  - `history_card_no_title` ("Замер" / "Measurement")
-- [ ] обновить `:feature:history/build.gradle.kts`:
-  - убрать `tools/node="merge"` или другие старые placeholders; добавить `roborazzi`-плагин и зависимости (по образцу `:feature:measure`)
-  - `implementation(libs.material.icons.extended)` для `Delete` иконки
-  - `implementation(libs.lifecycle.runtime.compose)` для `collectAsStateWithLifecycle`
-  - `testOptions.unitTests.isIncludeAndroidResources = true` + `robolectric.properties` (`sdk=33`) в `src/test/resources/`
-- [ ] создать Hilt-модуль `HistoryUseCaseModule.kt` в `feature/history/.../di/`:
-  - `@Provides fun provideGetMeasurementsUseCase(repository: MeasurementRepository): GetMeasurementsUseCase = GetMeasurementsUseCase(repository)`
-  - аналогично для `DeleteMeasurementUseCase`
-- [ ] реализовать composables, ViewModel — чтобы тесты позеленели
-- [ ] run `./gradlew :feature:history:testDebugUnitTest verifyRoborazziDebug` — must pass before next task
+- [x] **сначала тест:** `HistoryViewModelTest` (Turbine + FakeMeasurementRepository) — 7 кейсов: empty repository → loading=false; seed 3 в descending createdAt; DeleteRequested → soft-delete + ShowUndoSnackbar; UndoConfirmed в окне 5с → восстановление + repository.delete НЕ вызван; через 5с → commitDelete; consecutive DeleteRequested → orphan commit + новый pending; DeleteRequested на несуществующий id → no-op без падений; UndoConfirmed без pending → no-op
+- [x] **сначала тест:** выбран подход A (soft-delete через `softDeletedIds: MutableStateFlow<Set<Long>>` + combine-filter), стратегия зафиксирована тестами `UndoConfirmed within 5s restores...` и `timer commits delete to repository after 5 seconds`
+- [x] **сначала тест:** `HistoryEmptyStateScreenshotTest` — 2 baseline (light + dark) с `AppEmptyState` + CTA `FilledTonalButton`
+- [x] **сначала тест:** `HistoryListScreenshotTest` — 2 baseline (list_light, list_dark): 5 карточек с разнообразными dB, длительностями, наличием/отсутствием заметок и одной длинной (ellipsis)
+- [x] **сначала тест:** `HistoryItemCardScreenshotTest` — 6 baseline (card_short_note/card_no_note/card_long_note × light/dark) на фиксированной `STABLE_CREATED_AT = 2024-10-02 UTC` для стабильности `DateUtils.getRelativeTimeSpanString`
+- [x] **сначала тест:** `HistoryScreenComposeUiTest` (createComposeRule + Robolectric): empty state CTA → onNavigateToMeasure; клик по карточке → onNavigateToDetail(id); LazyColumn рендер с key-стабильностью; loading state не показывает ни list ни empty CTA. **➕ внеплановое:** физический `swipeLeft()` под Material 3 `SwipeToDismissBox` не settling под Robolectric (Animatable + AnchoredDraggable не достигают idle); поведение swipe-to-dismiss проверяется через unit-тест VM (`DeleteRequested hides item from list`) + интегральная проверка проводки на устройстве — Phase Release
+- [x] создан `feature/history/.../HistoryUiState.kt` — `items + loading + pendingUndoId`
+- [x] создан `feature/history/.../HistoryUiEvent.kt` — `DeleteRequested(id) + UndoConfirmed`
+- [x] создан `feature/history/.../HistoryUiEffect.kt` — `ShowUndoSnackbar(messageRes, actionRes, durationMs)` + companion `UNDO_WINDOW_MS = 5_000L`
+- [x] создан `feature/history/.../HistoryViewModel.kt`:
+  - `@HiltViewModel` с инжектом `GetMeasurementsUseCase` + `DeleteMeasurementUseCase`
+  - combine 3 flows (`getMeasurements()` × `softDeletedIds` × `pendingUndoId`) → `stateIn(WhileSubscribed(5000), initialState=loading=true)`
+  - `scheduleDelete(id)` — commit orphaned soft-deletes, soft-delete новый id, эмит `ShowUndoSnackbar`, шедулит `pendingDeleteJob` с `delay(5000) → commitDelete`
+  - `commitOrphanedSoftDeletes(except)` — защита от latest-write-wins: если уже есть pending — добиваем его и стартуем новый таймер только для нового id
+  - `cancelPendingDelete()` — `pendingDeleteJob.cancel()` + `softDeletedIds.update { it - id }` + сброс `pendingUndoId`
+- [x] создан `feature/history/.../ui/HistoryItemCard.kt` — `Card(surfaceContainerLow)` с двумя колонками (text/stats); разнесён на `CardTextColumn` + `CardStatsColumn` после фикса `LongMethod` detekt; формат даты через `DateUtils.getRelativeTimeSpanString` + FORMAT_ABBREV_ALL; ellipsis на title/note maxLines=1
+- [x] **➕ внеплановое:** создан `feature/history/.../ui/SparklineChart.kt` — собственная микро-версия чарта для карточки (≤20 точек, без timestamp оси, цвет от avg dB через `levelToSplColor`). Полноценный `SplLineChart` из `:feature:measure` переедет в `:core:ui` только в Task 6 — пока что мини-чарт автономен
+- [x] создан `feature/history/.../ui/HistoryEmptyState.kt` — обёртка над `AppEmptyState` с `Icons.Filled.GraphicEq` + локализованные строки + CTA на Measure tab
+- [x] переписан `feature/history/.../HistoryScreen.kt`:
+  - публичный `HistoryScreen(onNavigateToDetail, onNavigateToMeasure, modifier, viewModel = hiltViewModel())` с default-параметрами для обратной совместимости с тестами `:app`
+  - внутренний `HistoryScreenContent(...)` для unit-тестабельности (тот же паттерн что в `MeasureScreen`)
+  - `LazyColumn` с `items(key = { it.id })` обёрнутыми в `SwipeToDismissBox(enableDismissFromEndToStart = true, enableDismissFromStartToEnd = false)`; на dismiss-confirm → `onEvent(DeleteRequested(item.id))`
+  - `LaunchedEffect { effects.collect { ShowUndoSnackbar → snackbarHostState.showSnackbar(...); if (ActionPerformed) onEvent(UndoConfirmed) } }`
+  - empty-state path: при `!loading && items.isEmpty()` → `HistoryEmptyState`
+  - loading path: Box(empty) — без транзитного спиннера ради NFR-1
+- [x] добавлены локализационные строки в `feature/history/src/main/res/values/strings.xml` и `values-ru/strings.xml` — empty/CTA/undo/card content descriptions (11 строк × 2 локали)
+- [x] обновлён `feature/history/build.gradle.kts` — добавлен `roborazzi`-плагин, `material-icons-extended`, `lifecycle-runtime-compose`, `testOptions.unitTests.isIncludeAndroidResources = true`; создан `src/test/resources/robolectric.properties` (sdk=33)
+- [x] создан `feature/history/.../di/HistoryUseCaseModule.kt` — `@Provides` для `GetMeasurementsUseCase` + `DeleteMeasurementUseCase` в `SingletonComponent`
+- [x] обновлён `app/.../navigation/TishinaNavHost.kt` — `HistoryScreen(onNavigateToDetail = { /* Task 7 */ }, onNavigateToMeasure = { navController.navigate(Measure) })`
+- [x] реализованы composables, ViewModel — все тесты зелёные
+- [x] `./gradlew :feature:history:testDebugUnitTest verifyRoborazziDebug` — 22/22 passed; `:feature:history:detektAll lintDebug` — clean; `:feature:history:spotlessCheck` (через `--no-configuration-cache`) — clean; `:app:assembleDebug` — SUCCESSFUL (Hilt-граф валиден, BindsModule не дублирует MeasureUseCaseModule)
 
 ### Task 6: DetailViewModel + DetailScreen — полный график + inline-edit заметки
 

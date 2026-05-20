@@ -25,7 +25,12 @@ fun TishinaNavHost(
             measureContent()
         }
         composable<TishinaDestination.History> {
-            HistoryScreen(onNavigateBack = { navController.popBackStack() })
+            HistoryScreen(
+                // Detail route lands in Task 7; for now we still pass a real navigation hook to
+                // keep History → Measure CTA working without a separate intermediate commit.
+                onNavigateToDetail = { /* TODO Task 7: navController.navigate(Detail(it)) */ },
+                onNavigateToMeasure = { navController.navigate(TishinaDestination.Measure) },
+            )
         }
         composable<TishinaDestination.Settings> {
             SettingsScreen(onNavigateBack = { navController.popBackStack() })

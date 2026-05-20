@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="history_empty_title">Здесь будут ваши замеры</string>
+    <string name="history_empty_description">Запустите измерение и сохраните результат</string>
+    <string name="history_empty_cta">Сделать первый замер</string>
+    <string name="history_empty_icon_cd">История пуста</string>
+
+    <string name="history_undo_snackbar_message">Замер удалён</string>
+    <string name="history_undo_action">Отменить</string>
+
+    <string name="history_card_no_title">Замер</string>
+    <string name="history_card_avg_db_cd">Среднее %1$.1f дБ</string>
+    <string name="history_card_duration_cd">Длительность %1$s</string>
+    <string name="history_card_delete_cd">Удалить</string>
+    <string name="history_card_sparkline_cd">Изменение громкости</string>
+</resources>
