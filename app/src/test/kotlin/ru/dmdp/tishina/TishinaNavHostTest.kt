@@ -22,6 +22,7 @@ import org.robolectric.annotation.Config
 import ru.dmdp.tishina.core.designsystem.theme.TishinaTheme
 import ru.dmdp.tishina.navigation.TishinaDestination
 import ru.dmdp.tishina.navigation.TopLevelDestination
+import ru.dmdp.tishina.testutils.HistoryScreenTestStub
 import ru.dmdp.tishina.testutils.MeasureContentStubTestTag
 import ru.dmdp.tishina.testutils.MeasureScreenTestStub
 import ru.dmdp.tishina.ui.TishinaApp
@@ -49,6 +50,7 @@ class TishinaNavHostTest {
                     windowSizeClass = sizeClass,
                     navController = navController,
                     measureContent = { MeasureScreenTestStub() },
+                    historyContent = { _, _ -> HistoryScreenTestStub() },
                 )
             }
         }
@@ -79,6 +81,7 @@ class TishinaNavHostTest {
                     windowSizeClass = sizeClass,
                     navController = navController,
                     measureContent = { MeasureScreenTestStub() },
+                    historyContent = { _, _ -> HistoryScreenTestStub() },
                 )
             }
         }
@@ -109,6 +112,7 @@ class TishinaNavHostTest {
                     windowSizeClass = sizeClass,
                     navController = navController,
                     measureContent = { MeasureScreenTestStub() },
+                    historyContent = { _, _ -> HistoryScreenTestStub() },
                 )
             }
         }
@@ -142,6 +146,7 @@ class TishinaNavHostTest {
                     windowSizeClass = sizeClass,
                     navController = navController,
                     measureContent = { MeasureScreenTestStub() },
+                    historyContent = { _, _ -> HistoryScreenTestStub() },
                 )
             }
         }
@@ -185,6 +190,7 @@ class TishinaNavHostTest {
                     windowSizeClass = sizeClass,
                     navController = navController,
                     measureContent = { MeasureScreenTestStub() },
+                    historyContent = { _, _ -> HistoryScreenTestStub() },
                 )
             }
         }

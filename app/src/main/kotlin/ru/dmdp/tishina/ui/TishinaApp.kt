@@ -58,6 +58,24 @@ fun TishinaApp(
     windowSizeClass: WindowSizeClass,
     navController: NavHostController = rememberNavController(),
     measureContent: @Composable () -> Unit = { MeasureScreen() },
+    // Same stub-slot pattern as `measureContent` — production callers omit them and get the
+    // real Hilt-injected screens. Tests pass simpler composables to avoid standing up the
+    // Hilt graph for ViewModels they aren't asserting against.
+    historyContent: @Composable (
+        onNavigateToDetail: (Long) -> Unit,
+        onNavigateToMeasure: () -> Unit,
+    ) -> Unit = { onNavigateToDetail, onNavigateToMeasure ->
+        ru.dmdp.tishina.feature.history.HistoryScreen(
+            onNavigateToDetail = onNavigateToDetail,
+            onNavigateToMeasure = onNavigateToMeasure,
+        )
+    },
+    detailContent: @Composable (
+        measurementId: Long,
+        onNavigateBack: () -> Unit,
+    ) -> Unit = { _, onNavigateBack ->
+        ru.dmdp.tishina.feature.history.detail.DetailScreen(onNavigateBack = onNavigateBack)
+    },
 ) {
     val useNavigationRail = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -89,7 +107,12 @@ fun TishinaApp(
                     onAboutClick = onAboutClick,
                 )
                 Box(modifier = Modifier.fillMaxSize()) {
-                    TishinaNavHost(navController = navController, measureContent = measureContent)
+                    TishinaNavHost(
+                        navController = navController,
+                        measureContent = measureContent,
+                        historyContent = historyContent,
+                        detailContent = detailContent,
+                    )
                 }
             }
         } else {
@@ -110,7 +133,12 @@ fun TishinaApp(
                 },
             ) { padding ->
                 Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                    TishinaNavHost(navController = navController, measureContent = measureContent)
+                    TishinaNavHost(
+                        navController = navController,
+                        measureContent = measureContent,
+                        historyContent = historyContent,
+                        detailContent = detailContent,
+                    )
                 }
             }
         }

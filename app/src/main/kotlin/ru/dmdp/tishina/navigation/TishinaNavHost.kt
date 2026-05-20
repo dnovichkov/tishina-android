@@ -5,8 +5,11 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
 import ru.dmdp.tishina.feature.about.AboutScreen
 import ru.dmdp.tishina.feature.history.HistoryScreen
+import ru.dmdp.tishina.feature.history.detail.DetailRoute
+import ru.dmdp.tishina.feature.history.detail.DetailScreen
 import ru.dmdp.tishina.feature.measure.MeasureScreen
 import ru.dmdp.tishina.feature.settings.SettingsScreen
 
@@ -15,6 +18,28 @@ fun TishinaNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
     measureContent: @Composable () -> Unit = { MeasureScreen() },
+    // Stub slots mirror the `measureContent` pattern from Phase 2 — they let unit tests
+    // exercise the NavHost graph without standing up Hilt-injected ViewModels (which would
+    // pull in Room and the rest of the data layer). Production callers stick with the
+    // defaults, which delegate to the real Hilt-aware screens.
+    historyContent: @Composable (
+        onNavigateToDetail: (Long) -> Unit,
+        onNavigateToMeasure: () -> Unit,
+    ) -> Unit = { onNavigateToDetail, onNavigateToMeasure ->
+        HistoryScreen(
+            onNavigateToDetail = onNavigateToDetail,
+            onNavigateToMeasure = onNavigateToMeasure,
+        )
+    },
+    detailContent: @Composable (
+        measurementId: Long,
+        onNavigateBack: () -> Unit,
+    ) -> Unit = { _, onNavigateBack ->
+        // DetailViewModel decodes the id itself from SavedStateHandle.toRoute<DetailRoute>(),
+        // so the production composable does NOT need the id passed in. The stub seat is
+        // exposed only for tests that want to assert routing decoded the right value.
+        DetailScreen(onNavigateBack = onNavigateBack)
+    },
 ) {
     NavHost(
         navController = navController,
@@ -25,12 +50,14 @@ fun TishinaNavHost(
             measureContent()
         }
         composable<TishinaDestination.History> {
-            HistoryScreen(
-                // Detail route lands in Task 7; for now we still pass a real navigation hook to
-                // keep History → Measure CTA working without a separate intermediate commit.
-                onNavigateToDetail = { /* TODO Task 7: navController.navigate(Detail(it)) */ },
-                onNavigateToMeasure = { navController.navigate(TishinaDestination.Measure) },
+            historyContent(
+                { id -> navController.navigate(DetailRoute(measurementId = id)) },
+                { navController.navigate(TishinaDestination.Measure) },
             )
+        }
+        composable<DetailRoute> { backStackEntry ->
+            val route = backStackEntry.toRoute<DetailRoute>()
+            detailContent(route.measurementId) { navController.popBackStack() }
         }
         composable<TishinaDestination.Settings> {
             SettingsScreen(onNavigateBack = { navController.popBackStack() })

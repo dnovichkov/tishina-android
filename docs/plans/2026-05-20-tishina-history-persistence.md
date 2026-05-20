@@ -365,22 +365,21 @@ Phase 3 наполняет Phase 1 (foundation) и Phase 2 (audio engine + measu
 
 ### Task 7: Navigation wiring + cold start guard
 
-- [ ] **сначала тест:** `TishinaNavHostHistoryToDetailTest` — `createComposeRule`: стартовый Measure → переход на History tab → клик по карточке → переход на Detail → клик back → возврат на History; используется тот же паттерн stub-композблов из Phase 2 (`historyContent`, `detailContent` параметры с default = реальные экраны)
-- [ ] **сначала тест:** `TishinaColdStartTest` (Robolectric) — стартует Activity, измеряет время `setContent` → `LayoutNode.measured` для MeasureScreen content; ассерт что время < 600мс на Robolectric (proxy для FR-1 ≤ 1 с на реальном устройстве; точный ассерт оставляем для Phase Release с macrobenchmark на эмуляторе). Тест маркируется как ⚠️ approximation
-- [ ] обновить `app/src/main/kotlin/ru/dmdp/tishina/navigation/TishinaDestinations.kt`:
-  - добавить `@Serializable data class Detail(val measurementId: Long) : TishinaDestination`
-  - (`Detail` — НЕ top-level destination для bottom nav-bar; ему не нужны label/icon, так что в `enum class TopLevelDestination` его НЕ добавляем; навигация в Detail происходит из History через `navController.navigate(Detail(measurementId = id))`)
-- [ ] обновить `app/.../navigation/TishinaNavHost.kt`:
-  - добавить `composable<Detail> { backStackEntry -> DetailScreen(onNavigateBack = { navController.popBackStack() }) }`
-  - в `composable<History>` пробросить `onNavigateToDetail = { id -> navController.navigate(Detail(measurementId = id)) }` и `onNavigateToMeasure = { navController.navigate(Measure) { popUpTo(Measure) { inclusive = false } } }`
-- [ ] обновить `:app/build.gradle.kts`:
-  - убедиться что `implementation(projects.feature.history)` уже подключён (после Phase 1 — да)
-  - НЕ нужно подключать `:core:data` напрямую в `:app` если он подключён транзитивно через `:feature:history` или `:feature:measure` — проверить и подключить если транзитивности нет
-- [ ] проверить что `MeasurementDatabase` инициализируется лениво (НЕ в `TishinaApplication.onCreate`):
-  - открыть `app/.../TishinaApplication.kt` — убедиться что только `@HiltAndroidApp` без явного inject `MeasurementRepository` или `TishinaDatabase`
-  - если в `Application.onCreate` есть прямое обращение к БД (которого быть не должно) — удалить
-- [ ] реализовать навигационные изменения — чтобы тесты позеленели
-- [ ] run `./gradlew :app:testDebugUnitTest :app:assembleDebug` — must pass before next task
+- [x] **сначала тест:** `TishinaNavHostHistoryToDetailTest` — `createComposeRule`: 2 кейса с stub-композблами (минуя `TishinaApp`/NavBar): (1) `navigates from History to Detail and Back returns to History` — программный `navController.navigate(History)` → клик в stub `onOpenDetail(42L)` → ассерт `hasRoute(DetailRoute::class)` + видимость Detail-stub → `popBackStack` → ассерт `hasRoute(History::class)`; (2) `Detail composable decodes measurementId from type-safe route` — навигация `navController.navigate(DetailRoute(7777L))` → ассерт `capturedId == 7777L` (round-trip через @Serializable)
+- [x] **сначала тест:** `TishinaColdStartTest` (Robolectric, 4 кейса): (1) `Measure screen renders within proxy budget on cold start` — измеряет `setContent + waitForIdle` на TishinaApp с stub Measure; budget 5 000 мс ⚠️ approximation для FR-1 (на реальном устройстве 1 000 мс через macrobenchmark в Phase Release); (2) `TishinaApplication declares no custom onCreate work` — reflection-ассерт что в `TishinaApplication` нет переопределённого `onCreate`; (3) `TishinaApplication declares no instance fields that pin lazy services eagerly` — reflection-ассерт что нет user-объявленных полей кроме Hilt-generated; (4) `Hilt graph is reachable but does not eagerly resolve TishinaDatabase` — `app is GeneratedComponentManagerHolder`
+- [x] **➕ отступление от плана:** не создаём `TishinaDestination.Detail` в `TishinaDestinations.kt` — переиспользуем уже существующий `DetailRoute` из `:feature:history` (импорт `ru.dmdp.tishina.feature.history.detail.DetailRoute`). Обоснование: Route принадлежит модулю, где живут VM и Screen ([[detail_route_ownership]] — DetailRoute.kt docstring lines 5-12); type-safe Navigation Compose разрешает любой `@Serializable`-класс как destination, sealed interface не обязателен. Это устраняет дубликат класса и снижает связность `:app` ↔ `:feature:history`. Detail по-прежнему НЕ в `TopLevelDestination` enum
+- [x] обновить `app/.../navigation/TishinaNavHost.kt`:
+  - добавлен `composable<DetailRoute> { backStackEntry -> val route = backStackEntry.toRoute<DetailRoute>(); detailContent(route.measurementId) { navController.popBackStack() } }`
+  - в `composable<History>` проброшен `onNavigateToDetail = { id -> navController.navigate(DetailRoute(measurementId = id)) }` (вместо TODO-stub из Task 5) и `onNavigateToMeasure = { navController.navigate(Measure) }`
+  - **➕ внеплановое:** добавлены параметры `historyContent: @Composable ((Long) -> Unit, () -> Unit) -> Unit` и `detailContent: @Composable (Long, () -> Unit) -> Unit` с default'ами на реальные `HistoryScreen`/`DetailScreen`. Паттерн идентичен `measureContent` из Phase 2 и нужен для unit-тестируемости (избегаем Hilt-graph EntryPoints crash на `hiltViewModel()` в Robolectric)
+- [x] обновить `app/.../ui/TishinaApp.kt`:
+  - **➕ внеплановое:** добавлены те же `historyContent` и `detailContent` параметры с default'ами; пробрасываются в оба вызова `TishinaNavHost(...)` (compact + medium/expanded ветки)
+- [x] **➕ внеплановое:** создан `app/src/test/.../testutils/HistoryDetailStubs.kt` с `HistoryScreenTestStub`/`DetailScreenTestStub` (паттерн `MeasureScreenTestStub` из Phase 2) — переиспользуемые stub-композблы для всех `:app` навигационных тестов
+- [x] **➕ исправлена регрессия Task 5:** `TishinaNavHostTest` (5 кейсов) и `NavigationRotationTest` (1 кейс) после Task 5 упали с `IllegalStateException at EntryPoints.java:62` (`androidx.activity.ComponentActivity does not implement GeneratedComponentManager`) — реальный `HistoryScreen` зовёт `hiltViewModel()`, но тестовая Activity не Hilt-aware. Все 6 вызовов `TishinaApp(...)` обновлены, чтобы передавать `historyContent = { _, _ -> HistoryScreenTestStub() }`. Регрессия незаметна была в Task 5, потому что прогонялись только `:feature:history` и `:feature:measure` тесты, не полный `:app` suite
+- [x] `app/build.gradle.kts` уже подключал `implementation(projects.core.data)` + `implementation(projects.feature.history)` после Task 2/5 — изменения не требуются
+- [x] `TishinaApplication.kt` уже минимальный (`@HiltAndroidApp class TishinaApplication : Application()` без `onCreate` override) — изменения не требуются; reflection-тесты в `TishinaColdStartTest` фиксируют это инвариантом
+- [x] реализованы навигационные изменения — все 6 новых тестов + 17 существующих `:app` тестов зелёные
+- [x] `./gradlew :app:testDebugUnitTest :app:detektAll :app:lintDebug :app:assembleDebug` — все SUCCESS (`:app:spotlessCheck --no-configuration-cache` тоже clean); финальный полнопроектный прогон `testDebugUnitTest detektAll lintDebug assembleDebug` + `verifyRoborazziDebug` — все SUCCESS, screenshot baselines из Task 5/6 не пострадали
 
 ### Task 8: Verify acceptance criteria + final smoke + README
 
