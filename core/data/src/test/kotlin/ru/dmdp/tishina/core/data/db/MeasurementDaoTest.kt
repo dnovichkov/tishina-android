@@ -198,7 +198,12 @@ class MeasurementDaoTest {
     }
 
     @Test
-    fun `loadSparklinePreview returns up to 20 db values for the measurement`() = runTest {
+    fun `loadSparklinePreview returns 20 evenly-spaced averaged points across the session`() = runTest {
+        // Samples are monotonically increasing dB (40..89) at 200 ms intervals. After bucketing
+        // into 20 time-buckets, the first bucket averages the earliest samples and the last
+        // averages the latest — both ends move toward the centre of their bucket, which is the
+        // expected behaviour of evenly-spaced downsampling (vs. the prior "first 20 samples"
+        // bug where first.last would both have lived in the first 4 s of the session).
         val samples = List(50) { index ->
             SampleEntity(measurementId = 0L, tOffsetMs = index * 200L, db = 40.0f + index)
         }
@@ -207,8 +212,14 @@ class MeasurementDaoTest {
         val sparkline = dao.loadSparklinePreview(id)
 
         assertEquals(20, sparkline.size)
-        // Stored values are read in tOffsetMs order — first should be the earliest db.
-        assertEquals(40.0f, sparkline.first(), 0.0001f)
+        // First bucket = AVG(40, 41, 42) = 41.0; last bucket = AVG(87, 88, 89) = 88.0.
+        // 0.5 tolerance covers integer bucketing rounding variation across SQLite versions.
+        assertEquals(41.0f, sparkline.first(), 0.5f)
+        assertEquals(88.0f, sparkline.last(), 0.5f)
+        // Monotonicity proves the points span the full session, not just the head.
+        sparkline.zipWithNext().forEach { (a, b) ->
+            assertTrue("Expected non-decreasing sparkline, got $a then $b", b >= a)
+        }
     }
 
     @Test

@@ -32,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.collectLatest
 import ru.dmdp.tishina.feature.history.ui.HistoryEmptyState
 import ru.dmdp.tishina.feature.history.ui.HistoryItemCard
 
@@ -62,7 +63,12 @@ fun HistoryScreen(
     val context = LocalContext.current
 
     LaunchedEffect(viewModel) {
-        viewModel.effects.collect { effect ->
+        // `collectLatest` cancels the in-flight `showSnackbar` when a new effect arrives —
+        // critical for back-to-back swipe-deletes: the previous snackbar is dismissed before
+        // the new one shows, which prevents the user from tapping Undo on the OLD snackbar
+        // while the VM's `pendingUndoId` already points at the NEW soft-delete (that would
+        // restore the wrong row and leave the first one permanently deleted).
+        viewModel.effects.collectLatest { effect ->
             when (effect) {
                 is HistoryUiEffect.ShowUndoSnackbar -> {
                     val result = snackbarHostState.showSnackbar(

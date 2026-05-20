@@ -58,16 +58,25 @@ abstract class MeasurementDao {
     abstract suspend fun getDetailsById(id: Long): MeasurementWithSamples?
 
     /**
-     * Preview vector for the History card sparkline. 20 evenly-tOffset-ordered points is
-     * a deliberate trade-off: for a one-hour session it gives one tick per three minutes,
-     * which is coarse but enough to convey "spiky vs steady" at card scale.
+     * Preview vector for the History card sparkline. Returns up to 20 evenly time-spaced
+     * dB values spanning the full session: samples are grouped into 20 time-buckets across
+     * `[0, MAX(tOffsetMs)]` and each bucket's mean is emitted. For a one-hour session that
+     * gives one tick per three minutes, which is coarse but enough to convey "spiky vs
+     * steady" at card scale. Sessions with ≤ 20 samples are returned verbatim (one bucket
+     * per sample).
+     *
+     * Implementation note: avoids window functions (ROW_NUMBER OVER, COUNT OVER) because
+     * `minSdk = 26` ships SQLite 3.18, which predates them. The arithmetic GROUP BY on a
+     * scalar subquery is portable to SQLite 3.18+.
      */
     @Query(
         """
-            SELECT db FROM samples
+            SELECT AVG(db) AS db FROM samples
             WHERE measurementId = :id
-            ORDER BY tOffsetMs ASC
-            LIMIT 20
+            GROUP BY (tOffsetMs * 20 / COALESCE(
+                (SELECT MAX(tOffsetMs) + 1 FROM samples WHERE measurementId = :id), 1
+            ))
+            ORDER BY MIN(tOffsetMs) ASC
         """,
     )
     abstract suspend fun loadSparklinePreview(id: Long): List<Float>
