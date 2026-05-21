@@ -22,4 +22,42 @@
 
     <!-- FR-14 — surfaced when SettingsViewModel rejects out-of-range calibration. -->
     <string name="settings_calibration_out_of_range">Calibration must be between -20 and +20 dB</string>
+
+    <!-- Settings screen — top bar & navigation -->
+    <string name="settings_back_cd">Back to Measure</string>
+
+    <!-- Preference categories (FR-14, FR-16, FR-17, FR-18) -->
+    <string name="settings_category_measurement">Measurement</string>
+    <string name="settings_category_appearance">Appearance</string>
+    <string name="settings_category_language">Language</string>
+
+    <!-- FR-14 — Calibration offset slider -->
+    <string name="settings_calibration_title">Calibration</string>
+    <string name="settings_calibration_description">Compare with a reference sound-level meter and shift readings by this offset.</string>
+    <string name="settings_calibration_format">%1$+.1f dB</string>
+    <string name="settings_calibration_value_cd">Calibration slider, current value %1$s</string>
+    <string name="settings_calibration_reset">Reset calibration</string>
+
+    <!-- FR-16 — Time weighting -->
+    <string name="settings_time_weighting_title">Time weighting</string>
+    <string name="settings_time_weighting_fast">Fast (125 ms)</string>
+    <string name="settings_time_weighting_slow">Slow (1 s)</string>
+    <string name="settings_time_weighting_description">Fast — for dynamic sounds; Slow — for averaged levels.</string>
+
+    <!-- FR-17 — Theme & dynamic colors -->
+    <string name="settings_theme_title">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_dynamic_colors_title">Dynamic colors</string>
+    <string name="settings_dynamic_colors_description">Use Material You palette from the current wallpaper (Android 12+).</string>
+
+    <!-- FR-18 — Language -->
+    <string name="settings_language_title">Application language</string>
+    <string name="settings_language_system">System</string>
+    <string name="settings_language_russian">Russian</string>
+    <string name="settings_language_english">English</string>
+
+    <!-- Footer link to About — wired up in Phase 5. -->
+    <string name="settings_about_link">About the app</string>
 </resources>

@@ -283,50 +283,60 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
 
 ### Task 4: SettingsScreen scaffolding + общие preference-компоненты
 
-- [ ] **сначала тест:** `PreferenceCategoryScreenshotTest` (Roborazzi) — category с заголовком + 3 child preferences; light + dark (2 baseline)
-- [ ] **сначала тест:** `ChoicePreferenceScreenshotTest` — 3 chips (System/Light/Dark); selected=middle vs first vs last; light + dark (4 baseline)
-- [ ] **сначала тест:** `SliderPreferenceScreenshotTest` — slider с value=0, value=+15, value=-15, value=+20 (граница); light + dark (8 baseline)
-- [ ] **сначала тест:** `SwitchPreferenceScreenshotTest` — switch on vs off; light + dark (4 baseline)
-- [ ] **сначала тест:** `SettingsScreenScreenshotTest` — `setting_default_light/dark` (полный экран с дефолтами); 2 baseline
-- [ ] **сначала тест:** `SettingsScreenComposeUiTest` (createComposeRule):
-  - empty repository → loading indicator → дефолтные значения
-  - клик "Назад" → onNavigateBack callback
-  - TopAppBar title корректно отображается
-- [ ] создать `core/ui/src/main/kotlin/ru/dmdp/tishina/core/ui/preferences/PreferenceCategory.kt`:
+- [x] **сначала тест:** `PreferenceCategoryScreenshotTest` (Roborazzi) — category с заголовком + 3 child preferences; light + dark (2 baseline)
+- [x] **сначала тест:** `ChoicePreferenceScreenshotTest` — 3 chips (System/Light/Dark); selected=middle vs first vs last; light + dark (6 baseline — 3 позиции × 2 темы)
+- [x] **сначала тест:** `SliderPreferenceScreenshotTest` — slider с value=0, value=+15, value=-15, value=+20 (граница); light + dark (8 baseline)
+- [x] **сначала тест:** `SwitchPreferenceScreenshotTest` — switch on vs off; light + dark (4 baseline)
+- [x] **сначала тест:** `SettingsScreenScreenshotTest` — `setting_default_light/dark` (полный экран с дефолтами); 2 baseline
+- [x] **сначала тест:** `SettingsScreenComposeUiTest` (createComposeRule):
+  - loading state → CircularProgressIndicator виден (`SettingsScreenLoadingTestTag`)
+  - loaded state → все 4 заголовка категорий рендерятся (со скроллингом через `performScrollToNode`)
+  - клик стрелка «Назад» → onNavigateBack callback
+  - клик «О приложении» → onAboutClick callback
+  - клик chip «Dark/Light/System» → emits `ChangeThemeMode`
+  - клик chip «Fast/Slow» → emits `ChangeTimeWeighting`
+  - клик chip «System/Russian/English» → emits `ChangeAppLocale`
+  - toggle «Dynamic colors» → emits `ChangeDynamicColors(false)`
+  - на legacy API (`isDynamicColorSupported=false`) toggle disabled и не эмитит событие
+- [x] **➕ внеплановая подзадача:** `PreferenceComponentsBehaviorTest` в `:core:ui` — verifies контракт callbacks для `PreferenceCategory`, `ChoicePreference`, `SwitchPreference` (включая disabled-режим), `SliderPreference.onResetClick`. Тест нужен потому что Roborazzi snapshots ловят пиксели, а не контракт колбэков — без него молчаливая поломка `onValueChange` прошла бы валидацию.
+- [x] создать `core/ui/src/main/kotlin/ru/dmdp/tishina/core/ui/preferences/PreferenceCategory.kt`:
   - `Composable fun PreferenceCategory(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit)`
   - `Column { Text(title, style = labelLarge, color = primary), content() }`
-- [ ] создать `core/ui/.../preferences/ChoicePreference.kt`:
-  - `Composable fun <T> ChoicePreference(title: String, options: List<T>, optionLabels: List<String>, selectedOption: T, onOptionSelected: (T) -> Unit, modifier: Modifier = Modifier)`
-  - Material 3 SegmentedButton или FilterChip row
-  - `contentDescription` для каждой опции
-- [ ] создать `core/ui/.../preferences/SliderPreference.kt`:
-  - `Composable fun SliderPreference(title: String, value: Float, onValueChange: (Float) -> Unit, valueRange: ClosedFloatingPointRange<Float>, steps: Int, valueFormatter: (Float) -> String, onResetClick: (() -> Unit)? = null, modifier: Modifier = Modifier)`
-  - Material 3 Slider + Text current value + optional Reset IconButton
-  - `contentDescription` "Слайдер калибровки, текущее значение N дБ"
-- [ ] создать `core/ui/.../preferences/SwitchPreference.kt`:
-  - `Composable fun SwitchPreference(title: String, subtitle: String? = null, checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier)`
-  - row с text-column + Material 3 Switch
-- [ ] переписать `feature/settings/.../SettingsScreen.kt`:
-  - `@Composable fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateBack: () -> Unit = {}, modifier: Modifier = Modifier)`
-  - `SettingsScreenContent` без VM-параметра (тестируемая версия)
-  - `Scaffold` с `TopAppBar(title = "Настройки", navigationIcon = ArrowBack)`
+- [x] создать `core/ui/.../preferences/ChoicePreference.kt`:
+  - `Composable fun <T> ChoicePreference(title: String, options: List<T>, optionLabels: List<String>, selectedOption: T, onOptionSelected: (T) -> Unit, modifier: Modifier = Modifier, contentDescriptions: List<String>? = null)`
+  - Material 3 `FilterChip` row в `FlowRow` (sturdier API чем экспериментальный SegmentedButton; FlowRow обеспечивает wrap на узких экранах)
+  - `contentDescription` для каждой опции (опционально)
+- [x] создать `core/ui/.../preferences/SliderPreference.kt`:
+  - `Composable fun SliderPreference(title: String, value: Float, onValueChange: (Float) -> Unit, valueRange: ClosedFloatingPointRange<Float>, steps: Int, valueFormatter: (Float) -> String, modifier: Modifier = Modifier, onResetClick: (() -> Unit)? = null, resetButtonLabel: String? = null, description: String? = null, valueContentDescription: ((Float) -> String)? = null)`
+  - Material 3 Slider с локальным `mutableFloatStateOf` для smooth drag + commit на `onValueChangeFinished` (debounce-by-design)
+  - текущее значение справа от заголовка (Text style=titleMedium, color=primary)
+  - optional Reset button (FilledTonalButton) под description
+  - `contentDescription` опционально через valueContentDescription
+- [x] создать `core/ui/.../preferences/SwitchPreference.kt`:
+  - `Composable fun SwitchPreference(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier, subtitle: String? = null, enabled: Boolean = true)`
+  - row с `Modifier.toggleable(role = Role.Switch)` — TalkBack-friendly, click anywhere flips; `enabled = false` отключает callbacks (готово для FR-17 fallback на API ≤30)
+- [x] переписать `feature/settings/.../SettingsScreen.kt`:
+  - `@Composable fun SettingsScreen(onNavigateBack, onAboutClick, onApplyLocale, viewModel: SettingsViewModel = hiltViewModel(), modifier: Modifier = Modifier, isDynamicColorSupported = Build.VERSION.SDK_INT >= S)`
+  - `SettingsScreenContent` без VM-параметра (testable, принимает `state: SettingsUiState`, `onEvent`, `snackbarHostState`)
+  - `Scaffold` с `TopAppBar(title = "Settings", navigationIcon = ArrowBack)` + SnackbarHost
   - `LazyColumn` с группами `PreferenceCategory`:
-    - «Измерение»: SliderPreference (калибровка) + Button "Сбросить калибровку" + ChoicePreference (Fast/Slow)
-    - «Внешний вид»: ChoicePreference (тема) + SwitchPreference (динамические цвета)
-    - «Язык»: ChoicePreference (System/Russian/English)
-    - **Footer:** plain text ссылка/кнопка "О приложении" (placeholder action до Phase 5)
-  - подписка на `viewModel.effects` через `LaunchedEffect` для отображения Snackbar (`SnackbarHostState`) и эмиссии `ApplyAppLocale` наверх в MainActivity (но в Phase 4 Task 4 мы только готовим UI; реальное применение локали — Task 7)
-- [ ] добавить локализационные строки в `core/ui/src/main/res/values/` и `values-ru/`:
-  - `settings_title`, `settings_back_cd`
+    - «Measurement»: SliderPreference (калибровка, −20..+20, шаг 0.1, 399 inner steps) + Reset button + ChoicePreference (Fast/Slow) + description
+    - «Appearance»: ChoicePreference (System/Light/Dark) + SwitchPreference (Dynamic colors, gated by `isDynamicColorSupported`)
+    - «Application language»: ChoicePreference (System/Russian/English)
+    - **Footer:** TextButton «About the app» (вызывает `onAboutClick` placeholder action до Phase 5)
+  - подписка на `viewModel.effects` через `LaunchedEffect` для отображения Snackbar (`snackbarHostState.showSnackbar`) и эмиссии `ApplyAppLocale` наверх через `onApplyLocale` callback (реальное `AppCompatDelegate.setApplicationLocales` — Task 7)
+- [x] добавить локализационные строки в `core/ui/src/main/res/values/` и `values-ru/`:
+  - `settings_back_cd` (`settings_title` уже был)
   - `settings_category_measurement`, `settings_category_appearance`, `settings_category_language`
-  - `settings_calibration_title`, `settings_calibration_description`, `settings_calibration_format` ("%.1f дБ"), `settings_calibration_reset`, `settings_calibration_out_of_range`
+  - `settings_calibration_title`, `settings_calibration_description`, `settings_calibration_format` (`%+.1f dB` / `%+.1f дБ`), `settings_calibration_reset`, `settings_calibration_value_cd` (`settings_calibration_out_of_range` уже был с Task 3)
   - `settings_time_weighting_title`, `settings_time_weighting_fast`, `settings_time_weighting_slow`, `settings_time_weighting_description`
   - `settings_theme_title`, `settings_theme_system`, `settings_theme_light`, `settings_theme_dark`
   - `settings_dynamic_colors_title`, `settings_dynamic_colors_description`
   - `settings_language_title`, `settings_language_system`, `settings_language_russian`, `settings_language_english`
   - `settings_about_link`
-- [ ] реализовать components + SettingsScreen — все тесты зелёные
-- [ ] `./gradlew :core:ui:testDebugUnitTest :core:ui:verifyRoborazziDebug :feature:settings:testDebugUnitTest :feature:settings:verifyRoborazziDebug` — SUCCESSFUL
+- [x] **➕ внеплановая подзадача:** добавлен `alias(libs.plugins.roborazzi)` и `testOptions.unitTests.isIncludeAndroidResources = true` в `feature/settings/build.gradle.kts` + создан `src/test/resources/robolectric.properties` с `sdk=33` — без этих файлов screenshot-тесты не компилируются и Robolectric выбирает неподдерживаемый Android 15. Также добавлен `implementation(libs.androidx.compose.material.icons.extended)` и `implementation(libs.androidx.lifecycle.runtime.compose)` для AutoMirrored.ArrowBack и `collectAsStateWithLifecycle`.
+- [x] реализовать components + SettingsScreen — все тесты зелёные
+- [x] `./gradlew :core:ui:testDebugUnitTest :core:ui:verifyRoborazziDebug :feature:settings:testDebugUnitTest :feature:settings:verifyRoborazziDebug` — SUCCESSFUL; дополнительно `:core:ui:detektAll :feature:settings:detektAll :core:ui:lintDebug :feature:settings:lintDebug :core:ui:spotlessCheck :feature:settings:spotlessCheck :app:assembleDebug` — все SUCCESSFUL.
 
 ### Task 5: Measurement settings — Calibration slider + Reset + Time weighting
 

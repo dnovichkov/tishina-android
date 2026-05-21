@@ -20,4 +20,35 @@
     <string name="spl_stats_placeholder">—</string>
 
     <string name="settings_calibration_out_of_range">Калибровка должна быть в диапазоне от −20 до +20 дБ</string>
+
+    <string name="settings_back_cd">Назад к измерению</string>
+
+    <string name="settings_category_measurement">Измерение</string>
+    <string name="settings_category_appearance">Внешний вид</string>
+    <string name="settings_category_language">Язык</string>
+
+    <string name="settings_calibration_title">Калибровка</string>
+    <string name="settings_calibration_description">Сравните показания с эталонным шумомером и сместите значения на эту поправку.</string>
+    <string name="settings_calibration_format">%1$+.1f дБ</string>
+    <string name="settings_calibration_value_cd">Слайдер калибровки, текущее значение %1$s</string>
+    <string name="settings_calibration_reset">Сбросить калибровку</string>
+
+    <string name="settings_time_weighting_title">Временное взвешивание</string>
+    <string name="settings_time_weighting_fast">Быстрый (125 мс)</string>
+    <string name="settings_time_weighting_slow">Медленный (1 с)</string>
+    <string name="settings_time_weighting_description">Быстрый — для динамичных звуков; Медленный — для усреднённых уровней.</string>
+
+    <string name="settings_theme_title">Тема</string>
+    <string name="settings_theme_system">Системная</string>
+    <string name="settings_theme_light">Светлая</string>
+    <string name="settings_theme_dark">Тёмная</string>
+    <string name="settings_dynamic_colors_title">Динамические цвета</string>
+    <string name="settings_dynamic_colors_description">Использовать палитру Material You с текущих обоев (Android 12+).</string>
+
+    <string name="settings_language_title">Язык приложения</string>
+    <string name="settings_language_system">Системный</string>
+    <string name="settings_language_russian">Русский</string>
+    <string name="settings_language_english">English</string>
+
+    <string name="settings_about_link">О приложении</string>
 </resources>
