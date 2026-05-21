@@ -340,22 +340,24 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
 
 ### Task 5: Measurement settings — Calibration slider + Reset + Time weighting
 
-- [ ] **сначала тест:** `SettingsScreenCalibrationTest` (Compose UI Test + createComposeRule + state hoisting):
+- [x] **сначала тест:** `SettingsScreenCalibrationTest` (Compose UI Test + createComposeRule + state hoisting):
   - initial calibration=0 → slider position и value text "0.0 дБ"
   - drag slider to position representing +5.5 → onEvent(ChangeCalibration(+5.5f)) callback
   - drag slider beyond max (+20) → slider clamped to +20, callback с +20f
   - click Reset button → onEvent(ResetCalibration)
   - long slider drag (множественные value changes) → throttled callbacks (опционально, если используем `debounce`)
-- [ ] **сначала тест:** `SettingsScreenTimeWeightingTest`:
+  - **➕ дополнено:** initial calibration=+15 → label "+15.0 dB"; initial calibration=−8 → label "-8.0 dB" (отдельные тесты для проверки `%+.1f` форматтера); below-min clamping (`setProgress(-50f)` → callback с −20f); description text visible
+- [x] **сначала тест:** `SettingsScreenTimeWeightingTest`:
   - initial timeWeighting=FAST → chip "Быстрый (125 мс)" выделен
   - click chip "Медленный (1 с)" → onEvent(ChangeTimeWeighting(SLOW))
-- [ ] **сначала тест:** `SettingsScreenScreenshotTest` (расширяем из Task 4):
+  - **➕ дополнено:** initial timeWeighting=SLOW → chip "Slow (1 s)" выделен (reverse case); click "Fast" while SLOW selected emits FAST; description visible
+- [x] **сначала тест:** `SettingsScreenScreenshotTest` (расширяем из Task 4):
   - `setting_calibration_15db_light/dark` (2 baseline)
   - `setting_calibration_negative_8db_light/dark` (2 baseline)
   - `setting_calibration_at_max_light/dark` (2 baseline)
   - `setting_time_weighting_slow_selected_light/dark` (2 baseline)
-- [ ] **➕ возможно:** добавить debounce 100ms на slider drag (избежать большого числа DataStore writes). Решение: использовать `var localValue` (mutableStateOf, не сохраняется), отправка onEvent только на `onValueChangeFinished`. Это natural pattern для Material 3 Slider
-- [ ] обновить `SettingsScreenContent` (или вынести в `MeasurementSettingsSection`):
+- [x] **➕ возможно:** добавить debounce 100ms на slider drag (избежать большого числа DataStore writes). Решение: использовать `var localValue` (mutableStateOf, не сохраняется), отправка onEvent только на `onValueChangeFinished`. Это natural pattern для Material 3 Slider — уже реализовано в `SliderPreference` на Task 4 (`var localValue by remember(value) { mutableFloatStateOf(value) }` + commit-on-`onValueChangeFinished`).
+- [x] обновить `SettingsScreenContent` (или вынести в `MeasurementSettingsSection`):
   - подкомпонент `CalibrationPreference(value: Float, onValueChange: (Float) -> Unit, onReset: () -> Unit)`:
     - `var localValue by remember(value) { mutableStateOf(value) }` — для smooth drag без debouncing
     - `Slider(value = localValue, onValueChange = { localValue = it }, onValueChangeFinished = { onValueChange(localValue) }, valueRange = -20f..20f, steps = 400)`
@@ -365,8 +367,9 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
   - подкомпонент `TimeWeightingPreference(value: TimeWeighting, onValueChange: (TimeWeighting) -> Unit)`:
     - SegmentedButtonRow с 2 кнопками "Быстрый (125 мс)" / "Медленный (1 с)"
     - описание под выбором: "Быстрый — для динамичных звуков; Медленный — для усреднённых уровней"
-- [ ] реализовать + проверить UI tests — все тесты зелёные
-- [ ] `./gradlew :feature:settings:testDebugUnitTest :feature:settings:verifyRoborazziDebug` — SUCCESSFUL
+  - **Реализация:** структура уже подготовлена в Task 4 — `MeasurementSection` (приватная функция в `SettingsScreen.kt`) собирает `SliderPreference` (calibration + reset + description) и `ChoicePreference` (FAST/SLOW chips) поверх Material 3 `FilterChip` row (более устойчивый API чем `SegmentedButtonRow`; см. ChoicePreference KDoc). Дополнительные подкомпоненты `CalibrationPreference` / `TimeWeightingPreference` не выделялись — текущее размещение в `MeasurementSection` оставляет один уровень абстракции и сохраняет state hoisting через `SettingsUiState` + `onEvent`. Если в Phase 5 секция начнёт перегружаться (добавятся FR-15 A/C/Z toggle или impulse weighting), эти подкомпоненты можно выделить инкрементально.
+- [x] реализовать + проверить UI tests — все тесты зелёные
+- [x] `./gradlew :feature:settings:testDebugUnitTest :feature:settings:verifyRoborazziDebug` — SUCCESSFUL; дополнительно `:feature:settings:detektAll :feature:settings:lintDebug :feature:settings:spotlessCheck :app:assembleDebug` — SUCCESSFUL.
 
 ### Task 6: Appearance — Theme + Dynamic Colors + наблюдение в TishinaTheme
 

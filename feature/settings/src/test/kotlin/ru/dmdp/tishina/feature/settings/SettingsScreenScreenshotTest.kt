@@ -16,12 +16,18 @@ import ru.dmdp.tishina.core.domain.model.TimeWeighting
 import ru.dmdp.tishina.core.testing.rules.captureSnapshot
 
 /**
- * Two anchor baselines for the SettingsScreen scaffold — Tasks 5, 6, 7 will add
- * variant snapshots (calibration values, dark-theme selected, English locale).
+ * Settings screen baselines:
+ *  - `setting_default_light/dark` lock the empty-state shell (Task 4 anchors).
+ *  - `setting_calibration_15db_*`, `setting_calibration_negative_8db_*`,
+ *    `setting_calibration_at_max_*` lock FR-14 slider variants (Task 5).
+ *  - `setting_time_weighting_slow_selected_*` locks the FR-16 chip group with
+ *    Slow selected (Task 5).
  *
- * `setting_default_light/dark` lock the empty-state shell so any structural
- * regression (lost category, swapped order, missing footer) shows up as a
- * pixel diff in PR review.
+ * Tasks 6 / 7 will extend with dark-theme-selected and English-locale snapshots.
+ *
+ * Each variant captures the full `SettingsScreenContent` host (not just the
+ * MeasurementSection) so a regression in any adjacent category — Appearance,
+ * Language, About footer — still shows up as a pixel diff.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -32,35 +38,101 @@ class SettingsScreenScreenshotTest {
     val composeTestRule = createComposeRule()
 
     @Test
-    fun setting_default_light() = capture(dark = false, name = "setting_default_light")
+    fun setting_default_light() = capture(
+        state = defaultState(),
+        dark = false,
+        name = "setting_default_light",
+    )
 
     @Test
-    fun setting_default_dark() = capture(dark = true, name = "setting_default_dark")
+    fun setting_default_dark() = capture(
+        state = defaultState(),
+        dark = true,
+        name = "setting_default_dark",
+    )
 
-    private fun capture(dark: Boolean, name: String) {
+    @Test
+    fun setting_calibration_15db_light() = capture(
+        state = defaultState().copy(calibrationOffsetDb = 15f),
+        dark = false,
+        name = "setting_calibration_15db_light",
+    )
+
+    @Test
+    fun setting_calibration_15db_dark() = capture(
+        state = defaultState().copy(calibrationOffsetDb = 15f),
+        dark = true,
+        name = "setting_calibration_15db_dark",
+    )
+
+    @Test
+    fun setting_calibration_negative_8db_light() = capture(
+        state = defaultState().copy(calibrationOffsetDb = -8f),
+        dark = false,
+        name = "setting_calibration_negative_8db_light",
+    )
+
+    @Test
+    fun setting_calibration_negative_8db_dark() = capture(
+        state = defaultState().copy(calibrationOffsetDb = -8f),
+        dark = true,
+        name = "setting_calibration_negative_8db_dark",
+    )
+
+    @Test
+    fun setting_calibration_at_max_light() = capture(
+        state = defaultState().copy(calibrationOffsetDb = 20f),
+        dark = false,
+        name = "setting_calibration_at_max_light",
+    )
+
+    @Test
+    fun setting_calibration_at_max_dark() = capture(
+        state = defaultState().copy(calibrationOffsetDb = 20f),
+        dark = true,
+        name = "setting_calibration_at_max_dark",
+    )
+
+    @Test
+    fun setting_time_weighting_slow_selected_light() = capture(
+        state = defaultState().copy(timeWeighting = TimeWeighting.SLOW),
+        dark = false,
+        name = "setting_time_weighting_slow_selected_light",
+    )
+
+    @Test
+    fun setting_time_weighting_slow_selected_dark() = capture(
+        state = defaultState().copy(timeWeighting = TimeWeighting.SLOW),
+        dark = true,
+        name = "setting_time_weighting_slow_selected_dark",
+    )
+
+    private fun capture(state: SettingsUiState, dark: Boolean, name: String) {
         composeTestRule.setContent {
             TishinaTheme(darkTheme = dark, dynamicColor = false) {
-                Host()
+                Host(state)
             }
         }
         composeTestRule.onRoot().captureSnapshot("SettingsScreenScreenshotTest_$name")
     }
 
     @Composable
-    private fun Host() {
+    private fun Host(state: SettingsUiState) {
         SettingsScreenContent(
-            state = SettingsUiState(
-                calibrationOffsetDb = 0f,
-                timeWeighting = TimeWeighting.FAST,
-                themeMode = ThemeMode.System,
-                dynamicColors = true,
-                locale = AppLocale.System,
-                loading = false,
-            ),
+            state = state,
             isDynamicColorSupported = true,
             onEvent = {},
             onNavigateBack = {},
             onAboutClick = {},
         )
     }
+
+    private fun defaultState(): SettingsUiState = SettingsUiState(
+        calibrationOffsetDb = 0f,
+        timeWeighting = TimeWeighting.FAST,
+        themeMode = ThemeMode.System,
+        dynamicColors = true,
+        locale = AppLocale.System,
+        loading = false,
+    )
 }
