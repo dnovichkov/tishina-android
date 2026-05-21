@@ -42,6 +42,11 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
 
+    // Phase 4 — DataStore-backed SettingsRepositoryImpl persists calibration, theme,
+    // dynamic colors and locale. Lives in `:core:data` so Hilt can share the singleton
+    // file with the rest of the data layer (Room DB + Settings under one storage root).
+    implementation(libs.datastore.preferences)
+
     testImplementation(projects.core.testing)
     testImplementation(libs.room.testing)
     testImplementation(libs.robolectric)

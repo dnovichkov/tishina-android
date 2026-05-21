@@ -1,6 +1,12 @@
 package ru.dmdp.tishina.core.data.di
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
 import dagger.Binds
 import dagger.Module
@@ -13,7 +19,9 @@ import kotlinx.coroutines.Dispatchers
 import ru.dmdp.tishina.core.data.db.TishinaDatabase
 import ru.dmdp.tishina.core.data.db.dao.MeasurementDao
 import ru.dmdp.tishina.core.data.repository.MeasurementRepositoryImpl
+import ru.dmdp.tishina.core.data.settings.SettingsRepositoryImpl
 import ru.dmdp.tishina.core.domain.repository.MeasurementRepository
+import ru.dmdp.tishina.core.domain.repository.SettingsRepository
 import javax.inject.Singleton
 
 /**
@@ -22,6 +30,14 @@ import javax.inject.Singleton
  * **Single-database singleton:** [TishinaDatabase] is `@Singleton` because Room's
  * `InvalidationTracker` and write queue rely on a single process-wide instance — two
  * databases pointed at the same file would corrupt each other.
+ *
+ * **Single Preferences DataStore singleton:** the same rule applies to
+ * [DataStore]<[Preferences]> — DataStore enforces "one instance per file" at runtime
+ * (it throws `IllegalStateException` if a second [PreferenceDataStoreFactory.create]
+ * targets the same path while the first is still open). Phase 4's
+ * [SettingsRepositoryImpl] consumes this binding to persist calibration, theme,
+ * dynamic colors and locale into `tishina_settings.preferences_pb` under app-private
+ * storage.
  *
  * **No `.allowMainThreadQueries()` and no `.fallbackToDestructiveMigration()` in
  * production:** queries are dispatched onto [Dispatchers.IO] via the repository, and we
@@ -43,7 +59,13 @@ internal interface DataModule {
     @Singleton
     fun bindMeasurementRepository(impl: MeasurementRepositoryImpl): MeasurementRepository
 
+    @Binds
+    @Singleton
+    fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+
     companion object {
+
+        private const val SETTINGS_DATASTORE_NAME = "tishina_settings"
 
         @Provides
         @Singleton
@@ -55,6 +77,22 @@ internal interface DataModule {
         @Provides
         fun provideMeasurementDao(database: TishinaDatabase): MeasurementDao =
             database.measurementDao()
+
+        /**
+         * Settings DataStore — Preferences flavor, one file `tishina_settings.preferences_pb`
+         * inside `context.filesDir/datastore/`. The [ReplaceFileCorruptionHandler] aligns with
+         * NFR-7 (crash-free ≥ 99.5%): if the on-disk protobuf is truncated by a power-loss
+         * write, DataStore swaps in [emptyPreferences] instead of throwing, and the user
+         * silently falls back to defaults — far better UX than a launch loop.
+         */
+        @Provides
+        @Singleton
+        fun provideSettingsDataStore(
+            @ApplicationContext context: Context,
+        ): DataStore<Preferences> = PreferenceDataStoreFactory.create(
+            corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+            produceFile = { context.preferencesDataStoreFile(SETTINGS_DATASTORE_NAME) },
+        )
 
         // Same rationale as :core:audio's IoDispatcher provider — the @Provides binding is
         // the canonical seam where Dispatchers.IO becomes injectable, so detekt's

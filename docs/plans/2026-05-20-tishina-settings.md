@@ -195,13 +195,13 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
 
 ### Task 2: Data — SettingsRepositoryImpl на DataStore Preferences + DI
 
-- [ ] обновить `gradle/libs.versions.toml`:
+- [x] обновить `gradle/libs.versions.toml`:
   - добавить `datastore-preferences = "1.1.1"` (стабильная версия на 2026-05; перепроверить актуальную)
   - alias: `androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore-preferences" }`
-- [ ] обновить `core/data/build.gradle.kts`:
+- [x] обновить `core/data/build.gradle.kts`:
   - добавить `implementation(libs.androidx.datastore.preferences)`
   - убедиться что test-зависимости включают coroutines-test (нужно для `runTest` с datastore)
-- [ ] **сначала тест:** `SettingsRepositoryImplTest` (`@RunWith(RobolectricTestRunner)`) — 12+ тестов:
+- [x] **сначала тест:** `SettingsRepositoryImplTest` (`@RunWith(RobolectricTestRunner)`) — 12+ тестов:
   - empty DataStore → `config.first() == MeasurementConfig()` (все дефолты)
   - `updateCalibrationOffset(+3.5f)` → `config.first().calibrationOffsetDb == 3.5f`
   - `updateCalibrationOffset(+3.5f)` затем `updateCalibrationOffset(-1.2f)` → последнее значение остаётся
@@ -215,7 +215,7 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
   - Turbine: подписка на `appearance` → setter → новая эмиссия (verify reactive)
   - corruption handler: повреждённый file → defaults возвращаются (через `corruptionHandler` в `PreferenceDataStoreFactory.create`)
   - неизвестное enum-значение в preferences (симулируем через прямую запись `preferencesOf("theme_mode" to "Unknown")`) → fallback на `ThemeMode.System`
-- [ ] создать `core/data/src/main/kotlin/ru/dmdp/tishina/core/data/settings/SettingsKeys.kt`:
+- [x] создать `core/data/src/main/kotlin/ru/dmdp/tishina/core/data/settings/SettingsKeys.kt`:
   - `internal object SettingsKeys`
   - `val CALIBRATION_OFFSET_DB = floatPreferencesKey("calibration_offset_db")`
   - `val FREQUENCY_WEIGHTING = stringPreferencesKey("frequency_weighting")`
@@ -223,19 +223,19 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
   - `val THEME_MODE = stringPreferencesKey("theme_mode")`
   - `val DYNAMIC_COLORS = booleanPreferencesKey("dynamic_colors")`
   - `val APP_LOCALE = stringPreferencesKey("app_locale")`
-- [ ] создать `core/data/.../settings/SettingsRepositoryImpl.kt`:
+- [x] создать `core/data/.../settings/SettingsRepositoryImpl.kt`:
   - `@Singleton class SettingsRepositoryImpl @Inject constructor(private val dataStore: DataStore<Preferences>, @IoDispatcher private val ioDispatcher: CoroutineDispatcher) : SettingsRepository`
   - `override val config: Flow<MeasurementConfig> = dataStore.data.map { prefs -> MeasurementConfig(frequencyWeighting = prefs[FREQUENCY_WEIGHTING]?.toFrequencyWeightingSafe() ?: FrequencyWeighting.A, timeWeighting = prefs[TIME_WEIGHTING]?.toTimeWeightingSafe() ?: TimeWeighting.FAST, calibrationOffsetDb = prefs[CALIBRATION_OFFSET_DB] ?: 0f) }.flowOn(ioDispatcher).distinctUntilChanged()`
   - `override val appearance: Flow<AppearanceSettings> = dataStore.data.map { prefs -> AppearanceSettings(themeMode = prefs[THEME_MODE]?.toThemeModeSafe() ?: ThemeMode.System, dynamicColors = prefs[DYNAMIC_COLORS] ?: true, locale = prefs[APP_LOCALE]?.toAppLocaleSafe() ?: AppLocale.System) }.flowOn(ioDispatcher).distinctUntilChanged()`
   - setter-методы используют `dataStore.edit { prefs -> prefs[KEY] = value }`
   - private helpers `String.toThemeModeSafe()` / `String.toAppLocaleSafe()` / `String.toFrequencyWeightingSafe()` / `String.toTimeWeightingSafe()` — defensive fallback на дефолт для неизвестных значений
-- [ ] обновить `core/data/.../di/DataModule.kt`:
+- [x] обновить `core/data/.../di/DataModule.kt`:
   - удалить регистрацию `DefaultSettingsRepository` (если она там есть из Phase 2)
   - `@Binds @Singleton fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository`
   - `@Provides @Singleton fun provideSettingsDataStore(@ApplicationContext context: Context): DataStore<Preferences>` — через `PreferenceDataStoreFactory.create(corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() }, produceFile = { context.preferencesDataStoreFile("tishina_settings") })`
-- [ ] **➕ внеплановая подзадача (возможно):** если `DefaultSettingsRepository` явно биндится в `:app/di/SettingsModule.kt` или другом модуле Phase 2 — найти и убрать, заменить на новый biding из `DataModule`. Использовать `Grep` для поиска `DefaultSettingsRepository` и `provideSettingsRepository`.
-- [ ] реализовать impl + DataStore + DI — все тесты позеленели
-- [ ] `./gradlew :core:data:testDebugUnitTest :core:data:detektAll :core:data:lintDebug :app:assembleDebug` — SUCCESSFUL; `:core:data:spotlessCheck` — SUCCESSFUL; Hilt-граф валиден (assembleDebug без MissingBinding ошибок); `:feature:measure:assembleDebug` тоже должен собраться — `MeasureViewModel` пока продолжает использовать stub или дефолт (изменим в Task 8)
+- [x] **➕ внеплановая подзадача (возможно):** если `DefaultSettingsRepository` явно биндится в `:app/di/SettingsModule.kt` или другом модуле Phase 2 — найти и убрать, заменить на новый biding из `DataModule`. Использовать `Grep` для поиска `DefaultSettingsRepository` и `provideSettingsRepository`. Проверено: `DefaultSettingsRepository` существует только в `:core:domain` как stub (для screenshot-тестов `:core:designsystem`/`:core:ui`, которые не должны тянуть `:core:data`). Внешних Hilt-биндингов на stub нет — единственный biding `SettingsRepository` теперь идёт от `DataModule.bindSettingsRepository(SettingsRepositoryImpl)`.
+- [x] реализовать impl + DataStore + DI — все тесты позеленели
+- [x] `./gradlew :core:data:testDebugUnitTest :core:data:detektAll :core:data:lintDebug :app:assembleDebug` — SUCCESSFUL; `:core:data:spotlessCheck` — SUCCESSFUL; Hilt-граф валиден (assembleDebug без MissingBinding ошибок); `:feature:measure:assembleDebug` тоже должен собраться — `MeasureViewModel` пока продолжает использовать stub или дефолт (изменим в Task 8)
 
 ### Task 3: SettingsViewModel + UI state machine
 
