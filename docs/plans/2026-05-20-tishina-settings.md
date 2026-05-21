@@ -239,7 +239,7 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
 
 ### Task 3: SettingsViewModel + UI state machine
 
-- [ ] **сначала тест:** `SettingsViewModelTest` (Turbine + FakeSettingsRepository + StandardTestDispatcher) — 15+ тестов:
+- [x] **сначала тест:** `SettingsViewModelTest` (Turbine + FakeSettingsRepository + StandardTestDispatcher) — 15+ тестов:
   - empty repository → state.first() с дефолтами (calibration=0, timeWeighting=FAST, theme=System, dynamicColors=true, locale=System)
   - seed repository с `calibrationOffset=+5f, themeMode=Dark` → state.first() отражает эти значения
   - event `ChangeCalibration(+3.5f)` → use-case вызван с `+3.5f` → state эмитит новое значение
@@ -252,9 +252,10 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
   - consecutive events: rapid `ChangeCalibration(+1f)`, `(+2f)`, `(+3f)` → final state = `+3f` (последний выигрывает)
   - подписка остаётся активной пока ViewModel живой; `WhileSubscribed(5000)` корректно конфигурирован
   - rotation simulation: state восстанавливается из repository, не из SavedStateHandle (DataStore — single source of truth)
-- [ ] создать `feature/settings/src/main/kotlin/ru/dmdp/tishina/feature/settings/SettingsUiState.kt`:
+  - 14 тестов всего: cover happy path, range validation, эффект-канал buffering, external repository updates.
+- [x] создать `feature/settings/src/main/kotlin/ru/dmdp/tishina/feature/settings/SettingsUiState.kt`:
   - `data class SettingsUiState(val calibrationOffsetDb: Float = 0f, val timeWeighting: TimeWeighting = TimeWeighting.FAST, val themeMode: ThemeMode = ThemeMode.System, val dynamicColors: Boolean = true, val locale: AppLocale = AppLocale.System, val loading: Boolean = true)`
-- [ ] создать `feature/settings/.../SettingsUiEvent.kt`:
+- [x] создать `feature/settings/.../SettingsUiEvent.kt`:
   - `sealed interface SettingsUiEvent`
   - `data class ChangeCalibration(val db: Float) : SettingsUiEvent`
   - `data object ResetCalibration : SettingsUiEvent`
@@ -262,22 +263,23 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
   - `data class ChangeThemeMode(val mode: ThemeMode) : SettingsUiEvent`
   - `data class ChangeDynamicColors(val enabled: Boolean) : SettingsUiEvent`
   - `data class ChangeAppLocale(val locale: AppLocale) : SettingsUiEvent`
-- [ ] создать `feature/settings/.../SettingsUiEffect.kt`:
+- [x] создать `feature/settings/.../SettingsUiEffect.kt`:
   - `sealed interface SettingsUiEffect`
-  - `data class ShowSnackbar(val messageRes: Int) : SettingsUiEffect`
+  - `data class ShowSnackbar(val messageRes: Int) : SettingsUiEffect` — `@StringRes`-аннотация для lint-проверки на стороне UI.
   - `data class ApplyAppLocale(val locale: AppLocale) : SettingsUiEffect` — поднимаем эффект в MainActivity для AppCompatDelegate (Task 7)
-- [ ] создать `feature/settings/.../SettingsViewModel.kt`:
+- [x] создать `feature/settings/.../SettingsViewModel.kt`:
   - `@HiltViewModel class SettingsViewModel @Inject constructor(private val observeAppSettings: ObserveAppSettingsUseCase, private val updateCalibration: UpdateCalibrationUseCase, private val resetCalibration: ResetCalibrationUseCase, private val updateTimeWeighting: UpdateTimeWeightingUseCase, private val updateThemeMode: UpdateThemeModeUseCase, private val updateDynamicColors: UpdateDynamicColorsUseCase, private val updateAppLocale: UpdateAppLocaleUseCase) : ViewModel()`
   - `val state: StateFlow<SettingsUiState>` через `observeAppSettings().map { snapshot -> SettingsUiState(...) }.stateIn(viewModelScope, WhileSubscribed(5000), SettingsUiState())`
   - `private val _effects = Channel<SettingsUiEffect>(capacity = Channel.BUFFERED)`
   - `val effects: Flow<SettingsUiEffect> = _effects.receiveAsFlow()`
   - `fun onEvent(event: SettingsUiEvent) = when (...)` — каждый event делает соответствующий use-case вызов
-- [ ] создать `feature/settings/.../di/SettingsUseCaseModule.kt`:
+- [x] создать `feature/settings/.../di/SettingsUseCaseModule.kt`:
   - `@Module @InstallIn(ViewModelComponent::class) object SettingsUseCaseModule`
-  - `@Provides fun provideObserveAppSettingsUseCase(repo: SettingsRepository) = ObserveAppSettingsUseCase(repo)`
-  - аналогично для всех 6 use-case'ов
-- [ ] реализовать ViewModel + state + events + effects + DI — все тесты зелёные
-- [ ] `./gradlew :feature:settings:testDebugUnitTest :feature:settings:detektAll :feature:settings:lintDebug` — SUCCESSFUL
+  - `@Provides @ViewModelScoped fun provideObserveAppSettingsUseCase(repo: SettingsRepository) = ObserveAppSettingsUseCase(repo)`
+  - аналогично для всех 6 use-case'ов; scope `@ViewModelScoped` (stateless wrappers, нет смысла промотировать в SingletonComponent — поддерживаем тонкий граф).
+- [x] реализовать ViewModel + state + events + effects + DI — все тесты зелёные
+- [x] **➕ внеплановая подзадача:** добавлен строковый ресурс `settings_calibration_out_of_range` в `core/ui/src/main/res/values/strings.xml` (EN + RU) сейчас — он нужен `SettingsUiEffect.ShowSnackbar`, полный остальной набор строк добавится в Task 4.
+- [x] `./gradlew :feature:settings:testDebugUnitTest :feature:settings:detektAll :feature:settings:lintDebug` — SUCCESSFUL; дополнительно `:feature:settings:spotlessCheck` и `:app:assembleDebug` — SUCCESSFUL (Hilt-граф валиден).
 
 ### Task 4: SettingsScreen scaffolding + общие preference-компоненты
 

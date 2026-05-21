@@ -18,4 +18,6 @@
     <string name="spl_stats_avg">Сред</string>
     <string name="spl_stats_max">Макс</string>
     <string name="spl_stats_placeholder">—</string>
+
+    <string name="settings_calibration_out_of_range">Калибровка должна быть в диапазоне от −20 до +20 дБ</string>
 </resources>

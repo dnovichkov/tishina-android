@@ -19,4 +19,7 @@
     <string name="spl_stats_avg">Avg</string>
     <string name="spl_stats_max">Max</string>
     <string name="spl_stats_placeholder">—</string>
+
+    <!-- FR-14 — surfaced when SettingsViewModel rejects out-of-range calibration. -->
+    <string name="settings_calibration_out_of_range">Calibration must be between -20 and +20 dB</string>
 </resources>
