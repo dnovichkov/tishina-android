@@ -6,6 +6,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import ru.dmdp.tishina.core.domain.model.AppLocale
 import ru.dmdp.tishina.feature.about.AboutScreen
 import ru.dmdp.tishina.feature.history.HistoryScreen
 import ru.dmdp.tishina.feature.history.detail.DetailRoute
@@ -17,6 +18,7 @@ import ru.dmdp.tishina.feature.settings.SettingsScreen
 fun TishinaNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
+    onApplyLocale: (AppLocale) -> Unit = {},
     measureContent: @Composable () -> Unit = { MeasureScreen() },
     // Stub slots mirror the `measureContent` pattern from Phase 2 — they let unit tests
     // exercise the NavHost graph without standing up Hilt-injected ViewModels (which would
@@ -39,6 +41,12 @@ fun TishinaNavHost(
         // so the production composable does NOT need the id passed in. The stub seat is
         // exposed only for tests that want to assert routing decoded the right value.
         DetailScreen(onNavigateBack = onNavigateBack)
+    },
+    settingsContent: @Composable (onApplyLocale: (AppLocale) -> Unit) -> Unit = { applyLocale ->
+        SettingsScreen(
+            onNavigateBack = { navController.popBackStack() },
+            onApplyLocale = applyLocale,
+        )
     },
 ) {
     NavHost(
@@ -64,7 +72,7 @@ fun TishinaNavHost(
             detailContent(route.measurementId) { navController.popBackStack() }
         }
         composable<TishinaDestination.Settings> {
-            SettingsScreen(onNavigateBack = { navController.popBackStack() })
+            settingsContent(onApplyLocale)
         }
         composable<TishinaDestination.About> {
             AboutScreen(onNavigateBack = { navController.popBackStack() })

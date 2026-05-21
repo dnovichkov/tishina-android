@@ -417,34 +417,20 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
 
 ### Task 7: Language switching через AppCompatDelegate
 
-- [ ] **сначала тест:** `LocaleSwitcherTest` (Robolectric):
-  - `LocaleSwitcher.apply(AppLocale.Russian)` → `LocaleManagerCompat.getApplicationLocales(application).toLanguageTags() == "ru"`
-  - `LocaleSwitcher.apply(AppLocale.English)` → "en"
-  - `LocaleSwitcher.apply(AppLocale.System)` → `LocaleListCompat.getEmptyLocaleList()` применён → `LocaleListCompat.toLanguageTags() == ""`
-  - идемпотентность: повторный apply с тем же locale не меняет состояние
-- [ ] **сначала тест:** `SettingsScreenLanguageTest` (Compose UI Test):
-  - initial locale=System → chip "Системный" выделен
-  - click "Русский" → onEvent(ChangeAppLocale(Russian))
-  - click "English" → onEvent(ChangeAppLocale(English))
-- [ ] **сначала тест:** `MainActivityLocaleEffectTest` — `MainActivity` подписывается на `effects` от `SettingsViewModel`, при получении `ApplyAppLocale(Russian)` вызывает `AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("ru"))`. Альтернатива: применять локаль в `SettingsViewModel` напрямую (но это нарушит "ViewModel не должен трогать Android API" — поэтому через effect наверх)
-- [ ] добавить AppCompat в `gradle/libs.versions.toml` (если ещё нет):
-  - `androidx-appcompat = "1.7.0"`
-  - alias: `androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidx-appcompat" }`
-- [ ] обновить `app/build.gradle.kts`:
-  - добавить `implementation(libs.androidx.appcompat)` если отсутствует
-- [ ] обновить `app/src/main/AndroidManifest.xml`:
-  - в `<application>` добавить `android:appCategory="productivity"` (необязательно, но улучшает категоризацию)
-  - **обязательно** для per-app language настройки: создать `app/src/main/res/xml/locales_config.xml` со списком `<locale android:name="ru"/>` + `<locale android:name="en"/>` и привязать через `android:localeConfig="@xml/locales_config"` в `<application>` (требование Android 13+)
-- [ ] создать `app/src/main/kotlin/ru/dmdp/tishina/app/locale/LocaleSwitcher.kt`:
+- [x] **сначала тест:** `LocaleSwitcherTest` (Robolectric, `@Config(sdk = S_V2)` — на API 33+ Robolectric стабит `LocaleManager` но не сохраняет в нём `setApplicationLocales`, поэтому пинимся на API 32, где AppCompat использует собственный sharedpref-based fallback): `apply(Russian)` → tag `"ru"`; `apply(English)` → `"en"`; `apply(System)` → пустой список; идемпотентный re-apply; плюс bonus `toLocaleListCompat round-trips every enum value` для защиты от добавления нового enum-значения без обновления mapping.
+- [x] **сначала тест:** `SettingsScreenLanguageTest` (Compose UI Test, `RobolectricTestRunner`) — 6 тестов: selected-state для каждой из трёх локалей; chip-tap эмитит `ChangeAppLocale` для каждой пары (System↔Russian, Russian↔English, English↔System). Использует `lastChipWithText` helper потому что "System" встречается дважды (Theme + Language секции).
+- [x] **сначала тест:** `MainActivityLocaleEffectTest` (Robolectric + `createComposeRule`, `@Config(sdk = S_V2)`) — 2 теста. Проверяет, что callback `onApplyLocale`, который `MainActivity` пробрасывает в `TishinaApp`, действительно прокидывается в Settings-slot и при вызове меняет состояние `AppCompatDelegate.getApplicationLocales()`. `settingsContent` slot заменяется stub'ом — Hilt-граф для `SettingsViewModel` не нужен. **➕ изменение архитектуры:** вместо подписки на `SettingsViewModel.effects` напрямую в `MainActivity` (требовало бы доставать VM через `hiltViewModel()` глобально — некрасиво), `SettingsScreen` уже принимает `onApplyLocale: (AppLocale) -> Unit` callback (с Task 4); `TishinaNavHost`/`TishinaApp` пробрасывают callback от `MainActivity` → SettingsScreen. Это сохраняет ViewModel platform-agnostic и единственный owner `AppCompatDelegate`-эффекта — Activity.
+- [x] AppCompat 1.7.0 уже был в `gradle/libs.versions.toml` (Phase 1).
+- [x] обновить `app/build.gradle.kts` — добавлен `implementation(libs.androidx.appcompat)`. Транзитивно тянет `androidx.emoji2:emoji2-views-helper:1.4.0` (новая зависимость, скачается при первой сборке).
+- [x] обновить `app/src/main/AndroidManifest.xml` — добавлен `android:localeConfig="@xml/locales_config"`. `android:appCategory` не добавлен (необязательно, отложено). Создан `app/src/main/res/xml/locales_config.xml` со списком `<locale android:name="en"/>` + `<locale android:name="ru"/>` — требование Android 13+ для появления "Язык приложения" в системных Settings.
+- [x] создан `app/src/main/kotlin/ru/dmdp/tishina/locale/LocaleSwitcher.kt`:
   - `object LocaleSwitcher`
-  - `fun apply(locale: AppLocale)`:
-    - `AppCompatDelegate.setApplicationLocales(when (locale) { AppLocale.System -> LocaleListCompat.getEmptyLocaleList(); else -> LocaleListCompat.forLanguageTags(locale.tag) })`
-- [ ] обновить `MainActivity.kt`:
-  - в `setContent` (или одно из `LaunchedEffect`) подписаться на `SettingsViewModel.effects` (через `AppViewModel` или `hiltViewModel()` локально на NavGraph SettingsScreen с навигационной обёрткой)
-  - на каждый `ApplyAppLocale(locale)` эффект вызвать `LocaleSwitcher.apply(locale)` — это вызывает recreate activity и применение строковых ресурсов
-  - **альтернативный паттерн:** применить в `SettingsViewModel.init` или внутри `onEvent(ChangeAppLocale)` через прямую инжекцию `Application` контекста + `AppCompatDelegate`. Мы выберем effect-pattern (ViewModel platform-agnostic)
-- [ ] реализовать LocaleSwitcher + MainActivity подписку + locales_config.xml — все тесты зелёные
-- [ ] `./gradlew :app:testDebugUnitTest :feature:settings:testDebugUnitTest :app:assembleDebug` — SUCCESSFUL
+  - `fun apply(locale: AppLocale)` → `AppCompatDelegate.setApplicationLocales(toLocaleListCompat(locale))`
+  - public `fun toLocaleListCompat(locale: AppLocale): LocaleListCompat` — вынесен из inline-вызова чтобы pure mapping можно было unit-тестировать без касания глобального `AppCompatDelegate`-state.
+- [x] обновить `MainActivity.kt` — в `setContent` передаём `onApplyLocale = LocaleSwitcher::apply` в `TishinaApp`. `TishinaApp` пробрасывает в `TishinaNavHost`, который в свою очередь пробрасывает в `settingsContent` slot. Slot по умолчанию вызывает `SettingsScreen(onApplyLocale = applyLocale)` — Hilt-граф SettingsViewModel остаётся nav-scoped, как и раньше.
+- [x] **➕ внеплановая подзадача:** добавлен `settingsContent` slot в `TishinaNavHost` (тот же паттерн что и `measureContent`/`historyContent`/`detailContent`) — это позволяет `MainActivityLocaleEffectTest` подменить экран Settings stub'ом и тестировать только plumbing без Hilt-инициализации DataStore.
+- [x] реализовать LocaleSwitcher + MainActivity подписку + locales_config.xml — все указанные тесты зелёные
+- [x] `./gradlew :app:testDebugUnitTest :feature:settings:testDebugUnitTest :app:assembleDebug` — SUCCESSFUL; дополнительно `:app:detektAll :app:lintDebug :app:spotlessCheck` — SUCCESSFUL. Pre-existing baseline проблема `:feature:measure:compileDebugUnitTestKotlin` (failures по `TishinaTheme()` overload resolution в `MeasureScreenComposeBehaviorTest` / `MeasureSaveDialogValidationTest`) подтверждена `git stash`-проверкой как присутствующая до Task 7 — будет адресована в Task 8 при wire'инге `MeasureViewModel` к новому `SettingsRepository`.
 
 ### Task 8: Wire to MeasureViewModel — observe config from Settings
 

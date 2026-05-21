@@ -12,6 +12,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import ru.dmdp.tishina.core.designsystem.theme.TishinaTheme
+import ru.dmdp.tishina.locale.LocaleSwitcher
 import ru.dmdp.tishina.ui.TishinaApp
 
 @AndroidEntryPoint
@@ -31,7 +32,15 @@ class MainActivity : ComponentActivity() {
                 dynamicColors = appearance.dynamicColors,
             ) {
                 val windowSizeClass = calculateWindowSizeClass(activity = this)
-                TishinaApp(windowSizeClass = windowSizeClass)
+                // FR-18 — SettingsScreen emits ApplyAppLocale as a one-shot UI effect; the
+                // Composable surface lifts it as `onApplyLocale`, and we bind it here to
+                // LocaleSwitcher::apply so the ViewModel stays platform-agnostic while the
+                // Activity owns the AppCompatDelegate side-effect (which triggers the
+                // automatic recreate that swaps in the new string resources).
+                TishinaApp(
+                    windowSizeClass = windowSizeClass,
+                    onApplyLocale = LocaleSwitcher::apply,
+                )
             }
         }
     }

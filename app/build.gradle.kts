@@ -42,6 +42,9 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
+    // FR-18 — AppCompat 1.6+ exposes `AppCompatDelegate.setApplicationLocales` /
+    // `LocaleManagerCompat`, which the LocaleSwitcher uses to apply per-app locales.
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.navigation.compose)

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FR-18 — declares the per-app supported UI locales so Android 13+ surfaces
+    a "Language" entry for Tishina inside the system Settings > Apps panel.
+    The same list mirrors `app/build.gradle.kts:resourceConfigurations` and
+    the `AppLocale` enum in `:core:domain`.
+-->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en" />
+    <locale android:name="ru" />
+</locale-config>

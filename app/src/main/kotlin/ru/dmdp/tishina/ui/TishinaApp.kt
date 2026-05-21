@@ -35,8 +35,10 @@ import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import ru.dmdp.tishina.core.domain.model.AppLocale
 import ru.dmdp.tishina.feature.history.detail.DetailRoute
 import ru.dmdp.tishina.feature.measure.MeasureScreen
+import ru.dmdp.tishina.feature.settings.SettingsScreen
 import ru.dmdp.tishina.navigation.AboutIcon
 import ru.dmdp.tishina.navigation.AboutLabelRes
 import ru.dmdp.tishina.navigation.TishinaDestination
@@ -60,6 +62,9 @@ fun navigationItemTestTag(destination: TopLevelDestination): String =
 fun TishinaApp(
     windowSizeClass: WindowSizeClass,
     navController: NavHostController = rememberNavController(),
+    // FR-18 — wired from `MainActivity` to `LocaleSwitcher::apply`. Defaulted to a no-op so
+    // tests that only care about layout/navigation don't have to specify it.
+    onApplyLocale: (AppLocale) -> Unit = {},
     measureContent: @Composable () -> Unit = { MeasureScreen() },
     // Same stub-slot pattern as `measureContent` — production callers omit them and get the
     // real Hilt-injected screens. Tests pass simpler composables to avoid standing up the
@@ -78,6 +83,12 @@ fun TishinaApp(
         onNavigateBack: () -> Unit,
     ) -> Unit = { _, onNavigateBack ->
         ru.dmdp.tishina.feature.history.detail.DetailScreen(onNavigateBack = onNavigateBack)
+    },
+    settingsContent: @Composable (onApplyLocale: (AppLocale) -> Unit) -> Unit = { applyLocale ->
+        SettingsScreen(
+            onNavigateBack = { navController.popBackStack() },
+            onApplyLocale = applyLocale,
+        )
     },
 ) {
     val useNavigationRail = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
@@ -115,9 +126,11 @@ fun TishinaApp(
                 Box(modifier = Modifier.fillMaxSize()) {
                     TishinaNavHost(
                         navController = navController,
+                        onApplyLocale = onApplyLocale,
                         measureContent = measureContent,
                         historyContent = historyContent,
                         detailContent = detailContent,
+                        settingsContent = settingsContent,
                     )
                 }
             }
@@ -149,9 +162,11 @@ fun TishinaApp(
                 Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                     TishinaNavHost(
                         navController = navController,
+                        onApplyLocale = onApplyLocale,
                         measureContent = measureContent,
                         historyContent = historyContent,
                         detailContent = detailContent,
+                        settingsContent = settingsContent,
                     )
                 }
             }
