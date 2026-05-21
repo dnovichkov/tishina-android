@@ -10,6 +10,9 @@ android {
 }
 
 dependencies {
+    // TishinaTheme accepts ThemeMode from core:domain so the FR-17 enum stays a
+    // single source of truth (UI + persistence both read the same type).
+    implementation(projects.core.domain)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.compose.material3.windowsizeclass)
     implementation(libs.androidx.compose.material.icons.extended)

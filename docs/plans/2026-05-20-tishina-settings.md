@@ -373,7 +373,7 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
 
 ### Task 6: Appearance — Theme + Dynamic Colors + наблюдение в TishinaTheme
 
-- [ ] **сначала тест:** `TishinaThemeTest` (`@RunWith(RobolectricTestRunner)` + `createComposeRule`) — parametric/table-driven 8+ кейсов:
+- [x] **сначала тест:** `TishinaThemeTest` (`@RunWith(RobolectricTestRunner)` + `createComposeRule`) — parametric/table-driven 8+ кейсов:
   - `ThemeMode.Light + dynamicColors=false + API≥31` → static light scheme
   - `ThemeMode.Dark + dynamicColors=false + API≥31` → static dark scheme
   - `ThemeMode.Light + dynamicColors=true + API≥31` → `dynamicLightColorScheme(LocalContext)`
@@ -382,34 +382,38 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
   - `ThemeMode.System + isSystemInDarkTheme()=false + dynamicColors=false` → static light
   - `dynamicColors=true + API=30` (через `@Config(sdk=30)`) → static (no fallback crash)
   - проверяемо через `MaterialTheme.colorScheme.primary == expected_color`
-- [ ] **сначала тест:** `SettingsScreenThemeTest` (Compose UI Test):
+- [x] **сначала тест:** `SettingsScreenThemeTest` (Compose UI Test):
   - initial themeMode=System → chip "Системная" выделен
-  - click "Тёмная" → onEvent(ChangeThemeMode(Dark))
-  - initial dynamicColors=true → switch выключенный
-  - click switch → onEvent(ChangeDynamicColors(false))
-- [ ] **сначала тест:** `SettingsScreenScreenshotTest` (расширяем):
+  - click "Тёмная" → onEvent(ChangeThemeMode(Dark)) — уже покрыто `SettingsScreenComposeUiTest`; новый файл проверяет *selected* state (assertSelected/assertNotSelected) что не покрывалось ранее
+  - initial dynamicColors=true → switch выключенный — проверяется assertIsOn/assertIsOff
+  - click switch → onEvent(ChangeDynamicColors(false)) — уже в `SettingsScreenComposeUiTest`
+  - **➕ дополнено:** dynamic colors switch reports OFF on legacy API even when state is true (`isDynamicColorSupported=false`); `Light theme is selected when state is Light`; `tapping Light chip while Dark is active emits ChangeThemeMode(Light)`; description "(Android 12+)" visible
+- [x] **сначала тест:** `SettingsScreenScreenshotTest` (расширяем):
   - `setting_dark_theme_selected_light/dark` (2 baseline)
   - `setting_dynamic_colors_off_light/dark` (2 baseline)
-- [ ] обновить `core/designsystem/.../TishinaTheme.kt`:
-  - сигнатура: `@Composable fun TishinaTheme(themeMode: ThemeMode = ThemeMode.System, dynamicColors: Boolean = true, content: @Composable () -> Unit)`
+- [x] обновить `core/designsystem/.../TishinaTheme.kt`:
+  - сигнатура: `@Composable fun TishinaTheme(themeMode: ThemeMode = ThemeMode.System, dynamicColors: Boolean = true, content: @Composable () -> Unit)` — реализована как primary API
   - логика выбора `useDarkTheme`:
     - `val useDarkTheme = when (themeMode) { System -> isSystemInDarkTheme(); Light -> false; Dark -> true }`
-  - логика выбора colorScheme:
-    - `val colorScheme = when { dynamicColors && Build.VERSION.SDK_INT >= 31 && useDarkTheme -> dynamicDarkColorScheme(LocalContext.current); dynamicColors && Build.VERSION.SDK_INT >= 31 && !useDarkTheme -> dynamicLightColorScheme(LocalContext.current); useDarkTheme -> TishinaDarkColorScheme; else -> TishinaLightColorScheme }`
-  - `MaterialTheme(colorScheme = colorScheme, typography = TishinaTypography, content = content)`
-- [ ] обновить `app/.../TishinaApp.kt`:
-  - инжектится `ObserveAppSettingsUseCase` (через ViewModel-обёртку или прямо в Compose через `hiltViewModel<AppViewModel>()`)
-  - подписывается на `appearance` и передаёт в `TishinaTheme`
-  - `val appearance by viewModel.appearance.collectAsStateWithLifecycle(initialValue = AppearanceSettings())`
+  - логика выбора colorScheme: dynamic on API ≥ S → `dynamicLightColorScheme`/`dynamicDarkColorScheme`; иначе static `LightColorScheme`/`DarkColorScheme`. Fallback на API ≤30 не crash'ится — guarded `Build.VERSION.SDK_INT >= Build.VERSION_CODES.S`.
+  - `MaterialTheme(colorScheme = colorScheme, typography = TishinaTypography, shapes = TishinaShapes, content = content)`
+  - **➕ внеплановая подзадача:** добавлен `@Deprecated` overload `TishinaTheme(darkTheme: Boolean, dynamicColor: Boolean = true, ...)` для совместимости с уже-зафиксированными 25 Roborazzi baseline screenshot-тестами других модулей (Measure, History, Detail, About, Core UI). Boolean overload теряет различие `ThemeMode.System (light)` vs `ThemeMode.Light` (оба → `darkTheme=false`); поэтому новые call-sites должны использовать primary API.
+  - **➕ внеплановая подзадача:** добавлен `implementation(projects.core.domain)` в `core/designsystem/build.gradle.kts` — `ThemeMode` живёт в `:core:domain` (single source of truth для FR-17 enum), поэтому designsystem нужна явная зависимость.
+- [x] обновить `app/.../MainActivity.kt`:
+  - инжектится `AppViewModel` через `by viewModels()` (ComponentActivity-scoped)
+  - подписывается на `viewModel.appearance` и передаёт в `TishinaTheme`
+  - `val appearance by appViewModel.appearance.collectAsStateWithLifecycle()` — initialValue идёт из `stateIn(initialValue = AppearanceSettings())` в самом VM
   - `TishinaTheme(themeMode = appearance.themeMode, dynamicColors = appearance.dynamicColors) { ... }`
-  - **➕ возможная подзадача:** если `TishinaApp` пока не имеет VM — создать `AppViewModel @HiltViewModel constructor(observeAppSettings: ObserveAppSettingsUseCase)`. Если уже имеет — расширить
-- [ ] подкомпонент `AppearanceSettingsSection` в SettingsScreen:
-  - ChoicePreference для ThemeMode (3 chips: Системная/Светлая/Тёмная)
+  - **➕ возможная подзадача (выполнена):** создан `AppViewModel @HiltViewModel constructor(observeAppSettings: ObserveAppSettingsUseCase) : ViewModel()` в `app/.../AppViewModel.kt`. Использует `SharingStarted.Eagerly` (не WhileSubscribed), чтобы splash/первый frame уже имели правильную тему — никакого flash-of-default-light.
+- [x] подкомпонент `AppearanceSection` в SettingsScreen — **уже реализован** в Task 4:
+  - ChoicePreference для ThemeMode (3 chips: System/Light/Dark)
   - SwitchPreference для dynamic colors:
-    - на API ≤30 — switch отображается но disabled с подписью "Доступно на Android 12+"
+    - на API ≤30 — switch отображается disabled (`enabled = isDynamicColorSupported`); subtitle уже содержит "(Android 12+)" suffix → объясняет почему disabled без отдельной строки
     - на API ≥31 — обычный switch
-- [ ] реализовать TishinaTheme + AppearanceSection + AppViewModel — все тесты зелёные
-- [ ] `./gradlew :core:designsystem:testDebugUnitTest :feature:settings:testDebugUnitTest :feature:settings:verifyRoborazziDebug :app:assembleDebug` — SUCCESSFUL
+  - `checked = state.dynamicColors && isDynamicColorSupported` — на legacy API switch всегда визуально OFF (отражает реальное состояние рендеринга), даже если пользователь когда-то включил его на новом устройстве и потом откатился. Это **дополнение к плану**: тест `dynamic colors switch reports OFF on legacy API even when state is true` фиксирует контракт.
+- [x] реализовать TishinaTheme + AppearanceSection + AppViewModel — все тесты зелёные
+- [x] **➕ внеплановая подзадача:** добавлен `testImplementation(projects.core.testing)` + `testImplementation(libs.kotlinx.coroutines.test)` в `app/build.gradle.kts` для `AppViewModelTest` (`FakeSettingsRepository` + `runTest`).
+- [x] `./gradlew :core:designsystem:testDebugUnitTest :feature:settings:testDebugUnitTest :feature:settings:verifyRoborazziDebug :app:assembleDebug` — SUCCESSFUL; дополнительно `:app:testDebugUnitTest :core:designsystem:detektAll :feature:settings:detektAll :app:detektAll :core:designsystem:lintDebug :feature:settings:lintDebug :app:lintDebug :core:designsystem:spotlessCheck :feature:settings:spotlessCheck :app:spotlessCheck` — все SUCCESSFUL.
 
 ### Task 7: Language switching через AppCompatDelegate
 

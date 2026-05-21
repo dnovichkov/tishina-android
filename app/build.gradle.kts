@@ -53,9 +53,11 @@ dependencies {
 
     // Test stack: Robolectric is JUnit4; vintage engine bridges it onto the JUnit 5 platform
     // configured by JvmTestingConventionPlugin so a single `:testDebugUnitTest` task runs both.
+    testImplementation(projects.core.testing)
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation(libs.hilt.android.testing)
+    testImplementation(libs.kotlinx.coroutines.test)
     testRuntimeOnly(libs.junit.vintage.engine)
 }

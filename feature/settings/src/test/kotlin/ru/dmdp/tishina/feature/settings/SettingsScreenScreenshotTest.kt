@@ -107,6 +107,34 @@ class SettingsScreenScreenshotTest {
         name = "setting_time_weighting_slow_selected_dark",
     )
 
+    @Test
+    fun setting_dark_theme_selected_light() = capture(
+        state = defaultState().copy(themeMode = ThemeMode.Dark),
+        dark = false,
+        name = "setting_dark_theme_selected_light",
+    )
+
+    @Test
+    fun setting_dark_theme_selected_dark() = capture(
+        state = defaultState().copy(themeMode = ThemeMode.Dark),
+        dark = true,
+        name = "setting_dark_theme_selected_dark",
+    )
+
+    @Test
+    fun setting_dynamic_colors_off_light() = capture(
+        state = defaultState().copy(dynamicColors = false),
+        dark = false,
+        name = "setting_dynamic_colors_off_light",
+    )
+
+    @Test
+    fun setting_dynamic_colors_off_dark() = capture(
+        state = defaultState().copy(dynamicColors = false),
+        dark = true,
+        name = "setting_dynamic_colors_off_dark",
+    )
+
     private fun capture(state: SettingsUiState, dark: Boolean, name: String) {
         composeTestRule.setContent {
             TishinaTheme(darkTheme = dark, dynamicColor = false) {
