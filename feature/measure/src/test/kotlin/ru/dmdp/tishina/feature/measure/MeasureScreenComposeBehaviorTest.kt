@@ -40,7 +40,7 @@ class MeasureScreenComposeBehaviorTest {
     @Test
     fun idle_fab_is_clickable_and_save_is_disabled() {
         composeTestRule.setContent {
-            TishinaTheme(dynamicColor = false) {
+            TishinaTheme(dynamicColors = false) {
                 MeasureScreenContent(
                     state = MeasureUiState(
                         phase = MeasurementPhase.Idle,
@@ -65,7 +65,7 @@ class MeasureScreenComposeBehaviorTest {
     @Test
     fun rationale_dialog_renders_when_show_rationale_is_true() {
         composeTestRule.setContent {
-            TishinaTheme(dynamicColor = false) {
+            TishinaTheme(dynamicColors = false) {
                 MeasureScreenContent(
                     state = MeasureUiState(
                         phase = MeasurementPhase.Idle,
@@ -86,7 +86,7 @@ class MeasureScreenComposeBehaviorTest {
     fun start_pause_fab_routes_to_start_in_idle_phase() {
         var lastEvent: MeasureUiEvent? = null
         composeTestRule.setContent {
-            TishinaTheme(dynamicColor = false) {
+            TishinaTheme(dynamicColors = false) {
                 MeasureScreenContent(
                     state = MeasureUiState(
                         phase = MeasurementPhase.Idle,
@@ -108,7 +108,7 @@ class MeasureScreenComposeBehaviorTest {
     fun start_pause_fab_routes_to_pause_when_running() {
         var lastEvent: MeasureUiEvent? = null
         composeTestRule.setContent {
-            TishinaTheme(dynamicColor = false) {
+            TishinaTheme(dynamicColors = false) {
                 MeasureScreenContent(
                     state = MeasureUiState(
                         current = 60f,

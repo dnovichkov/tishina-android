@@ -9,20 +9,21 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import ru.dmdp.tishina.core.domain.model.FrequencyWeighting
 import ru.dmdp.tishina.core.domain.model.MeasurementConfig
 import ru.dmdp.tishina.core.domain.model.NewMeasurement
 import ru.dmdp.tishina.core.domain.model.SessionSeed
 import ru.dmdp.tishina.core.domain.model.SoundSample
-import ru.dmdp.tishina.core.domain.model.TimeWeighting
+import ru.dmdp.tishina.core.domain.repository.SettingsRepository
 import ru.dmdp.tishina.core.domain.usecase.ResetMeasurementUseCase
 import ru.dmdp.tishina.core.domain.usecase.SaveMeasurementUseCase
 import ru.dmdp.tishina.core.domain.usecase.StartMeasurementUseCase
@@ -41,9 +42,12 @@ import javax.inject.Inject
  * session resumes as [MeasurementPhase.Paused] rather than auto-rearming the
  * microphone after a system kill.
  *
- * Phase 2 ignores `MeasurementConfig` settings — uses defaults (A-weighting,
- * FAST time-weighting). Phase 4 will inject [SettingsRepository] and observe
- * config changes here.
+ * Phase 4 wires [SettingsRepository] in: `currentConfig` mirrors the DataStore
+ * config flow as a hot [StateFlow]. The value is sampled **once per Start** and
+ * carried as an immutable seed for the rest of the session. A calibration tweak
+ * the user makes while a session is running therefore takes effect at the next
+ * Start — never mid-session. Hot-reload (rebuilding the DSP filters and Leq
+ * accumulator without losing the running aggregate) is deferred to v1.2.
  */
 @HiltViewModel
 class MeasureViewModel @Inject constructor(
@@ -51,6 +55,7 @@ class MeasureViewModel @Inject constructor(
     private val startMeasurement: StartMeasurementUseCase,
     private val resetMeasurement: ResetMeasurementUseCase,
     private val saveMeasurement: SaveMeasurementUseCase,
+    settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(restoreInitialState())
@@ -68,6 +73,25 @@ class MeasureViewModel @Inject constructor(
 
     /** Active subscription to the audio engine. Cancelled on Pause / Reset. */
     private var collectJob: Job? = null
+
+    /**
+     * Hot mirror of [SettingsRepository.config]. `Eagerly` started so the very
+     * first Start (which can fire before any subscriber on `state`/`effects`)
+     * already has a real DataStore-backed value instead of the synthetic
+     * `MeasurementConfig()` initial. The `initialValue` is only observable for
+     * a single coroutine tick before DataStore's first emission lands.
+     */
+    private val currentConfig: StateFlow<MeasurementConfig> = settingsRepository.config
+        .stateIn(viewModelScope, SharingStarted.Eagerly, MeasurementConfig())
+
+    /**
+     * Snapshot of [currentConfig] taken at the moment the active session began.
+     * Held for the lifetime of the session so a mid-session settings change
+     * cannot retroactively change the data the Save flow persists — historical
+     * rows must reflect the calibration that was active when the user recorded
+     * them. Reset / a brand new Start re-samples [currentConfig].
+     */
+    private var activeSessionConfig: MeasurementConfig = MeasurementConfig()
 
     /**
      * Side-band accumulator state kept by the ViewModel so a Pause → Resume cycle continues the
@@ -131,6 +155,9 @@ class MeasureViewModel @Inject constructor(
         sessionCount = 0L
         sampleBuffer.clear()
         lastBufferedMs = -BUFFER_PERIOD_MS
+        // Drop the held session-config snapshot so the next Start re-samples DataStore. Without
+        // this, a Reset → settings change → Start cycle would still use the pre-Reset config.
+        activeSessionConfig = MeasurementConfig()
         val empty = resetMeasurement()
         _state.update {
             // Preserve permissionState — the user already accepted RECORD_AUDIO.
@@ -191,9 +218,15 @@ class MeasureViewModel @Inject constructor(
             maxDb = snapshot.max.takeIf { it.isFinite() } ?: snapshot.avg,
             title = title,
             note = note,
-            weighting = FrequencyWeighting.A,
-            timeWeighting = TimeWeighting.FAST,
-            calibrationOffsetDb = 0f,
+            // The Phase-2 stub persisted hardcoded defaults here; Phase 4 persists the snapshot
+            // sampled at session Start so a calibration tweak between Start and Save cannot rewrite
+            // history (test: `Save persists config snapshot from session Start, not later setting
+            // changes`). FrequencyWeighting stays A in MVP per spec FR-15 ("Только A в MVP");
+            // SettingsRepository defaults to A, so this is identical for end-users today but ready
+            // for the v1.1 A/C/Z toggle without further wiring.
+            weighting = activeSessionConfig.frequencyWeighting,
+            timeWeighting = activeSessionConfig.timeWeighting,
+            calibrationOffsetDb = activeSessionConfig.calibrationOffsetDb,
             sampleRateHz = AUDIO_SAMPLE_RATE_HZ,
             samples = sampleBuffer.toList(),
         )
@@ -241,7 +274,8 @@ class MeasureViewModel @Inject constructor(
         // use-case's fold continues from the pre-pause aggregate instead of overwriting it on the
         // first new sample.
         val current = _state.value
-        val seed = if (sessionCount == 0L) {
+        val isFreshSession = sessionCount == 0L
+        val seed = if (isFreshSession) {
             SessionSeed.empty
         } else {
             SessionSeed(
@@ -253,9 +287,16 @@ class MeasureViewModel @Inject constructor(
                 recent = current.recent,
             )
         }
+        // Snapshot the config only when a brand-new session begins. Resume after Pause keeps the
+        // original `activeSessionConfig` so a mid-session settings change cannot reframe the
+        // already-recorded buffer (Save reads the same field) — matches the "config = immutable
+        // session seed" semantics carried by SessionSeed itself.
+        if (isFreshSession) {
+            activeSessionConfig = currentConfig.value
+        }
         _state.update { it.copy(phase = MeasurementPhase.Running) }
         collectJob = viewModelScope.launch {
-            startMeasurement(MeasurementConfig(), seed)
+            startMeasurement(activeSessionConfig, seed)
                 .onEach { snapshot ->
                     // A SharedFlow-backed upstream may still flush a buffered item between
                     // `cancel()` and the subscriber unhooking. Guarding here keeps Pause atomic

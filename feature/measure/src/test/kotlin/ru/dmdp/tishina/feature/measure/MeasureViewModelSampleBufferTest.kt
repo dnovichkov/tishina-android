@@ -15,6 +15,7 @@ import ru.dmdp.tishina.core.domain.usecase.SaveMeasurementUseCase
 import ru.dmdp.tishina.core.domain.usecase.StartMeasurementUseCase
 import ru.dmdp.tishina.core.testing.fakes.FakeAudioRepository
 import ru.dmdp.tishina.core.testing.fakes.FakeMeasurementRepository
+import ru.dmdp.tishina.core.testing.fakes.FakeSettingsRepository
 import ru.dmdp.tishina.core.testing.rules.MainDispatcherRule
 
 /**
@@ -42,6 +43,7 @@ class MeasureViewModelSampleBufferTest {
         startMeasurement = StartMeasurementUseCase(audio),
         resetMeasurement = ResetMeasurementUseCase(),
         saveMeasurement = SaveMeasurementUseCase(measurements),
+        settingsRepository = FakeSettingsRepository(),
     )
 
     private suspend fun firstSavedSamples(store: FakeMeasurementRepository): List<SoundSample> {

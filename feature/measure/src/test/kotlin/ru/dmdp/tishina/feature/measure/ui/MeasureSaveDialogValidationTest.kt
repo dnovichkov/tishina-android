@@ -44,7 +44,7 @@ class MeasureSaveDialogValidationTest {
     ) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalInspectionMode provides true) {
-                TishinaTheme(dynamicColor = false) {
+                TishinaTheme(dynamicColors = false) {
                     MeasureSaveDialogContent(onConfirm = onConfirm, onDismiss = onDismiss)
                 }
             }

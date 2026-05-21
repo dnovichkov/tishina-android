@@ -434,21 +434,19 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
 
 ### Task 8: Wire to MeasureViewModel — observe config from Settings
 
-- [ ] **сначала тест:** `MeasureViewModelSettingsIntegrationTest` (расширяем `MeasureViewModelStartTest`):
-  - инжектируем `FakeSettingsRepository` с seed `MeasurementConfig(calibrationOffsetDb=+5f, timeWeighting=SLOW)`
-  - событие `Start` → `StartMeasurementUseCase.invoke(MeasurementConfig(timeWeighting=SLOW, calibrationOffsetDb=+5f, ...))` — config взят из repository, не дефолт
-  - изменение config во время активного замера → текущая сессия не прерывается; новый config будет использован только на следующий Start
-  - после Save → MeasurementEntity содержит calibrationOffsetDb=+5f, timeWeighting="SLOW" (используя in-memory FakeMeasurementRepository для проверки .save() вызова)
-- [ ] обновить `MeasureViewModel.kt`:
-  - инжектится `ObserveAppSettingsUseCase` или прямо `SettingsRepository`
-  - private `currentConfig: StateFlow<MeasurementConfig> = settingsRepository.config.stateIn(viewModelScope, Eagerly, MeasurementConfig())`
-  - в `handleStartRequested` (или эквивалентном методе) использовать `currentConfig.value` вместо `MeasurementConfig()` default
-  - **CRITICAL:** не подменять config в середине активного замера. `SessionSeed` (если он есть с Phase 2) фиксирует config на момент Start
-- [ ] обновить `feature/measure/.../di/MeasureUseCaseModule.kt`:
-  - добавить provide для `ObserveAppSettingsUseCase` если ViewModel использует use-case (не прямую repo-инжекцию)
-- [ ] обновить существующие тесты `MeasureViewModelStartTest`/`PauseResetTest`/`SaveFlowTest` — добавить параметр `settingsRepository = FakeSettingsRepository()` где требуется
-- [ ] реализовать integration + проверить все тесты `:feature:measure` зелёные
-- [ ] `./gradlew :feature:measure:testDebugUnitTest :feature:measure:verifyRoborazziDebug :app:assembleDebug` — SUCCESSFUL
+- [x] **сначала тест:** `MeasureViewModelSettingsIntegrationTest` — 7 тестов покрывают: (1) Start пробрасывает calibration + time weighting из `SettingsRepository` в `samples(config)`; (2) пустые настройки эквивалентны Phase-2 `MeasurementConfig()` дефолту; (3) config изменён mid-session → активный `samples()` не пересоздаётся, `audio.lastConfig` неизменён; (4) **Resume после Pause** сохраняет исходный config (одна сессия = один config; иначе Save запишет один offset, не соответствующий pre-pause samples); (5) **Reset → Start** заново сэмплирует config из DataStore; (6) Save записывает `calibrationOffsetDb` / `timeWeighting` / `weighting` из активного session-config; (7) regression-guard: mid-session-tweak калибровки не переписывает то, что попадает в Save.
+- [x] обновить `MeasureViewModel.kt`:
+  - инжектится `SettingsRepository` напрямую (а не через `ObserveAppSettingsUseCase` — Measure-фиче не нужны theme/locale, экономим один use-case-инстанс в Hilt-графе);
+  - `private val currentConfig: StateFlow<MeasurementConfig> = settingsRepository.config.stateIn(viewModelScope, SharingStarted.Eagerly, MeasurementConfig())` — `Eagerly`, чтобы первый Start уже видел реальное DataStore-значение, а не initial fallback;
+  - `private var activeSessionConfig: MeasurementConfig` — snapshot, сделанный в `startCollecting()` **только при fresh-session** (`sessionCount == 0L`); Resume после Pause сохраняет старый snapshot;
+  - `startMeasurement(activeSessionConfig, seed)` вместо `MeasurementConfig()` дефолта;
+  - `NewMeasurement(... weighting = activeSessionConfig.frequencyWeighting, timeWeighting = activeSessionConfig.timeWeighting, calibrationOffsetDb = activeSessionConfig.calibrationOffsetDb, ...)` в Save — то же поле, что использовалось при Start, гарантирует, что mid-session-tweak не переписывает persisted row;
+  - `handleResetRequested()` сбрасывает `activeSessionConfig = MeasurementConfig()` параллельно с `sessionCount = 0L`, чтобы следующий Start re-сэмплировал DataStore.
+- [x] **➕ изменение vs план:** `feature/measure/.../di/MeasureUseCaseModule.kt` не изменяется — выбрана прямая инжекция `SettingsRepository`, Hilt находит binding через `DataModule.bindSettingsRepository(SettingsRepositoryImpl)` (Task 2). Если в будущем `MeasureViewModel` начнёт нуждаться в `appearance` (например, для тёмного gauge), можно переключиться на `ObserveAppSettingsUseCase` без изменения теста.
+- [x] обновлены **все** существующие тесты `MeasureViewModel*Test` — добавлен параметр `settingsRepository = FakeSettingsRepository()` в 6 файлах (`StartTest`, `PauseResetTest`, `SaveFlowTest`, `EngineErrorTest`, `SampleBufferTest`, `PermissionFlowTest`, `SavedStateHandleTest`).
+- [x] **➕ внеплановая подзадача:** починен pre-existing baseline-провал из Task 7 — `MeasureScreenComposeBehaviorTest` (4 вызова) и `MeasureSaveDialogValidationTest` (1 вызов) использовали `TishinaTheme(dynamicColor = false)` (без 's'), что не соответствовало ни новому primary signature `dynamicColors`, ни deprecated overload `darkTheme: Boolean`. Заменено на `dynamicColors`. Screenshot-тесты (`MeasureScreenRunningScreenshotTest`, `MeasureScreenIdleScreenshotTest`, `MeasureSaveDialogScreenshotTest`, `PermissionRationaleDialogScreenshotTest`) оставлены на deprecated overload — они валидны (emit deprecation-warning, не build-error) и Roborazzi baselines не нужно перезаписывать.
+- [x] реализовано — 101 тест `:feature:measure:testDebugUnitTest` зелёный (включая 7 новых из `MeasureViewModelSettingsIntegrationTest`).
+- [x] `./gradlew :feature:measure:testDebugUnitTest :feature:measure:verifyRoborazziDebug :app:assembleDebug` — SUCCESSFUL; дополнительно `:feature:measure:detektAll :feature:measure:lintDebug :feature:measure:spotlessCheck` — все SUCCESSFUL. Регрессия проверена на смежных модулях: `:app:testDebugUnitTest :core:domain:test :core:data:testDebugUnitTest :core:testing:testDebugUnitTest :feature:settings:testDebugUnitTest` — все зелёные.
 
 ### Task 9: Verify acceptance + README + coverage report
 
