@@ -26,6 +26,22 @@
     <string name="history_card_delete_cd">Delete</string>
     <string name="history_card_sparkline_cd">Loudness over time</string>
 
+    <!-- Multi-select bulk delete (FR-12). -->
+    <string name="history_bulk_no_selection">No items selected</string>
+    <string name="history_bulk_delete_failed">Couldn\'t delete measurements</string>
+    <plurals name="history_bulk_undo_message">
+        <item quantity="one">%d measurement deleted</item>
+        <item quantity="other">%d measurements deleted</item>
+    </plurals>
+    <plurals name="history_bulk_confirm_title">
+        <item quantity="one">Delete %d measurement?</item>
+        <item quantity="other">Delete %d measurements?</item>
+    </plurals>
+    <plurals name="history_selection_topbar_count">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+
     <!-- Detail screen (FR-10) — full chart + inline-edit note + delete with confirmation. -->
     <string name="detail_not_found">Measurement not found</string>
     <string name="detail_delete_failed">Couldn\'t delete measurement</string>

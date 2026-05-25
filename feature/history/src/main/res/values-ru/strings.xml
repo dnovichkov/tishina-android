@@ -20,6 +20,27 @@
     <string name="history_card_delete_cd">Удалить</string>
     <string name="history_card_sparkline_cd">Изменение громкости</string>
 
+    <string name="history_bulk_no_selection">Ничего не выбрано</string>
+    <string name="history_bulk_delete_failed">Не удалось удалить замеры</string>
+    <plurals name="history_bulk_undo_message">
+        <item quantity="one">Удалён %d замер</item>
+        <item quantity="few">Удалено %d замера</item>
+        <item quantity="many">Удалено %d замеров</item>
+        <item quantity="other">Удалено %d замера</item>
+    </plurals>
+    <plurals name="history_bulk_confirm_title">
+        <item quantity="one">Удалить %d замер?</item>
+        <item quantity="few">Удалить %d замера?</item>
+        <item quantity="many">Удалить %d замеров?</item>
+        <item quantity="other">Удалить %d замера?</item>
+    </plurals>
+    <plurals name="history_selection_topbar_count">
+        <item quantity="one">Выбран %d</item>
+        <item quantity="few">Выбрано %d</item>
+        <item quantity="many">Выбрано %d</item>
+        <item quantity="other">Выбрано %d</item>
+    </plurals>
+
     <string name="detail_not_found">Замер не найден</string>
     <string name="detail_delete_failed">Не удалось удалить замер</string>
     <string name="detail_note_label">Заметка</string>

@@ -213,7 +213,7 @@ Phase 5 закрывает оставшиеся MVP-фичи перед Phase Re
 
 ### Task 3: HistoryViewModel — selection mode state machine + bulk-delete + bulk-undo
 
-- [ ] **сначала тест:** `HistoryViewModelSelectionModeTest` (JUnit 5 + Turbine + FakeMeasurementRepository) — 12+ кейсов:
+- [x] **сначала тест:** `HistoryViewModelSelectionModeTest` (JUnit 5 + Turbine + FakeMeasurementRepository) — 18 кейсов:
   - initial state: `selectionMode = false, selectedIds = emptySet()`
   - `EnterSelectionMode` event → `selectionMode = true, selectedIds = emptySet()` (но обычно entered с одним выбранным item — это в Task 4 UI обработает; ViewModel должен также принимать `EnterSelectionMode(initialId: Long)`)
   - `ToggleSelection(id1)` в selection mode → `selectedIds = {id1}`
@@ -224,22 +224,30 @@ Phase 5 закрывает оставшиеся MVP-фичи перед Phase Re
   - `ExitSelectionMode` → `selectionMode = false, selectedIds = emptySet()` (явный exit)
   - `ToggleSelection(soft_deleted_id)` → no-op (soft-deleted items не должны быть selectable)
   - **bulk-delete:** `BulkDeleteRequested` при пустом `selectedIds` → no-op + Snackbar `R.string.history_bulk_no_selection`
-  - **bulk-delete:** `BulkDeleteRequested` с {id1, id2} → soft-delete обоих + `ShowUndoSnackbar(R.string.history_bulk_undo_message)` с pluralized count + auto-`ExitSelectionMode` + scheduled commit через 5 сек
+  - **bulk-delete:** `BulkDeleteRequested` с {id1, id2} → soft-delete обоих + state-driven `pendingBulkUndoCount=2` + auto-`ExitSelectionMode` + scheduled commit через 5 сек
   - **bulk-undo:** в течение 5 сек `BulkUndoConfirmed` → восстановление обоих + repository.deleteAll НЕ вызван
   - **bulk-undo:** через 5 сек → `repository.deleteAll({id1, id2})` вызван
-- [ ] **сначала тест:** `HistoryViewModelBulkInteractionTest` — взаимодействие single и bulk:
-  - single `DeleteRequested(id1)` pending → `BulkDeleteRequested({id2, id3})` → single id1 commit (orphan) + bulk pending новый таймер; `repository.delete(id1)` вызван, `repository.deleteAll({id2, id3})` ещё нет
+  - bulk-delete failure → soft-delete shadow lifted + error snackbar
+  - pendingBulkUndoCount clears at 5s mark independently of slow repo IO
+  - EnterSelectionMode для soft-deleted initialId игнорирует pre-selection
+  - bulk-delete 1000 ids — single repository call (chunking ответственность Data слоя)
+- [x] **сначала тест:** `HistoryViewModelBulkInteractionTest` — взаимодействие single и bulk (5 кейсов):
+  - single `DeleteRequested(id1)` pending → `BulkDeleteRequested({id2, id3})` → single id1 commit (orphan) + bulk pending новый таймер
   - bulk pending → single `DeleteRequested(id4)` → bulk commit (orphan deleteAll) + single new pending
   - bulk pending → второй `BulkDeleteRequested({id4, id5})` → first bulk commit + second bulk pending
-- [ ] **сначала тест:** `HistoryViewModelSelectionWithSoftDeleteTest` — корректность combine:
-  - 3 items in repository, 0 soft-deleted, 0 selected → `state.items.size == 3`
-  - 3 items, soft-delete id1 → `state.items.size == 2` (id1 скрыт)
-  - 3 items, soft-delete id1, select {id1, id2} (через test API; в реале UI не позволит выбрать soft-deleted) → `selectedIds` фильтруется до {id2} (defense-in-depth)
-- [ ] обновить `feature/history/.../HistoryUiState.kt`:
+  - BulkUndoConfirmed только отменяет latest bulk — prior single уже orphan-committed
+  - second bulk request не отменяет in-flight commit первого bulk (committingBulkIds guard)
+- [x] **сначала тест:** `HistoryViewModelSelectionWithSoftDeleteTest` — корректность combine (5 кейсов):
+  - items.size после single soft-delete уменьшается
+  - single soft-delete выбранного id удаляет его из selectedIds (defense-in-depth)
+  - SelectAll после partial soft-delete выбирает только visible
+  - EnterSelectionMode не аффектит pending single
+  - ExitSelectionMode не аффектит pending single
+- [x] обновить `feature/history/.../HistoryUiState.kt`:
   - добавить `selectionMode: Boolean = false`
   - добавить `selectedIds: Set<Long> = emptySet()`
   - добавить `pendingBulkUndoCount: Int = 0` (для plural-snackbar после dismiss — selectionMode уже false, но snackbar нужен count)
-- [ ] обновить `feature/history/.../HistoryUiEvent.kt`:
+- [x] обновить `feature/history/.../HistoryUiEvent.kt`:
   - добавить `data class EnterSelectionMode(val initialId: Long? = null) : HistoryUiEvent` (UI вызывает с long-press item id; ViewModel auto-toggles)
   - добавить `data class ToggleSelection(val id: Long) : HistoryUiEvent`
   - добавить `data object SelectAll : HistoryUiEvent`
@@ -247,26 +255,24 @@ Phase 5 закрывает оставшиеся MVP-фичи перед Phase Re
   - добавить `data object ExitSelectionMode : HistoryUiEvent`
   - добавить `data object BulkDeleteRequested : HistoryUiEvent`
   - добавить `data object BulkUndoConfirmed : HistoryUiEvent`
-- [ ] обновить `feature/history/.../HistoryUiEffect.kt`:
-  - добавить `data class ShowBulkUndoSnackbar(val count: Int) : HistoryUiEffect` (separated from existing ShowErrorSnackbar для разных action callbacks)
-- [ ] обновить `feature/history/.../HistoryViewModel.kt`:
+- [x] **➕ архитектурное отклонение от плана:** `HistoryUiEffect` НЕ расширяется новым `ShowBulkUndoSnackbar(count)` effect. Bulk Undo (как и single Undo Phase 3) драйвится из state через `pendingBulkUndoCount > 0`, не через one-shot effect — сохраняет rotation-safety (см. существующий kdoc в HistoryUiEffect.kt). Plural-resolution делается в UI через `pluralStringResource(R.plurals.history_bulk_undo_message, count, count)` в Task 4.
+- [x] обновить `feature/history/.../HistoryViewModel.kt`:
   - инжектится `DeleteMeasurementsUseCase` в дополнение к существующим
-  - `private val selectionMode = MutableStateFlow(false)`
-  - `private val selectedIds = MutableStateFlow<Set<Long>>(emptySet())`
-  - обновить combine: `combine(getMeasurements(), softDeletedIds, pendingUndoId, selectionMode, selectedIds) { ... }` (4 → 5 sources; если Compose `combine` ограничен 4 args — использовать `combine(...) { array -> array }` pattern)
-  - new helper `enterSelectionMode(initialId: Long?)` — `selectionMode.value = true`; если `initialId != null` → `selectedIds.value = setOf(initialId)`
-  - new helper `toggleSelection(id: Long)` — `if (id !in softDeletedIds.value) selectedIds.update { if (id in it) it - id else it + id }`
-  - new helper `selectAll()` — `selectedIds.value = state.value.items.map { it.id }.toSet()` (only visible items, не softdeleted)
-  - new helper `scheduleBulkDelete()` — orphan commit existing pending single/bulk если есть; soft-delete всех selectedIds; emit `ShowBulkUndoSnackbar(selectedIds.size)`; `exitSelectionMode()`; schedule `pendingBulkDeleteJob = launch { delay(UNDO_WINDOW_MS); commitBulkDelete() }`
-  - new helper `commitBulkDelete()` — `deleteMeasurements(softDeletedIds.value).onFailure { emit ShowErrorSnackbar }`; clear `softDeletedIds`
-  - new helper `cancelPendingBulkDelete()` — cancel job + restore все из `softDeletedIds`
-- [ ] реализовать ViewModel — все тесты зелёные
-- [ ] обновить `feature/history/.../di/HistoryUseCaseModule.kt` — добавить `@Provides fun provideDeleteMeasurementsUseCase(repo: MeasurementRepository) = DeleteMeasurementsUseCase(repo)`
-- [ ] добавить локализационные строки в `feature/history/src/main/res/values/strings.xml` (или `core/ui` если кросс-модульно) — `values/` и `values-ru/`:
-  - `history_bulk_no_selection` (e.g. "No items selected" / "Нет выбранных замеров")
-  - `history_bulk_undo_message` — **plurals**: `<plurals name="history_bulk_undo_message">` с `<item quantity="one">%d measurement deleted</item>` и т. д. для русского (`one`, `few`, `many`)
-  - `history_bulk_delete_failed` (e.g. "Couldn't delete measurements" / "Не удалось удалить замеры")
-- [ ] run `./gradlew :feature:history:testDebugUnitTest` — must pass before next task
+  - `private val pendingBulkIds = MutableStateFlow<Set<Long>>(emptySet())` (state source для `pendingBulkUndoCount = size`)
+  - `private val internalSelection = MutableStateFlow(InternalSelection(mode, ids))` — упакован для 5-арного combine
+  - combine: `combine(upstream.transform { reconciler }, softDeletedIds, pendingUndoId, pendingBulkIds, internalSelection)` (5 sources)
+  - new helpers: `enterSelectionMode(initialId)`, `toggleSelection(id)`, `selectAllVisible()`, `clearSelection()`, `exitSelectionMode()`, `scheduleBulkDelete()`, `commitBulkDelete(ids)`, `commitOrphanedSingle(exceptId)`, `commitOrphanedBulk()`, `cancelPendingBulkDelete()`
+  - двухфазная дисциплина pendingBulkDeleteJob (timer cancellable, commit uncancellable + `committingBulkIds` set) симметрична существующей single
+  - `selectAllVisible()` использует `viewModelScope.launch { getMeasurements().first() }` чтобы не зависеть от наличия подписчиков state (WhileSubscribed остаётся для production efficiency)
+- [x] реализовать ViewModel — все 81 теста зелёные
+- [x] обновить `feature/history/.../di/HistoryUseCaseModule.kt` — добавить `@Provides fun provideDeleteMeasurementsUseCase(repo: MeasurementRepository) = DeleteMeasurementsUseCase(repo)`
+- [x] добавить локализационные строки в `feature/history/src/main/res/values/strings.xml` + `values-ru/`:
+  - `history_bulk_no_selection` ("No items selected" / "Ничего не выбрано")
+  - `history_bulk_delete_failed` ("Couldn't delete measurements" / "Не удалось удалить замеры")
+  - `<plurals name="history_bulk_undo_message">` с русскими формами (one/few/many)
+  - `<plurals name="history_bulk_confirm_title">` (используется в Task 4 confirm dialog)
+  - `<plurals name="history_selection_topbar_count">` (используется в Task 4 TopBar)
+- [x] run `./gradlew :feature:history:testDebugUnitTest` — BUILD SUCCESSFUL (81 tests)
 
 ### Task 4: HistoryScreen UI — selection visuals + bulk action bar + confirm dialog
 
