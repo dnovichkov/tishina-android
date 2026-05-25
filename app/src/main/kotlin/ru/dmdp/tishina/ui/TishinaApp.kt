@@ -160,10 +160,14 @@ fun TishinaApp(
                         )
                     }
                 },
-                // Detail brings its own Scaffold with full system-bar handling, so we zero out
-                // the outer Scaffold's contentWindowInsets to avoid double-padding the status
-                // bar. Top-level destinations still consume insets via their bars.
-                contentWindowInsets = if (isOnDetail) WindowInsets(0) else ScaffoldDefaults.contentWindowInsets,
+                // Detail and Settings both bring their own Scaffold + TopAppBar with full
+                // system-bar handling. When we suppress the outer TopAppBar for those screens
+                // we must also zero out `contentWindowInsets`, otherwise the outer Scaffold
+                // still reserves the status-bar inset as content padding and the inner
+                // TopAppBar's own status-bar inset stacks on top of it (≈24 dp empty band
+                // above the inner title on phones). Other top-level destinations keep the
+                // default — their insets are consumed by the outer TopAppBar.
+                contentWindowInsets = if (suppressOuterTopBar) WindowInsets(0) else ScaffoldDefaults.contentWindowInsets,
             ) { padding ->
                 Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                     TishinaNavHost(
