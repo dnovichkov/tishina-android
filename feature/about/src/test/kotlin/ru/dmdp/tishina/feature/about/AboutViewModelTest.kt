@@ -91,4 +91,44 @@ class AboutViewModelTest {
             cancelAndConsumeRemainingEvents()
         }
     }
+
+    @Test
+    @DisplayName("unexpected throw from provider still flips loading=false (NFR-7 defense in depth)")
+    fun `state settles to empty snapshot when version provider throws unexpectedly`() = runTest {
+        // Providers document a never-throw contract, but if a future refactor or a
+        // pathological device leaks something other than the documented exceptions, the
+        // screen must still leave the spinner. Otherwise users see a forever-loading screen.
+        val versionProvider = mockk<AppVersionProvider> { coEvery { get() } throws RuntimeException("boom") }
+        val licensesProvider = mockk<OssLicensesProvider> { coEvery { load() } returns sampleLicenses }
+
+        val viewModel = AboutViewModel(versionProvider, licensesProvider)
+
+        viewModel.state.test {
+            awaitItem() // initial loading
+            advanceUntilIdle()
+            val loaded = awaitItem()
+            assertFalse(loaded.loading)
+            assertEquals("", loaded.version.versionName)
+            assertEquals(0, loaded.version.versionCode)
+            assertTrue(loaded.ossLicenses.isEmpty())
+            cancelAndConsumeRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `state settles to empty snapshot when licenses provider throws unexpectedly`() = runTest {
+        val versionProvider = mockk<AppVersionProvider> { coEvery { get() } returns sampleVersion }
+        val licensesProvider = mockk<OssLicensesProvider> { coEvery { load() } throws RuntimeException("boom") }
+
+        val viewModel = AboutViewModel(versionProvider, licensesProvider)
+
+        viewModel.state.test {
+            awaitItem()
+            advanceUntilIdle()
+            val loaded = awaitItem()
+            assertFalse(loaded.loading)
+            assertTrue(loaded.ossLicenses.isEmpty())
+            cancelAndConsumeRemainingEvents()
+        }
+    }
 }

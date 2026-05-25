@@ -24,6 +24,24 @@ class AppVersionTest {
     }
 
     @Test
+    @DisplayName("displayName drops empty name prefix to avoid double-space on FALLBACK path")
+    fun `displayName uses build-only format when versionName is blank`() {
+        // The AppVersionProviderImpl FALLBACK on NameNotFoundException / system_server pressure
+        // surfaces as AppVersion("", 0). The label is concatenated with "Version " in About,
+        // so a naive "$versionName (build $code)" rendered "Version  (build 0)" (double space).
+        val fallback = AppVersion(versionName = "", versionCode = 0)
+
+        assertEquals("build 0", fallback.displayName)
+    }
+
+    @Test
+    fun `displayName treats whitespace-only name as blank`() {
+        val whitespace = AppVersion(versionName = "   ", versionCode = 4)
+
+        assertEquals("build 4", whitespace.displayName)
+    }
+
+    @Test
     fun `data class equality compares both fields`() {
         val a = AppVersion("1.0.0", 1)
         val b = AppVersion("1.0.0", 1)

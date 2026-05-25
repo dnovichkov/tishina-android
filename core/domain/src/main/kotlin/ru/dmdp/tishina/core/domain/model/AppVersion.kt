@@ -13,6 +13,16 @@ package ru.dmdp.tishina.core.domain.model
  */
 data class AppVersion(val versionName: String, val versionCode: Int) {
 
-    /** Human-readable label rendered as a single line in the About header. */
-    val displayName: String get() = "$versionName (build $versionCode)"
+    /**
+     * Human-readable label rendered as a single line in the About header.
+     *
+     * Guard against the pathological fallback path (`versionName = ""`, e.g. when
+     * `PackageManager.NameNotFoundException` is thrown for our own package): in that
+     * case the prefix is empty, so we drop it instead of rendering a leading space.
+     */
+    val displayName: String get() = if (versionName.isBlank()) {
+        "build $versionCode"
+    } else {
+        "$versionName (build $versionCode)"
+    }
 }

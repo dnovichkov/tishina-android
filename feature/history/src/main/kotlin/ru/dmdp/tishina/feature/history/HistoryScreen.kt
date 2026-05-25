@@ -26,6 +26,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -123,7 +124,9 @@ internal fun HistoryScreenContent(
     // Local UI-only state — the confirm dialog visibility is a presentation concern, not VM.
     // We open it on a Delete tap and emit BulkDeleteRequested only after the user confirms;
     // the VM never sees an intermediate "Delete pressed but not confirmed" state.
-    var showBulkConfirm by remember { mutableStateOf(false) }
+    // `rememberSaveable` so a config change (rotation, theme/locale flip) keeps the dialog
+    // visible — mirrors the `showDisclaimerSheet` pattern in `TishinaApp`.
+    var showBulkConfirm by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier

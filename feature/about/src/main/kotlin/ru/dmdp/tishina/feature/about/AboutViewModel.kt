@@ -3,12 +3,14 @@ package ru.dmdp.tishina.feature.about
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import ru.dmdp.tishina.core.domain.model.AppVersion
 import ru.dmdp.tishina.core.domain.repository.AppVersionProvider
 import ru.dmdp.tishina.core.domain.repository.OssLicensesProvider
 import javax.inject.Inject
@@ -39,16 +41,32 @@ class AboutViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val (version, licenses) = coroutineScope {
-                val versionAsync = async { versionProvider.get() }
-                val licensesAsync = async { licensesProvider.load() }
-                versionAsync.await() to licensesAsync.await()
+            // Defense in depth: both providers document a never-throw contract, but if a
+            // pathological device surfaces something unexpected we must still flip out of
+            // `loading = true` — otherwise the screen renders a spinner forever (NFR-7).
+            // CancellationException is re-thrown so structured concurrency works normally
+            // when the ViewModel is cleared.
+            @Suppress("TooGenericExceptionCaught", "SwallowedException")
+            try {
+                val (version, licenses) = coroutineScope {
+                    val versionAsync = async { versionProvider.get() }
+                    val licensesAsync = async { licensesProvider.load() }
+                    versionAsync.await() to licensesAsync.await()
+                }
+                _state.value = AboutUiState(
+                    version = version,
+                    ossLicenses = licenses,
+                    loading = false,
+                )
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (unexpected: Throwable) {
+                _state.value = AboutUiState(
+                    version = AppVersion(versionName = "", versionCode = 0),
+                    ossLicenses = emptyList(),
+                    loading = false,
+                )
             }
-            _state.value = AboutUiState(
-                version = version,
-                ossLicenses = licenses,
-                loading = false,
-            )
         }
     }
 }

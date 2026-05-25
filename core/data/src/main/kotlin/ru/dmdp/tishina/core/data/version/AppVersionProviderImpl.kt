@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import ru.dmdp.tishina.core.data.di.IoDispatcher
@@ -34,10 +35,12 @@ import javax.inject.Singleton
  * **Never-throw contract:** `getPackageInfo` declares `throws NameNotFoundException` —
  * an app cannot fail to resolve its own package on a healthy device, but the contract in
  * [AppVersionProvider] is "always returns a valid value". We catch that specific exception
- * so a pathological device degrades to an empty-name 0-code fallback (NFR-7 crash-free).
- * We deliberately do NOT use `runCatching` because it would also swallow
- * `CancellationException` (it extends `IllegalStateException` → `RuntimeException`) and
- * break structured concurrency for callers like `AboutViewModel.init { viewModelScope.launch { … } }`.
+ * plus any other [RuntimeException] (e.g. `DeadObjectException`/`TransactionTooLargeException`
+ * wrappers seen on managed devices under system_server pressure) so a pathological device
+ * degrades to an empty-name 0-code fallback (NFR-7 crash-free). `CancellationException` is
+ * re-thrown explicitly to preserve structured concurrency for callers like
+ * `AboutViewModel.init { viewModelScope.launch { … } }` — we deliberately do NOT use
+ * `runCatching` because it would also swallow it.
  */
 @Singleton
 class AppVersionProviderImpl @Inject constructor(
@@ -45,11 +48,18 @@ class AppVersionProviderImpl @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : AppVersionProvider {
 
-    @Suppress("SwallowedException") // never-throw contract — see class kdoc
+    @Suppress("SwallowedException", "TooGenericExceptionCaught") // never-throw contract — see class kdoc
     override suspend fun get(): AppVersion = withContext(ioDispatcher) {
         val info = try {
             context.packageManager.getPackageInfo(context.packageName, 0)
         } catch (notFound: PackageManager.NameNotFoundException) {
+            return@withContext FALLBACK
+        } catch (cancellation: CancellationException) {
+            // Preserve structured concurrency — let viewModelScope cancellation propagate.
+            throw cancellation
+        } catch (unexpected: RuntimeException) {
+            // `DeadObjectException` / `TransactionTooLargeException` wrappers on stressed
+            // system_server boundaries surface here. NFR-7 prefers a fallback over a crash.
             return@withContext FALLBACK
         }
         val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

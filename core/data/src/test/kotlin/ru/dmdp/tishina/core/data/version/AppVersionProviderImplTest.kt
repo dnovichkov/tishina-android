@@ -1,9 +1,13 @@
 package ru.dmdp.tishina.core.data.version
 
+import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -78,6 +82,26 @@ class AppVersionProviderImplTest {
         val realContext = ApplicationProvider.getApplicationContext<android.app.Application>()
         val brokenContext = object : ContextWrapper(realContext) {
             override fun getPackageName(): String = "ru.dmdp.tishina.does.not.exist"
+        }
+        val failingProvider = AppVersionProviderImpl(brokenContext, UnconfinedTestDispatcher())
+
+        val version = failingProvider.get()
+
+        assertEquals(AppVersion(versionName = "", versionCode = 0), version)
+    }
+
+    @Test
+    fun `get returns fallback when PackageManager throws RuntimeException`() = runTest {
+        // On heavily managed devices system_server can wrap a DeadObjectException or
+        // TransactionTooLargeException inside a RuntimeException — the never-throw contract
+        // must cover these too, not just NameNotFoundException.
+        val realContext = ApplicationProvider.getApplicationContext<android.app.Application>()
+        val pmThatThrowsRuntime = mockk<PackageManager> {
+            every { getPackageInfo(any<String>(), any<Int>()) } throws RuntimeException("system_server")
+        }
+        val brokenContext = object : ContextWrapper(realContext) {
+            override fun getPackageManager(): PackageManager = pmThatThrowsRuntime
+            override fun getApplicationContext(): Context = this
         }
         val failingProvider = AppVersionProviderImpl(brokenContext, UnconfinedTestDispatcher())
 
