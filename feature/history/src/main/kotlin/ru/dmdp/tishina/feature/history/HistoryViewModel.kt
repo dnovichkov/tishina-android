@@ -13,100 +13,110 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.dmdp.tishina.core.domain.usecase.DeleteMeasurementUseCase
+import ru.dmdp.tishina.core.domain.usecase.DeleteMeasurementsUseCase
 import ru.dmdp.tishina.core.domain.usecase.GetMeasurementsUseCase
 import javax.inject.Inject
 
 /**
- * Source of truth for the History screen (FR-8…FR-11).
+ * Source of truth for the History screen (FR-8…FR-12).
  *
- * Soft-delete strategy for FR-11 Undo (chosen in plan over "delete + restore via save"):
+ * # Soft-delete strategy
  *
- *  1. On [HistoryUiEvent.DeleteRequested] we add the id to [softDeletedIds] — the combined
- *     state flow filters it out of the visible list immediately. The row stays on disk.
- *  2. A 5 s timer fires from [pendingDeleteJob]; when [delay] elapses, the job clears its
- *     own [pendingDeleteJob] handle (so a later swipe can no longer cancel it) and proceeds
- *     to [commitDelete]. The id is also added to [committingIds] for the duration of the
- *     repository call so [commitOrphanedSoftDeletes] doesn't double-launch a retry while
- *     the original commit is in flight.
- *  3. On [HistoryUiEvent.UndoConfirmed] we cancel the timer (if it's still pending) and
- *     clear the soft-deleted entry, restoring the id to the visible list without a Room
- *     round-trip. Once the timer has fired, [pendingDeleteJob] is null and Undo is a no-op
- *     (which is what we want — the undo window has expired).
+ * Two parallel soft-delete channels share the same `softDeletedIds` visibility shadow:
  *
- * Edge case — two swipes in quick succession: the second [DeleteRequested] cancels the
- * first job's *timer* (only the timer — never an in-flight commit) and replaces it with a
- * fresh timer for the new id. The already-soft-deleted id from the first swipe is committed
- * immediately (via [commitOrphanedSoftDeletes]) so we never end up with two entries waiting
- * on the same job. Without this we'd lose Undo for the prior swipe AND keep the row visible
- * after the timer would have fired.
+ *  - **Single (FR-11)** — one swipe → `pendingUndoId: Long?` + `pendingDeleteJob` timer →
+ *    `deleteMeasurement(id)` at the 5 s mark. Driven by [HistoryUiEvent.DeleteRequested] /
+ *    [HistoryUiEvent.UndoConfirmed].
  *
- * Edge case — re-swipe of the SAME id while its timer is still pending: idempotent no-op.
- * Without an explicit guard, `commitOrphanedSoftDeletes(except = id)` would see no orphans
- * (the id is excluded from the orphan set as `except`) and the old timer would never be
- * cancelled — but [pendingDeleteJob] would be overwritten with a fresh job, leaving the
- * original timer running in the background. A subsequent Undo would then only cancel the
- * latest job, and the orphaned first timer would still commit the delete after its 5 s.
+ *  - **Bulk (FR-12)** — multi-select → `pendingBulkIds: Set<Long>` + `pendingBulkDeleteJob` →
+ *    `deleteMeasurements(ids)` at the 5 s mark. Driven by [HistoryUiEvent.BulkDeleteRequested]
+ *    / [HistoryUiEvent.BulkUndoConfirmed].
  *
- * Why separate the timer and commit phases: if [pendingDeleteJob] still owned the in-flight
- * commit, a later swipe would cancel it mid-Room-transaction. Room would roll the
- * transaction back (cooperative cancellation), and the orphan retry would have to do the
- * delete again — wasted IO and a microsecond race window where a process kill between
- * cancel and retry could resurrect a row whose undo window has already expired. Clearing
- * the handle right after [delay] returns makes the commit uncancellable from outside;
- * [committingIds] keeps orphan retries from doubling up on the same id.
+ * Each channel keeps the same two-phase invariants documented for the single-only design:
+ *  1. On schedule we add the id(s) to [softDeletedIds] — the combined state filters them out
+ *     of the visible list immediately. Rows stay on disk.
+ *  2. A 5 s timer drops its own job handle ([pendingDeleteJob] / [pendingBulkDeleteJob]) the
+ *     instant [delay] elapses, then atomically claims its ids in [committingIds] /
+ *     [committingBulkIds] and enters the suspending repository call. This makes the commit
+ *     phase uncancellable from outside without losing structured cancellation.
+ *  3. Undo cancels the timer (if still pending) and lifts the soft-delete shadow.
  *
- * Why softDeletedIds is reconciled against the upstream list instead of cleared in
- * [commitDelete]: Room's `InvalidationTracker` delivers post-delete emissions asynchronously
- * (on its background executor), so a synchronous `softDeletedIds.update { it - id }` right
- * after [deleteMeasurement] returns races with the upstream Flow — `combine` can still hold
- * the pre-delete list while the soft-delete shadow is already gone, flashing the row back
- * into the visible list for a frame. Instead we keep the shadow until the upstream emits
- * a snapshot that no longer contains the id, and only then drop it via the `transform` hook
- * in the [state] pipeline below. Failure path is still synchronous: [commitDeleteInternal]
- * clears the id on its own so the row reappears with an error snackbar.
+ * # Cross-channel orphan-commit (FR-11 ↔ FR-12)
  *
- * Why the reconciler uses `transform { emit; softDeletedIds.update }` rather than the
- * symmetric-looking `onEach { softDeletedIds.update }; emit-implicit`: `onEach` runs the
- * side effect BEFORE forwarding the value downstream, so on `Dispatchers.Main.immediate`
- * the softDeletedIds update could trigger combine's source-1 collector reentrantly — combine
- * then sees `latestValues = [OLD all, new deleted=∅, undoId]` (the new `all` hasn't reached
- * source-0 yet) and emits a transient state where the just-deleted row reappears for one
- * frame. Doing `emit(all)` first guarantees combine's `latestValues[0]` updates to the new
- * `all` before `softDeletedIds` changes; the subsequent `softDeletedIds` update produces the
- * same items list and StateFlow dedupes the duplicate, so no buggy frame ever reaches the UI.
+ * Each new soft-delete request — single OR bulk — eagerly commits any pending soft-delete of
+ * the OTHER kind ([commitOrphanedSingle] + [commitOrphanedBulk]) before scheduling its own.
+ * This keeps exactly one timer per channel and never leaves stale entries in the soft-delete
+ * shadow. Concretely:
  *
- * `pendingUndoId` mirrors which id is currently undoable so the screen can render the
- * snackbar message without re-deriving it from the effect channel.
+ *  - single pending + bulk request   → single committed via [deleteMeasurement] right now, bulk
+ *    timer starts.
+ *  - bulk pending + single swipe     → bulk committed via [deleteMeasurements] right now, single
+ *    timer starts.
+ *  - bulk pending + new bulk request → previous bulk committed via [deleteMeasurements] right
+ *    now, new bulk timer starts.
+ *
+ * An "orphan committed" delete reaches the repository exactly once — [commitOrphanedSingle]
+ * / [commitOrphanedBulk] skip ids already in their respective `committingIds` sets so an
+ * in-flight Room IO can't be cancelled mid-transaction and never gets a duplicate retry.
+ *
+ * Bulk Undo therefore only ever resurrects the LATEST bulk; the previously orphaned
+ * single/bulk is already gone. This mirrors FR-11's "latest-write-wins" rule for consecutive
+ * single swipes.
+ *
+ * # Selection mode (FR-12)
+ *
+ * `selectionMode` and `selectedIds` are packaged together in one internal [InternalSelection]
+ * StateFlow so the 5-arg [combine] doesn't overflow into the array variant. The state
+ * pipeline filters [InternalSelection.ids] against `softDeletedIds` as defense-in-depth — if
+ * a race makes a soft-deleted id slip into the selection (e.g. concurrent long-press + swipe),
+ * the action-bar count still matches the visible cards.
+ *
+ * [HistoryUiEvent.SelectAll] launches into [viewModelScope] and reads
+ * `getMeasurements().first()` directly rather than `state.value.items`: the latter is
+ * `WhileSubscribed`-gated and reads `initialState` (empty items) when no UI is currently
+ * collecting `state`, which would silently turn `SelectAll` into a no-op for any caller
+ * (notably tests) that doesn't pre-subscribe.
+ *
+ * # softDeletedIds reconciler (shared between channels)
+ *
+ * The shadow shrinks lazily against the upstream snapshot: once Room emits a list without an
+ * id, the [transform] block intersects the shadow with the new visible-id set. This avoids
+ * the async-invalidation race where clearing the shadow synchronously inside the commit
+ * function (right after [deleteMeasurement] returns) would flash the row back into the
+ * visible list for one frame — combine would re-evaluate with `all = pre-delete list` and
+ * `deleted = ∅` because Room's InvalidationTracker delivers the post-delete emission on a
+ * background executor.
+ *
+ * `pendingBulkIds` is cleared eagerly inside [commitBulkDelete] (before the suspending
+ * deleteAll call) so the bulk snackbar dismisses at the 5 s mark regardless of how slow the
+ * Room delete IO is — same property [pendingUndoId] has via [commitDeleteInternal].
  */
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
     private val getMeasurements: GetMeasurementsUseCase,
     private val deleteMeasurement: DeleteMeasurementUseCase,
+    private val deleteMeasurements: DeleteMeasurementsUseCase,
 ) : ViewModel() {
 
     private val softDeletedIds = MutableStateFlow<Set<Long>>(emptySet())
     private val pendingUndoId = MutableStateFlow<Long?>(null)
+    private val pendingBulkIds = MutableStateFlow<Set<Long>>(emptySet())
+    private val internalSelection = MutableStateFlow(InternalSelection(mode = false, ids = emptySet()))
     private val initialState = HistoryUiState(loading = true)
 
     private val effectChannel = Channel<HistoryUiEffect>(Channel.BUFFERED)
     val effects: Flow<HistoryUiEffect> = effectChannel.receiveAsFlow()
 
     val state: StateFlow<HistoryUiState> = combine(
-        // Reconcile softDeletedIds against the latest upstream snapshot. Once Room actually
-        // emits a list that no longer contains a soft-deleted id, we drop that id from the
-        // shadow set — this is the only place softDeletedIds shrinks on the success path.
-        // Doing it here (rather than after [deleteMeasurement] returns) avoids the
-        // async-invalidation race described in the class kdoc.
-        //
-        // ORDER MATTERS: emit FIRST, mutate softDeletedIds SECOND. Inverting the two (e.g.
-        // via onEach which runs before forwarding) creates a Main.immediate reentrancy hole
-        // — see class kdoc for the full trace.
+        // Reconciler: drop ids that are no longer in the upstream snapshot from the shadow.
+        // ORDER MATTERS — see class kdoc for the Main.immediate reentrancy argument.
         getMeasurements().transform { all ->
             emit(all)
             val visibleIds = all.mapTo(mutableSetOf()) { it.id }
@@ -116,84 +126,138 @@ class HistoryViewModel @Inject constructor(
         },
         softDeletedIds,
         pendingUndoId,
-    ) { all, deleted, undoId ->
+        pendingBulkIds,
+        internalSelection,
+    ) { all, deleted, undoId, bulkIds, selection ->
+        // Defense-in-depth: filter soft-deleted ids out of the active selection so the
+        // action-bar count never includes a card the user can't see. UI normally prevents
+        // this (long-press is disabled on items mid-swipe), but races slip through.
+        val effectiveSelection = if (selection.ids.isEmpty()) selection.ids else selection.ids - deleted
         HistoryUiState(
             items = all.filter { it.id !in deleted },
             loading = false,
             loadFailed = false,
             pendingUndoId = undoId,
+            pendingBulkUndoCount = bulkIds.size,
+            selectionMode = selection.mode,
+            selectedIds = effectiveSelection,
         )
     }
-        // Catch any upstream Room IO failure so the screen doesn't get pinned at loading=true.
-        // Surface a *distinct* error state (loadFailed=true, items=empty) so the UI can branch
-        // away from the empty-state CTA — emitting items=empty alone would conflate "no rows"
-        // with "couldn't read the rows" and tell the user to start a new measurement when their
-        // existing data is still on disk. Pair it with [HistoryUiEffect.ShowErrorSnackbar] so the
-        // failure is also surfaced through the host-level feedback channel.
         .catch {
             effectChannel.trySend(HistoryUiEffect.ShowErrorSnackbar(R.string.history_load_failed))
-            emit(HistoryUiState(items = emptyList(), loading = false, loadFailed = true, pendingUndoId = null))
+            emit(
+                HistoryUiState(
+                    items = emptyList(),
+                    loading = false,
+                    loadFailed = true,
+                    pendingUndoId = null,
+                    pendingBulkUndoCount = 0,
+                    selectionMode = false,
+                    selectedIds = emptySet(),
+                ),
+            )
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_KEEPALIVE_MS), initialState)
 
     private var pendingDeleteJob: Job? = null
+    private var pendingBulkDeleteJob: Job? = null
 
-    // Ids whose commitDelete is currently in flight (post-timer, possibly suspended inside the
-    // repository call). Tracked so commitOrphanedSoftDeletes doesn't launch a duplicate retry
-    // for an id that's already being committed — softDeletedIds alone can't distinguish
-    // "still in undo window" from "commit IO in progress".
+    // Ids whose commit{,Bulk}Delete is currently in flight (post-timer, suspended inside the
+    // repository call). Tracked so orphan-commits don't launch a duplicate retry for an id
+    // that's already being committed.
     private val committingIds = mutableSetOf<Long>()
+    private val committingBulkIds = mutableSetOf<Long>()
 
     fun onEvent(event: HistoryUiEvent) {
         when (event) {
             is HistoryUiEvent.DeleteRequested -> scheduleDelete(event.id)
             HistoryUiEvent.UndoConfirmed -> cancelPendingDelete()
+            is HistoryUiEvent.EnterSelectionMode -> enterSelectionMode(event.initialId)
+            is HistoryUiEvent.ToggleSelection -> toggleSelection(event.id)
+            HistoryUiEvent.SelectAll -> selectAllVisible()
+            HistoryUiEvent.ClearSelection -> clearSelection()
+            HistoryUiEvent.ExitSelectionMode -> exitSelectionMode()
+            HistoryUiEvent.BulkDeleteRequested -> scheduleBulkDelete()
+            HistoryUiEvent.BulkUndoConfirmed -> cancelPendingBulkDelete()
         }
     }
 
     private fun scheduleDelete(id: Long) {
-        // Idempotent re-swipe of the same id: if a timer for this id is already running we
-        // just keep it — kicking off a fresh job would leave the original one orphaned (the
-        // orphan-cleanup branch skips it as `except`, so cancellation never fires), and the
-        // stale timer would still commit the delete even after Undo cancels the latest job.
+        // Idempotent re-swipe of the same id.
         if (id == pendingUndoId.value && pendingDeleteJob != null) return
 
-        // Latest-write-wins: if there is already a pending delete, commit it now (row was already
-        // hidden, user already had their undo window) so we don't strand stale entries in the
-        // soft-deleted set.
-        commitOrphanedSoftDeletes(except = id)
+        // Latest-write-wins across BOTH channels. We orphan-commit any other pending single
+        // (≠ this id) and any pending bulk before scheduling the new single. Failing to
+        // commit the bulk here would leave its ids stranded in the soft-delete shadow with
+        // no timer to ever clear them.
+        commitOrphanedSingle(exceptId = id)
+        commitOrphanedBulk()
 
         softDeletedIds.update { it + id }
-        // pendingUndoId is the source of truth for the snackbar's visibility — the screen
-        // observes it through state instead of a one-shot effect, so the Undo affordance
-        // survives rotation/theme-change for the remainder of the commit window.
         pendingUndoId.value = id
+        // Drop the just-soft-deleted id from any active selection so the action bar count
+        // stays in sync with the visible list (defense against simultaneous long-press + swipe).
+        internalSelection.update { it.copy(ids = it.ids - id) }
         pendingDeleteJob = viewModelScope.launch {
             delay(UNDO_WINDOW_MS)
-            // Leave the "cancellable timer" phase atomically: drop our handle so a sibling
-            // swipe's commitOrphanedSoftDeletes can no longer interrupt the commit, and
-            // claim the id in committingIds so the orphan logic doesn't double-launch us.
-            // Both writes are non-suspending and the dispatcher is single-threaded, so the
-            // transition is observed as a single step by any concurrent scheduleDelete call.
+            // Atomic transition out of the cancellable "timer" phase — see class kdoc.
             pendingDeleteJob = null
             commitDelete(id)
         }
     }
 
-    private fun commitOrphanedSoftDeletes(except: Long) {
-        // Only ids that aren't already being committed are real orphans. An id in committingIds
-        // is owned by its own (now-untracked) commit coroutine and will resolve itself; relaunching
-        // commitDelete for it would be a duplicate Room round-trip plus a potential duplicate
-        // error snackbar if the IO fails.
-        val orphans = softDeletedIds.value - except - committingIds
-        if (orphans.isEmpty()) return
-        // Cancelling pendingDeleteJob here only ever cancels a *timer* — once a job has crossed
-        // the delay-to-commit boundary it has nulled the handle itself, so this is a no-op for
-        // in-flight commits. That separation is the whole point of the two-phase design above.
+    private fun scheduleBulkDelete() {
+        val toDelete = internalSelection.value.ids
+        if (toDelete.isEmpty()) {
+            // Empty bulk-delete is a contract violation — UI must hide the "Delete N" button
+            // when nothing is selected. Defense-in-depth surfaces a localized snackbar.
+            effectChannel.trySend(HistoryUiEffect.ShowErrorSnackbar(R.string.history_bulk_no_selection))
+            return
+        }
+
+        commitOrphanedSingle()
+        commitOrphanedBulk()
+
+        softDeletedIds.update { it + toDelete }
+        pendingBulkIds.value = toDelete
+        // Auto-exit selection mode: the bulk Undo snackbar takes over as the user's affordance.
+        // Leaving the action bar visible while a snackbar advertises Undo would be confusing.
+        internalSelection.value = InternalSelection(mode = false, ids = emptySet())
+        pendingBulkDeleteJob = viewModelScope.launch {
+            delay(UNDO_WINDOW_MS)
+            pendingBulkDeleteJob = null
+            commitBulkDelete(toDelete)
+        }
+    }
+
+    private fun commitOrphanedSingle(exceptId: Long? = null) {
+        val id = pendingUndoId.value ?: return
+        if (id == exceptId) return
+        // Already committing → owned by its own coroutine. Re-launching would duplicate IO
+        // and could double-emit an error snackbar.
+        if (id in committingIds) return
         pendingDeleteJob?.cancel()
         pendingDeleteJob = null
+        // Dismiss the single Undo snackbar immediately; the orphan commit fires through
+        // commitDelete (which would also null pendingUndoId, but we do it eagerly here so
+        // the dismissal is observable on the next combine emission).
+        pendingUndoId.value = null
         viewModelScope.launch {
-            orphans.forEach { id -> commitDelete(id) }
+            commitDelete(id)
+        }
+    }
+
+    private fun commitOrphanedBulk() {
+        val snapshot = pendingBulkIds.value
+        if (snapshot.isEmpty()) return
+        // If any id is already being committed, an in-flight commit owns the snapshot —
+        // pendingBulkIds should already be empty in that case; defensive no-op.
+        if (snapshot.any { it in committingBulkIds }) return
+        pendingBulkDeleteJob?.cancel()
+        pendingBulkDeleteJob = null
+        pendingBulkIds.value = emptySet()
+        viewModelScope.launch {
+            commitBulkDelete(snapshot)
         }
     }
 
@@ -206,39 +270,9 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
-    // Suppress TooGenericExceptionCaught: Room can surface a wide range of failure shapes
-    // (SQLiteException, IOException via fsync, FK CHECK violations from the LENGTH_GUARD
-    // triggers, KSP-generated wrapper exceptions on schema drift). We deliberately want a
-    // catch-all here so the row reappears with an error snackbar instead of vanishing
-    // silently. CancellationException is explicitly re-thrown above the generic catch to
-    // preserve structured cancellation; everything else is handled uniformly.
     @Suppress("TooGenericExceptionCaught")
     private suspend fun commitDeleteInternal(id: Long) {
-        // Clear pendingUndoId *before* the suspending repository call so the Undo snackbar
-        // dismisses exactly at the 5 s mark, not after the Room IO completes. Otherwise a
-        // slow delete (CASCADE on many samples, slow fsync) leaves the snackbar — and its
-        // Undo action — clickable past the promised window, making the real undo budget
-        // depend on IO latency rather than UNDO_WINDOW_MS.
         if (pendingUndoId.value == id) pendingUndoId.value = null
-
-        // Delete the row from Room and leave the soft-delete shadow in place — the
-        // reconciler in [state] will drop the id from `softDeletedIds` as soon as Room emits
-        // a snapshot that no longer contains it. Clearing the shadow synchronously here would
-        // race with Room's async invalidation: `combine` could re-evaluate with the id no
-        // longer filtered while the upstream still holds the pre-delete list, flashing the
-        // row back for a frame.
-        //
-        // On failure (disk full, schema mismatch, IO error) we MUST clear the shadow ourselves
-        // — Room never emits a post-delete snapshot, so the reconciler would never get the
-        // signal and the row would stay invisible forever (and reappear after a process
-        // restart with no UX feedback in between). Clearing it here restores the row and we
-        // surface an error snackbar so the user knows their swipe didn't take.
-        //
-        // CancellationException is re-thrown explicitly: `runCatching` would convert it into a
-        // generic failure (Result.failure), which would (a) trigger a spurious
-        // history_delete_failed snackbar on viewModelScope teardown and (b) break structured
-        // cancellation — e.g. when `commitOrphanedSoftDeletes` cancels an in-flight commit job,
-        // the cancellation should propagate, not masquerade as an IO error.
         val failure: Throwable? = try {
             deleteMeasurement(id)
             null
@@ -253,6 +287,23 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
+    private suspend fun commitBulkDelete(ids: Set<Long>) {
+        committingBulkIds.addAll(ids)
+        try {
+            // Clear the snackbar state at the start of commit so the Undo affordance
+            // disappears exactly at the 5 s mark, not after Room IO completes. Same property
+            // [commitDeleteInternal] enforces for pendingUndoId.
+            if (pendingBulkIds.value == ids) pendingBulkIds.value = emptySet()
+            val result = deleteMeasurements(ids)
+            if (result.isFailure) {
+                softDeletedIds.update { it - ids }
+                effectChannel.trySend(HistoryUiEffect.ShowErrorSnackbar(R.string.history_bulk_delete_failed))
+            }
+        } finally {
+            committingBulkIds.removeAll(ids)
+        }
+    }
+
     private fun cancelPendingDelete() {
         val id = pendingUndoId.value ?: return
         pendingDeleteJob?.cancel()
@@ -260,6 +311,101 @@ class HistoryViewModel @Inject constructor(
         softDeletedIds.update { it - id }
         pendingUndoId.value = null
     }
+
+    private fun cancelPendingBulkDelete() {
+        val snapshot = pendingBulkIds.value
+        if (snapshot.isEmpty()) return
+        pendingBulkDeleteJob?.cancel()
+        pendingBulkDeleteJob = null
+        softDeletedIds.update { it - snapshot }
+        pendingBulkIds.value = emptySet()
+    }
+
+    private fun enterSelectionMode(initialId: Long?) {
+        val seedId = initialId?.takeUnless { it in softDeletedIds.value }
+        // Defense-in-depth: if a race delivers EnterSelectionMode while the user is already in
+        // selection mode (UI normally gates this — long-press is wired only when
+        // selectionMode == false), MERGE the seedId into the existing selection instead of
+        // replacing it. Clobber-semantics would silently discard every previously-toggled card,
+        // mirroring a data-loss UX bug. Matches the defense-in-depth posture of scheduleDelete,
+        // which strips ids from the active selection rather than failing loudly.
+        internalSelection.update { current ->
+            if (current.mode) {
+                if (seedId != null) current.copy(ids = current.ids + seedId) else current
+            } else {
+                InternalSelection(
+                    mode = true,
+                    ids = if (seedId != null) setOf(seedId) else emptySet(),
+                )
+            }
+        }
+    }
+
+    private fun toggleSelection(id: Long) {
+        val current = internalSelection.value
+        if (!current.mode) return
+        // Soft-deleted ids are invisible to the user — toggling them would create a phantom
+        // selection. Also prevents the soft-deleted id from ending up in selectedIds (the
+        // state-level filter would drop it, but keeping internal state consistent is cleaner).
+        if (id in softDeletedIds.value) return
+        internalSelection.value = current.copy(
+            ids = if (id in current.ids) current.ids - id else current.ids + id,
+        )
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun selectAllVisible() {
+        if (!internalSelection.value.mode) return
+        // We read upstream + softDeletedIds rather than `state.value.items` because the latter
+        // is gated by WhileSubscribed: with no UI collector the StateFlow returns
+        // [initialState] (empty items) and SelectAll silently becomes a no-op. Reading the
+        // upstream directly avoids that dependency on subscriber count — at the cost of a
+        // single launched coroutine to bridge the suspending .first() into the non-suspend
+        // event handler.
+        //
+        // The main state pipeline catches upstream failures via .catch (above), but THIS
+        // coroutine is a separate child of viewModelScope — without a try/catch, a Room IO
+        // failure during SelectAll would propagate to CoroutineExceptionHandler and crash.
+        // Mirror [commitDeleteInternal]: capture the throwable into a typed nullable so detekt
+        // sees it observed (no SwallowedException), then surface the same generic snackbar the
+        // main pipeline uses so the UI degrades gracefully instead of crashing.
+        viewModelScope.launch {
+            var failure: Throwable? = null
+            val all = try {
+                getMeasurements().first()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                failure = throwable
+                null
+            }
+            if (failure != null || all == null) {
+                effectChannel.trySend(HistoryUiEffect.ShowErrorSnackbar(R.string.history_load_failed))
+                return@launch
+            }
+            val deleted = softDeletedIds.value
+            val visibleIds = all.mapNotNullTo(mutableSetOf()) { item ->
+                item.id.takeUnless { id -> id in deleted }
+            }
+            // Re-check selection mode — user might have exited between the long-press / SelectAll
+            // tap and the coroutine resuming (config change, fast Cancel tap).
+            internalSelection.update { current ->
+                if (current.mode) current.copy(ids = visibleIds) else current
+            }
+        }
+    }
+
+    private fun clearSelection() {
+        val current = internalSelection.value
+        if (!current.mode) return
+        internalSelection.value = current.copy(ids = emptySet())
+    }
+
+    private fun exitSelectionMode() {
+        internalSelection.value = InternalSelection(mode = false, ids = emptySet())
+    }
+
+    private data class InternalSelection(val mode: Boolean, val ids: Set<Long>)
 
     companion object {
         /** Window during which a soft-deleted row can be restored via Undo. Public so the
