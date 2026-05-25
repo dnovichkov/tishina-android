@@ -276,52 +276,51 @@ Phase 5 закрывает оставшиеся MVP-фичи перед Phase Re
 
 ### Task 4: HistoryScreen UI — selection visuals + bulk action bar + confirm dialog
 
-- [ ] **сначала тест:** `HistoryItemCardSelectionScreenshotTest` (Roborazzi) — 4 baseline:
+- [x] **сначала тест:** `HistoryItemCardSelectionScreenshotTest` (Roborazzi) — 4 baseline:
   - `card_selected_light/dark` — карточка с visible checkmark icon + surface-tint color
   - `card_unselected_in_selection_mode_light/dark` — карточка в selection mode без checkmark (но place-holder для visual alignment)
-- [ ] **сначала тест:** `HistorySelectionTopBarScreenshotTest` — 8 baseline:
+- [x] **сначала тест:** `HistorySelectionTopBarScreenshotTest` — 8 baseline:
   - `selection_topbar_1_selected_light/dark`
   - `selection_topbar_3_selected_light/dark`
   - `selection_topbar_all_5_selected_light/dark`
   - `selection_topbar_0_selected_light/dark` (после ClearSelection)
-- [ ] **сначала тест:** `BulkDeleteConfirmDialogScreenshotTest` — 4 baseline:
+- [x] **сначала тест:** `BulkDeleteConfirmDialogScreenshotTest` — 4 baseline:
   - `confirm_1_item_ru` (singular русский)
   - `confirm_3_items_ru` (few русский)
   - `confirm_5_items_ru` (many русский)
   - `confirm_3_items_dark` (визуальная регрессия dark theme)
-- [ ] **сначала тест:** `HistoryScreenSelectionComposeUiTest` (createComposeRule + Robolectric):
-  - long-press на первой карточке → `onEvent(EnterSelectionMode(id1))` (через recorded callback в test fixture)
-  - tap на второй карточке (в selection mode) → `onEvent(ToggleSelection(id2))`
+- [x] **сначала тест:** `HistoryScreenSelectionComposeUiTest` (createAndroidComposeRule + Robolectric):
+  - long-press на карточке → `onEvent(EnterSelectionMode(initialId))` (через combinedClickable; используется `createAndroidComposeRule<ComponentActivity>` чтобы был активный OnBackPressedDispatcher для BackHandler-теста)
+  - tap на другой карточке (в selection mode) → `onEvent(ToggleSelection(id))`
+  - tap в selection mode НЕ навигирует в Detail
   - tap на «Select all» в TopBar → `onEvent(SelectAll)`
   - tap на «Cancel» в TopBar → `onEvent(ExitSelectionMode)`
-  - tap на «Delete (3)» в TopBar → confirm dialog visible; tap «Confirm» → `onEvent(BulkDeleteRequested)`; tap «Cancel» → dialog dismissed без события
+  - tap на «Delete (N)» → confirm dialog visible; tap «Confirm» → `onEvent(BulkDeleteRequested)`; tap «Cancel» → событие НЕ эмитится
+  - state.pendingBulkUndoCount > 0 → bulk Undo snackbar появляется с pluralized message; tap Undo → `onEvent(BulkUndoConfirmed)`
   - Back press в selection mode → `onEvent(ExitSelectionMode)` (не unwind с экрана) — через `BackHandler` composable
-- [ ] **сначала тест:** `HistoryViewModelEnterSelectionFromCardTest` — long-press карточки → ViewModel.onEvent(EnterSelectionMode(initialId)) → selectionMode=true + selectedIds={initialId}
-- [ ] создать `feature/history/.../ui/HistorySelectionTopBar.kt`:
-  - `@Composable fun HistorySelectionTopBar(selectedCount: Int, totalCount: Int, onSelectAll: () -> Unit, onClearSelection: () -> Unit, onCancel: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier)`
-  - Material 3 `TopAppBar` со стилем `surfaceContainer`, leading icon = Close (calls onCancel), title = "$selectedCount selected" (или из plural-resource), actions: SelectAll (если selectedCount < totalCount) / ClearSelection (если selectedCount == totalCount) + Delete (enabled только при selectedCount > 0)
-- [ ] обновить `feature/history/.../ui/HistoryItemCard.kt`:
-  - добавить parameter `selectionMode: Boolean = false`, `selected: Boolean = false`, `onLongClick: (() -> Unit)? = null`
-  - в selection mode левый padding под checkmark area (даже unselected — для consistent alignment); checkmark рендерится только если `selected`
-  - container `colors = if (selected) cardColors(containerColor = colorScheme.secondaryContainer) else cardColors()` — Material 3 контраст selected vs unselected
-  - clickable: в normal mode → onClick (open Detail); в selection mode → onClick (toggle selection через `onSelectionToggle`)
-  - combinedClickable: long-press → onLongClick (вход в selection mode)
-- [ ] создать `feature/history/.../ui/BulkDeleteConfirmDialog.kt`:
-  - `@Composable fun BulkDeleteConfirmDialog(count: Int, onConfirm: () -> Unit, onDismiss: () -> Unit)`
-  - Material 3 `AlertDialog` с pluralized title (`pluralStringResource(R.plurals.history_bulk_confirm_title, count, count)`) и body «Это действие нельзя отменить после 5 секунд»
-- [ ] обновить `feature/history/.../HistoryScreen.kt`:
-  - `Scaffold` с conditional `topBar`: `if (state.selectionMode) HistorySelectionTopBar(...) else null` (TishinaApp uppermost TopBar скрывается через свой механизм — в Task 5 проверим integration)
-  - **➕ возможная подзадача:** скрытие TishinaApp TopBar когда HistoryScreen в selection mode — это требует поднятия flag через callback (`onSelectionModeChanged(Boolean)`) или через nested scaffold. Самое простое: nested Scaffold внутри HistoryScreen с собственным TopBar который перекрывает родительский (в Material 3 nested Scaffolds работают через `WindowInsets.exclude` правильно). Альтернатива — добавить `suppressOuterTopBar` сигнал в `TishinaApp` через CompositionLocal (overhead). Решение: nested Scaffold, см. реализацию.
+- [x] **➕ архитектурное отклонение от плана:** «`HistoryViewModelEnterSelectionFromCardTest`» как отдельный тест не создаём — те же ассерты уже зафиксированы в `HistoryViewModelSelectionModeTest` (Task 3) и в новом `HistoryScreenSelectionComposeUiTest.long_press_on_card_emits_EnterSelectionMode_with_card_id`. Дублировать смысла нет.
+- [x] создать `feature/history/.../ui/HistorySelectionTopBar.kt`:
+  - `@Composable fun HistorySelectionTopBar(selectedCount, totalCount, onSelectAll, onClearSelection, onCancel, onDelete, modifier)`
+  - Material 3 `TopAppBar` со стилем `surfaceContainer`, leading icon = `Icons.Filled.Close` (cancel), title = pluralized "$count selected", actions: SelectAll при `selectedCount < totalCount || selectedCount == 0` / ClearSelection при `selectedCount == totalCount > 0`, Delete иконка (`enabled = selectedCount > 0`)
+- [x] обновить `feature/history/.../ui/HistoryItemCard.kt`:
+  - добавлены параметры `selectionMode: Boolean = false`, `selected: Boolean = false`, `onLongClick: (() -> Unit)? = null`
+  - в selection mode рендерится `SelectionCheckmark` (24dp reserved area) — checkmark icon виден только если `selected`, иначе пустой контейнер сохраняет alignment
+  - `containerColor = if (selected) colorScheme.secondaryContainer else colorScheme.surfaceContainerLow` — Material 3 multi-select tint
+  - `combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = ...)` — long-press accessible через TalkBack без отдельных `semantics` мутаций
+  - `Modifier.semantics { if (selected) stateDescription = "Selected" }` — NFR-15: selection-state не зависит только от цвета
+- [x] создать `feature/history/.../ui/BulkDeleteConfirmDialog.kt`:
+  - `BulkDeleteConfirmDialog` — production AlertDialog с pluralized title + body «After 5 seconds...»; кнопки Confirm/Cancel
+  - `BulkDeleteConfirmDialogContent` — internal Surface variant для Roborazzi (тот же паттерн, что и у `MeasureSaveDialog` — AlertDialog sub-Window не settle-ится под Robolectric)
+- [x] обновить `feature/history/.../HistoryScreen.kt`:
+  - `Scaffold` с conditional `topBar`: `if (state.selectionMode) HistorySelectionTopBar(...) else null` — внешний TopBar `TishinaApp` остаётся прежним; задача его скрыть в режиме выбора решена через nested Scaffold (HistorySelectionTopBar рисуется поверх content padding, но выше своего `padding(values)`, а ParentTopBar в `TishinaApp` остаётся на месте; визуальный конфликт минимален т. к. внутренний Scaffold отображает свой TopBar внутри своего padding). Полное скрытие parent TopBar через CompositionLocal — Task 5 / Phase Release.
   - `BackHandler(enabled = state.selectionMode) { onEvent(ExitSelectionMode) }`
-  - `LazyColumn` items с `HistoryItemCard(selectionMode = state.selectionMode, selected = item.id in state.selectedIds, onClick = { if (state.selectionMode) onEvent(ToggleSelection(item.id)) else onNavigateToDetail(item.id) }, onLongClick = { onEvent(EnterSelectionMode(item.id)) })`
-  - bulk-delete confirm dialog: `var showBulkConfirm by remember { mutableStateOf(false) }`; «Delete N» в TopBar → `showBulkConfirm = true`; на confirm → `onEvent(BulkDeleteRequested)` + dismiss
-- [ ] добавить plural-resources в `feature/history/src/main/res/values/strings.xml` + `values-ru/`:
-  - `<plurals name="history_bulk_undo_message">` (one/few/many русский)
-  - `<plurals name="history_bulk_confirm_title">` ("Delete %d measurement?" / "Удалить %d замер?")
-  - `<plurals name="history_selection_topbar_count">` ("%d selected" — русский: «выбран %d / выбрано %d»)
-- [ ] добавить content descriptions: `history_select_all_cd`, `history_clear_selection_cd`, `history_cancel_selection_cd`, `history_bulk_delete_cd`
-- [ ] реализовать composables — все тесты зелёные; baseline записан через `recordRoborazziDebug`
-- [ ] run `./gradlew :feature:history:testDebugUnitTest :feature:history:verifyRoborazziDebug` — must pass before next task
+  - `LazyColumn` ветвится: в selection mode рендерится `HistoryItemCard(selectionMode = true, selected, onClick = ToggleSelection, onLongClick = null)` (свайп отключён — конфликт жестов); вне selection mode — SwipeToDismissBox + `onClick = onNavigateToDetail, onLongClick = EnterSelectionMode(item.id)`
+  - bulk-delete confirm dialog: `var showBulkConfirm by remember { mutableStateOf(false) }` → Delete tap → confirm dialog visible → Confirm → `onEvent(BulkDeleteRequested)`
+  - bulk Undo snackbar driven by `state.pendingBulkUndoCount` через отдельный `BulkUndoSnackbarBinder` composable (mirror of `SingleUndoSnackbarBinder`) — rotation-safe, не one-shot effect
+- [x] plural-resources уже добавлены в Task 3 (`history_bulk_undo_message`, `history_bulk_confirm_title`, `history_selection_topbar_count`)
+- [x] добавлены строки и content descriptions: `history_select_all_cd`, `history_clear_selection_cd`, `history_cancel_selection_cd`, `history_bulk_delete_cd`, `history_bulk_undo_action`, `history_bulk_confirm_body`, `history_bulk_confirm_action`, `history_bulk_cancel_action`, `history_card_selected_cd`, `history_card_long_press_cd` — в `values/` и `values-ru/`
+- [x] реализовать composables — все тесты зелёные; baseline записан через `recordRoborazziDebug` (16 новых PNG)
+- [x] run `./gradlew :feature:history:detektAll :feature:history:lintDebug :feature:history:testDebugUnitTest :feature:history:verifyRoborazziDebug :app:assembleDebug` — BUILD SUCCESSFUL
 
 ### Task 5: AccuracyDisclaimerBottomSheet + Measure TopBar wiring
 

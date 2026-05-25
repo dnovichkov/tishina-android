@@ -29,6 +29,16 @@
     <!-- Multi-select bulk delete (FR-12). -->
     <string name="history_bulk_no_selection">No items selected</string>
     <string name="history_bulk_delete_failed">Couldn\'t delete measurements</string>
+    <string name="history_bulk_undo_action">Undo</string>
+    <string name="history_bulk_confirm_body">This action can\'t be undone after 5 seconds</string>
+    <string name="history_bulk_confirm_action">Delete</string>
+    <string name="history_bulk_cancel_action">Cancel</string>
+    <string name="history_select_all_cd">Select all</string>
+    <string name="history_clear_selection_cd">Clear selection</string>
+    <string name="history_cancel_selection_cd">Cancel selection</string>
+    <string name="history_bulk_delete_cd">Delete selected measurements</string>
+    <string name="history_card_selected_cd">Selected</string>
+    <string name="history_card_long_press_cd">Enter selection mode</string>
     <plurals name="history_bulk_undo_message">
         <item quantity="one">%d measurement deleted</item>
         <item quantity="other">%d measurements deleted</item>
