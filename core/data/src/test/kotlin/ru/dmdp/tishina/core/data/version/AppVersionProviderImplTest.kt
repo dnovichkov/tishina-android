@@ -1,5 +1,6 @@
 package ru.dmdp.tishina.core.data.version
 
+import android.content.ContextWrapper
 import android.content.pm.PackageInfo
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
@@ -67,6 +68,22 @@ class AppVersionProviderImplTest {
         val version = provider.get()
 
         assertEquals("1.0.0 (build 7)", version.displayName)
+    }
+
+    @Test
+    fun `get returns empty AppVersion when package cannot be resolved`() = runTest {
+        // Wrap the real Application Context but override packageName so getPackageInfo
+        // attempts to resolve a package that was never installed in the Shadow registry,
+        // which raises NameNotFoundException — the never-throw fallback path.
+        val realContext = ApplicationProvider.getApplicationContext<android.app.Application>()
+        val brokenContext = object : ContextWrapper(realContext) {
+            override fun getPackageName(): String = "ru.dmdp.tishina.does.not.exist"
+        }
+        val failingProvider = AppVersionProviderImpl(brokenContext, UnconfinedTestDispatcher())
+
+        val version = failingProvider.get()
+
+        assertEquals(AppVersion(versionName = "", versionCode = 0), version)
     }
 
     private fun seedPackageInfo(versionName: String?, versionCode: Int) {

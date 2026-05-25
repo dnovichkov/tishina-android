@@ -89,10 +89,10 @@ abstract class MeasurementDao {
      * `FOREIGN KEY ... ON DELETE CASCADE` declaration on `SampleEntity`, so a single
      * round-trip removes both tables. Unknown ids are silently skipped.
      *
-     * **Callers must not pass an empty collection** — SQLite rejects `IN ()` as a syntax
-     * error, and Room's parameter expansion doesn't synthesize a safe sentinel. The
-     * repository short-circuits on empty input before reaching this DAO; treat this as a
-     * private contract enforced upstream rather than relying on the database to no-op.
+     * **Empty collection is safe** — Room ≥ 2.5 expands an empty `IN ()` into
+     * `IN (NULL)`, which is syntactically valid and matches no rows. The repository
+     * still short-circuits empty input upstream to avoid an unnecessary dispatcher hop
+     * and a redundant `observeSummaries` tick, but the DAO itself does not throw.
      *
      * **Parameter limit**: SQLite caps the IN-clause parameter count at
      * `SQLITE_MAX_VARIABLE_NUMBER` (999 pre-API-32, 32766 thereafter). The repository

@@ -87,11 +87,11 @@ class MeasurementRepositoryImpl @Inject constructor(
         // as a syntax error, so this guard doubles as the DAO contract.
         if (ids.isEmpty()) return
         withContext(ioDispatcher) {
-            // SQLite caps the IN-clause parameter count at `SQLITE_MAX_VARIABLE_NUMBER`
+            // SQLite caps the IN-clause parameter count at `SAFE_BULK_DELETE_CHUNK_SIZE`
             // — 999 on Android < API 32, 32766 thereafter. A SelectAll over a History with
             // > 999 entries would otherwise hit "too many SQL variables" on older devices.
             // 900 leaves headroom for Room's positional binding overhead.
-            ids.chunked(SQLITE_MAX_VARIABLE_NUMBER).forEach { chunk ->
+            ids.chunked(SAFE_BULK_DELETE_CHUNK_SIZE).forEach { chunk ->
                 dao.deleteByIds(chunk)
             }
         }
@@ -102,8 +102,13 @@ class MeasurementRepositoryImpl @Inject constructor(
     }
 
     private companion object {
-        /** Safe chunk size for SQLite's `IN (?)` parameter list on API < 32. */
-        const val SQLITE_MAX_VARIABLE_NUMBER = 900
+        /**
+         * Safe chunk size for SQLite's `IN (?)` parameter list. The hard cap
+         * `SQLITE_MAX_VARIABLE_NUMBER` is 999 pre-API-32 and 32766 thereafter; 900 leaves
+         * headroom for Room's positional binding overhead and stays well under the
+         * lowest-common-denominator limit.
+         */
+        const val SAFE_BULK_DELETE_CHUNK_SIZE = 900
     }
 }
 

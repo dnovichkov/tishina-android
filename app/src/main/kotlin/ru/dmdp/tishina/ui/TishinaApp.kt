@@ -139,9 +139,15 @@ fun TishinaApp(
     // link). The «?» icon is suppressed off-Measure, but the sheet itself is hoisted at the
     // app root and would otherwise linger above the new screen — keyed on the current
     // destination so we re-run on every route change.
+    //
+    // The `currentDestination != null` guard is load-bearing: `currentBackStackEntryAsState`
+    // initializes its State with `null` and only emits the real entry asynchronously, so on
+    // first composition after a rotation `matchesMeasure()` would otherwise spuriously return
+    // false and clobber the `rememberSaveable`-restored sheet before the back-stack flow has
+    // had a chance to emit. We only auto-dismiss once we've observed a real destination.
     val isOnMeasureForSheet = currentDestination.matchesMeasure()
-    LaunchedEffect(isOnMeasureForSheet) {
-        if (!isOnMeasureForSheet && showDisclaimerSheet) {
+    LaunchedEffect(currentDestination, isOnMeasureForSheet) {
+        if (currentDestination != null && !isOnMeasureForSheet && showDisclaimerSheet) {
             showDisclaimerSheet = false
         }
     }

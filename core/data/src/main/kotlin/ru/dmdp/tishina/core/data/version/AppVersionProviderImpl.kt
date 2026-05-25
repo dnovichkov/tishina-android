@@ -33,9 +33,11 @@ import javax.inject.Singleton
  *
  * **Never-throw contract:** `getPackageInfo` declares `throws NameNotFoundException` —
  * an app cannot fail to resolve its own package on a healthy device, but the contract in
- * [AppVersionProvider] is "always returns a valid value". We wrap with `runCatching` so a
- * pathological device degrades to an empty-name 0-code fallback rather than crashing the
- * About screen (NFR-7 crash-free).
+ * [AppVersionProvider] is "always returns a valid value". We catch that specific exception
+ * so a pathological device degrades to an empty-name 0-code fallback (NFR-7 crash-free).
+ * We deliberately do NOT use `runCatching` because it would also swallow
+ * `CancellationException` (it extends `IllegalStateException` → `RuntimeException`) and
+ * break structured concurrency for callers like `AboutViewModel.init { viewModelScope.launch { … } }`.
  */
 @Singleton
 class AppVersionProviderImpl @Inject constructor(
@@ -43,24 +45,23 @@ class AppVersionProviderImpl @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : AppVersionProvider {
 
+    @Suppress("SwallowedException") // never-throw contract — see class kdoc
     override suspend fun get(): AppVersion = withContext(ioDispatcher) {
-        runCatching {
-            val info = context.packageManager.getPackageInfo(context.packageName, 0)
-            val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                info.longVersionCode.toInt()
-            } else {
-                @Suppress("DEPRECATION")
-                info.versionCode
-            }
-            AppVersion(versionName = info.versionName.orEmpty(), versionCode = code)
-        }.getOrElse { throwable ->
-            // Only `NameNotFoundException` is declared by `getPackageInfo` — anything else
-            // here is a defensive net for an impossible device state.
-            if (throwable is PackageManager.NameNotFoundException || throwable is RuntimeException) {
-                AppVersion(versionName = "", versionCode = 0)
-            } else {
-                throw throwable
-            }
+        val info = try {
+            context.packageManager.getPackageInfo(context.packageName, 0)
+        } catch (notFound: PackageManager.NameNotFoundException) {
+            return@withContext FALLBACK
         }
+        val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.longVersionCode.toInt()
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode
+        }
+        AppVersion(versionName = info.versionName.orEmpty(), versionCode = code)
+    }
+
+    private companion object {
+        val FALLBACK = AppVersion(versionName = "", versionCode = 0)
     }
 }
