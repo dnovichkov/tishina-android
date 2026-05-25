@@ -34,7 +34,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.collectLatest
 import ru.dmdp.tishina.core.domain.model.AppLocale
 import ru.dmdp.tishina.core.domain.model.AppearanceSettings
 import ru.dmdp.tishina.core.domain.model.ThemeMode
@@ -74,7 +73,7 @@ fun SettingsScreen(
     val resources = androidx.compose.ui.platform.LocalContext.current.resources
 
     LaunchedEffect(viewModel) {
-        viewModel.effects.collectLatest { effect ->
+        viewModel.effects.collect { effect ->
             when (effect) {
                 is SettingsUiEffect.ShowSnackbar -> {
                     snackbarHostState.showSnackbar(resources.getString(effect.messageRes))
