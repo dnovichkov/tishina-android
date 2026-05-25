@@ -357,68 +357,42 @@ Phase 5 закрывает оставшиеся MVP-фичи перед Phase Re
 
 ### Task 6: AboutScreen — версия + GitHub + Privacy Policy + лицензии + полный дисклеймер
 
-- [ ] **сначала тест:** `AppVersionTest` (JUnit 5) — конструктор data class, equality, `displayName` format ("0.1.0-foundation (build 1)")
-- [ ] **сначала тест:** `AppVersionProviderTest` (Robolectric) — `provider.get()` возвращает `AppVersion(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)` — реальные значения из `:app/BuildConfig` через DI-обёртку
-- [ ] **сначала тест:** `OssLicensesParserTest` (JUnit 5 с stub assets reader) — парсит JSON-массив `[{"name":"Kotlin","version":"2.0.21","license":"Apache-2.0","url":"https://github.com/JetBrains/kotlin"}, ...]` в `List<OssLicense>`; некорректный JSON → empty list + log (no crash)
-- [ ] **сначала тест:** `AboutViewModelTest` (JUnit 5 + Turbine + mockk):
-  - initial state.first() → loading=true → переход в loaded со списком OSS лицензий
-  - `version` = injected AppVersion
-  - failed assets read → ossLicenses = emptyList, loading=false, no crash
-- [ ] **сначала тест:** `AboutScreenScreenshotTest` (Roborazzi) — 6 baseline:
-  - `about_default_light/dark` (top of screen — header + version + buttons)
-  - `about_disclaimer_section_light/dark` (scrolled до Card с full text disclaimer)
-  - `about_licenses_section_light/dark` (scrolled до OSS section)
-- [ ] **сначала тест:** `AboutScreenFontScale2xScreenshotTest` — 2 baseline (font-scale=2.0, light + dark) для NFR-14
-- [ ] **сначала тест:** `AboutScreenComposeUiTest` (createComposeRule + Robolectric):
-  - version label visible с текстом, содержащим VERSION_NAME (substring assertion)
-  - click на «GitHub» → захват Intent через `Shadows.shadowOf(application).nextStartedActivity` → assertion на ACTION_VIEW + URL
-  - click на «Privacy Policy» → захват Intent с placeholder URL
-  - click на каждой OSS-лицензии → захват Intent с URL зависимости
-  - disclaimer card visible без скролла (тест на rendered position)
-- [ ] создать `core/domain/.../model/AppVersion.kt`:
+- [x] **сначала тест:** `AppVersionTest` (JUnit 5) — конструктор data class, equality, `displayName` format ("0.1.0-foundation (build 1)") — 4 кейса в `core/domain/src/test/.../model/AppVersionTest.kt`
+- [x] **сначала тест:** `AppVersionProviderImplTest` (Robolectric) — `provider.get()` возвращает `AppVersion(packageManager.versionName, versionCode)`; null versionName → empty string; displayName format — 3 кейса в `core/data/src/test/.../version/`
+- [x] **сначала тест:** `OssLicensesParserTest` (JUnit 5, без AssetManager) — 6 кейсов: valid JSON, empty array, malformed → empty list, unknown extra fields tolerated, missing required field → empty list, empty string → empty list
+- [x] **сначала тест:** `OssLicensesProviderImplTest` (Robolectric) — graceful-degradation путь когда asset отсутствует в `:core:data` test classpath → empty list, no crash
+- [x] **сначала тест:** `AboutViewModelTest` (JUnit 5 + Turbine + mockk) — 3 кейса: initial state loading=true с empty defaults; loaded snapshot c version + licenses; empty license list всё равно settles loading=false
+- [x] **сначала тест:** `AboutScreenScreenshotTest` (Roborazzi) — 6 baseline: `about_default_light/dark` (полный экран с loaded version + licenses), `about_empty_licenses_light/dark` (empty-state для licenses), `about_font_scale_2x_light/dark` (NFR-14)
+- [x] **сначала тест:** `AboutScreenComposeUiTest` (createComposeRule + Robolectric) — 8 кейсов: loading state, version label, MEMS regression anchor, back callback, GitHub link forward, Privacy link forward, license row click, empty-state copy
+- [x] создать `core/domain/.../model/AppVersion.kt`:
   - `data class AppVersion(val versionName: String, val versionCode: Int) { val displayName: String get() = "$versionName (build $versionCode)" }`
-- [ ] создать `core/data/.../version/AppVersionProvider.kt`:
-  - `interface AppVersionProvider { fun get(): AppVersion }`
-  - `class AppVersionProviderImpl @Inject constructor() : AppVersionProvider` — читает `BuildConfig.VERSION_NAME` / `VERSION_CODE` через app-module bridge; либо через `PackageInfo` для общности (предпочтительнее — не зависит от specific BuildConfig в data layer)
-  - **➕ возможная подзадача:** провайдер живёт в `:app` (т. к. читает app BuildConfig), но интерфейс — в `:core:domain` или `:feature:about` — выбирается в реализации
-- [ ] создать `core/data/.../licenses/OssLicensesProvider.kt` + `OssLicense` model:
-  - `data class OssLicense(val name: String, val version: String, val license: String, val url: String)`
-  - `class OssLicensesProvider @Inject constructor(@ApplicationContext context) { fun load(): List<OssLicense> = runCatching { context.assets.open("oss_licenses.json").reader().use { Json.decodeFromString(it.readText()) } }.getOrDefault(emptyList()) }`
-- [ ] создать `app/src/main/assets/oss_licenses.json` — статический список ~15 ключевых OSS-зависимостей со стека Phase 1-4: Kotlin 2.0.21 (Apache-2.0), Jetpack Compose / Material 3 (Apache-2.0), Hilt 2.55 (Apache-2.0), Room 2.8.4 (Apache-2.0), DataStore 1.1.1 (Apache-2.0), kotlinx.coroutines 1.9.0 (Apache-2.0), kotlinx.serialization 1.7.3 (Apache-2.0), AppCompat 1.7.0 (Apache-2.0), JUnit 5 (Eclipse Public 2.0), MockK 1.13 (Apache-2.0), Turbine 1.2 (Apache-2.0), Robolectric 4.13 (MIT), Roborazzi 1.30 (Apache-2.0), Detekt 1.23 (Apache-2.0), Kover 0.9 (Apache-2.0)
-- [ ] создать `feature/about/.../AboutUiState.kt`:
-  - `data class AboutUiState(val version: AppVersion = AppVersion("", 0), val ossLicenses: List<OssLicense> = emptyList(), val loading: Boolean = true)`
-- [ ] создать `feature/about/.../AboutViewModel.kt`:
-  - `@HiltViewModel class AboutViewModel @Inject constructor(private val versionProvider: AppVersionProvider, private val licensesProvider: OssLicensesProvider) : ViewModel()`
-  - `val state: StateFlow<AboutUiState>` — `flow { val v = versionProvider.get(); val l = licensesProvider.load(); emit(AboutUiState(v, l, loading = false)) }.stateIn(viewModelScope, WhileSubscribed(5000), AboutUiState(loading = true))`
-- [ ] переписать `feature/about/.../AboutScreen.kt`:
-  - `Scaffold` с `TopAppBar(title = "About", navigationIcon = ArrowBack)` — fallback если outer TopBar не отрендерен (NavigationRail)
-  - `LazyColumn` с секциями:
-    1. **Header:** иконка приложения 96dp + название «Тишина — измеритель шума» + версия `state.version.displayName`
-    2. **Description card:** короткое описание (1-2 предложения из § 1 спеки)
-    3. **Disclaimer card** (FR-22): полный текст из § 11 спеки — длинный body внутри `OutlinedCard` с заголовком «О точности измерений»
-    4. **Links section:** список кнопок-row'ов с иконками: «GitHub repository» → Intent ACTION_VIEW на `https://github.com/<placeholder>/tishina-android`; «Privacy Policy» → Intent на `https://<placeholder>.github.io/tishina-android/privacy/`
-    5. **Open-source licenses section:** заголовок + LazyColumn-вложенный список (или Accordion-style expansion) `OssLicense` items с click → Intent на URL зависимости
-- [ ] обновить `app/build.gradle.kts`:
-  - добавить `implementation(libs.kotlinx.serialization.json)` для парсинга OSS JSON (уже есть через transitive — проверить)
-  - добавить `implementation(projects.feature.about)` если ещё не подключен (должен быть из Phase 1 — verify)
-- [ ] обновить `feature/about/build.gradle.kts`:
-  - добавить `roborazzi` plugin
-  - добавить `implementation(libs.androidx.compose.material.icons.extended)` (для GitHub icon)
+- [x] создать `core/domain/.../repository/AppVersionProvider.kt` (fun interface) + `core/data/.../version/AppVersionProviderImpl.kt`:
+  - **➕ архитектурное решение:** интерфейс положили в `:core:domain` (не `:core:data` / `:app`), реализация в `:core:data` читает через `Context.packageManager.getPackageInfo` + `Build.VERSION.SDK_INT >= P` для `longVersionCode`. Это убирает зависимость от `:app/BuildConfig` — ViewModel тестируется plain JVM через MockK, без Robolectric. Биндинг `@Binds @Singleton` добавлен в `DataModule`.
+- [x] создать `core/data/.../licenses/OssLicensesParser.kt` + `OssLicensesProviderImpl.kt` + `core/domain/.../model/OssLicense.kt`:
+  - **➕ архитектурное отклонение:** модель `OssLicense` (data class без serialization-аннотаций) лежит в `:core:domain` — это убирает ссылку `:core:domain → :core:data` и сохраняет однонаправленный depend-graph. `OssLicensesParser` содержит приватный `@Serializable Dto`, маппит в domain-тип. Interface `OssLicensesProvider` тоже в `:core:domain`, реализация — в `:core:data` через `context.assets`. Биндинг в `DataModule`.
+- [x] создать `app/src/main/assets/oss_licenses.json` — статический список 17 ключевых OSS-зависимостей: Kotlin, Compose BOM, Material 3, Hilt, Room, DataStore, kotlinx.coroutines, kotlinx.serialization, AppCompat, Navigation, JUnit Jupiter (EPL-2.0), MockK, Turbine, Robolectric (MIT), Roborazzi, Detekt, Kover
+- [x] создать `feature/about/.../AboutUiState.kt`:
+  - `data class AboutUiState(val version: AppVersion, val ossLicenses: List<OssLicense>, val loading: Boolean)` — defaults `AppVersion("", 0)` + `emptyList()` + `loading = true`
+- [x] создать `feature/about/.../AboutViewModel.kt`:
+  - `@HiltViewModel` с конструкторной инъекцией `AppVersionProvider` + `OssLicensesProvider`; `MutableStateFlow<AboutUiState>(loading=true)`, в `init { viewModelScope.launch { ... } }` резолвит оба провайдера и эмитит финальное состояние (одна эмиссия, не два частичных)
+- [x] переписать `feature/about/.../AboutScreen.kt`:
+  - `Scaffold(TopAppBar(title="About", ArrowBack))` + `LazyColumn` с секциями Header (GraphicEq icon + name + subtitle + version), Description card, Disclaimer card (full FR-22 text, testTag), Links section (GitHub + Privacy → `Intent.ACTION_VIEW` через `onOpenUrl` callback), Licenses section с empty-state и индивидуальными `LicenseRow` карточками
+  - **➕ архитектурное отклонение:** разделили на `AboutScreen` (stateful, hiltViewModel + LocalContext для Intent) и `AboutScreenContent` (stateless с `onOpenUrl: (String) -> Unit` параметром). Это позволяет ComposeUiTest напрямую обращаться к stateless body без необходимости мокать ShadowApplication.startActivity — тесты собирают список переданных URL и проверяют форвардинг. Production-композабел сам делает Intent ACTION_VIEW.
+- [x] обновить `core/data/build.gradle.kts`:
+  - добавлен plugin `alias(libs.plugins.kotlin.serialization)` + `implementation(libs.kotlinx.serialization.json)` для парсинга OSS JSON через приватный DTO
+- [x] обновить `feature/about/build.gradle.kts`:
+  - добавлен `alias(libs.plugins.roborazzi)`
+  - добавлен `implementation(libs.androidx.compose.material.icons.extended)` (для GraphicEq, Code, Shield, OpenInNew icons)
   - `testOptions.unitTests.isIncludeAndroidResources = true`
-  - `src/test/resources/robolectric.properties` с `sdk=33`
-- [ ] **➕ внеплановая подзадача:** создать `feature/about/src/main/res/values/` + `values-ru/` strings:
-  - `about_header_subtitle` ("Sound Level Meter" / "Измеритель уровня шума")
-  - `about_version_label` ("Version" / "Версия")
-  - `about_disclaimer_title` ("About measurement accuracy" / "О точности измерений")
-  - `about_disclaimer_body` (полный текст FR-22, ~250-300 слов; ссылка на NIOSH с DOI)
-  - `about_github_title` ("GitHub repository" / "Репозиторий GitHub")
-  - `about_github_url` (placeholder URL — для Phase Release реальный)
-  - `about_privacy_title` ("Privacy Policy" / "Политика конфиденциальности")
-  - `about_privacy_url` (placeholder)
-  - `about_licenses_title` ("Open-source licenses" / "Лицензии open-source")
-  - `about_licenses_subtitle` ("Apache 2.0 unless specified otherwise" / "Apache 2.0 если не указано иначе")
-- [ ] реализовать viewmodel + screen + assets + strings — все тесты зелёные; baseline записан
-- [ ] run `./gradlew :feature:about:testDebugUnitTest :feature:about:verifyRoborazziDebug :app:assembleDebug` — must pass before next task
+  - `feature/about/src/test/resources/robolectric.properties` с `sdk=33`
+- [x] **➕ внеплановая подзадача:** созданы `feature/about/src/main/res/values/strings.xml` + `values-ru/strings.xml` с 17 ключами:
+  - `about_screen_title`, `about_app_name`, `about_header_subtitle`, `about_version_label`, `about_app_icon_cd`, `about_back_cd`
+  - `about_description` (1 предложение из § 1 спеки), `about_disclaimer_title`, `about_disclaimer_body` (полный текст FR-22 с NIOSH DOI + MEMS anchor)
+  - `about_links_section_title`, `about_github_title`/`subtitle`/`url` (placeholder), `about_privacy_title`/`subtitle`/`url` (placeholder)
+  - `about_licenses_section_title`/`subtitle`, `about_licenses_empty`, `about_license_open_cd`
+- [x] **➕ архитектурное отклонение от плана:** `app/build.gradle.kts` не модифицировался — `implementation(projects.feature.about)` уже существовал с Phase 1, а `kotlinx.serialization.json` уже был подключён в `:app` через Phase 1 dependency (для navigation `@Serializable` route descriptors). Парсинг OSS JSON делает `:core:data` напрямую через свой собственный serialization plugin.
+- [x] реализовать viewmodel + screen + assets + strings — все 27 новых тестов зелёные (4 AppVersion + 3 AppVersionProvider + 6 OssLicensesParser + 1 OssLicensesProvider + 3 AboutViewModel + 8 AboutScreenComposeUi + 6 AboutScreenScreenshot baselines)
+- [x] run `./gradlew :core:domain:test :core:data:testDebugUnitTest :feature:about:testDebugUnitTest :feature:about:verifyRoborazziDebug :app:assembleDebug :feature:about:detektAll :feature:about:lintDebug :core:data:lintDebug` — BUILD SUCCESSFUL
 
 ### Task 7: Verify acceptance + README + integration smoke
 

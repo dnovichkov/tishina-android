@@ -18,9 +18,13 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import ru.dmdp.tishina.core.data.db.TishinaDatabase
 import ru.dmdp.tishina.core.data.db.dao.MeasurementDao
+import ru.dmdp.tishina.core.data.licenses.OssLicensesProviderImpl
 import ru.dmdp.tishina.core.data.repository.MeasurementRepositoryImpl
 import ru.dmdp.tishina.core.data.settings.SettingsRepositoryImpl
+import ru.dmdp.tishina.core.data.version.AppVersionProviderImpl
+import ru.dmdp.tishina.core.domain.repository.AppVersionProvider
 import ru.dmdp.tishina.core.domain.repository.MeasurementRepository
+import ru.dmdp.tishina.core.domain.repository.OssLicensesProvider
 import ru.dmdp.tishina.core.domain.repository.SettingsRepository
 import javax.inject.Singleton
 
@@ -62,6 +66,19 @@ internal interface DataModule {
     @Binds
     @Singleton
     fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+
+    // Phase 5 — FR-21 AboutScreen reads the live VERSION_NAME/CODE off `PackageManager`
+    // (not `BuildConfig` directly) so the value matches what Play Store / RuStore show.
+    @Binds
+    @Singleton
+    fun bindAppVersionProvider(impl: AppVersionProviderImpl): AppVersionProvider
+
+    // Phase 5 — FR-21 OSS-license inventory bundled as `assets/oss_licenses.json` in
+    // the `:app` module. Curated manually to avoid Google's oss-licenses-plugin which
+    // would drag in Play Services (conflicts with NFR-10 "no third-party analytics").
+    @Binds
+    @Singleton
+    fun bindOssLicensesProvider(impl: OssLicensesProviderImpl): OssLicensesProvider
 
     companion object {
 

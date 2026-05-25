@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AboutScreen header (FR-21). -->
+    <string name="about_screen_title">About</string>
+    <string name="about_app_name">Tishina</string>
+    <string name="about_header_subtitle">Sound Level Meter</string>
+    <string name="about_version_label">Version</string>
+    <string name="about_app_icon_cd">App icon</string>
+    <string name="about_back_cd">Back</string>
+
+    <!-- Short description shown directly below the header (mirrors § 1 of the spec). -->
+    <string name="about_description">Tishina records ambient sound pressure using your phone\'s microphone. Save measurements, review history and share the readings — fully offline, with no third-party analytics.</string>
+
+    <!-- Full accuracy disclaimer (FR-22). Verbatim long-form copy from § 11 of the spec —
+         keep the NIOSH citation intact, the "MEMS" anchor stays so regression tests can
+         detect a body-text drift. -->
+    <string name="about_disclaimer_title">About measurement accuracy</string>
+    <string name="about_disclaimer_body">Tishina is not a certified sound-level meter and is not a replacement for a Class 1 or Class 2 instrument under IEC 61672. Smartphone MEMS microphones vary between devices and even between units of the same model — typical accuracy after calibration is ±3 to ±5 dB(A) in the 50–95 dB range, with larger errors near the limits of the microphone\'s dynamic range and below ambient room noise.\n\nFor occupational or regulatory measurements, follow the relevant standard with calibrated equipment. The NIOSH Sound Level Meter App study (Kardous &amp; Shaw, 2014, doi:10.1121/1.4865269) showed that smartphone-based meters can approach professional accuracy only after careful calibration against a reference instrument.\n\nUse Tishina as a quick, indicative tool: room loudness, traffic noise around a window, whether a neighbour\'s music is closer to 50 dB or 90 dB. It is suitable for raising awareness and for personal recordings, not for evidence in legal or workplace-safety contexts.</string>
+
+    <!-- Links section. Phase 5 ships placeholder URLs; Phase Release replaces them with the
+         final GitHub repo + a hosted Privacy Policy page. -->
+    <string name="about_links_section_title">Links</string>
+    <string name="about_github_title">GitHub repository</string>
+    <string name="about_github_subtitle">Source code, issues and releases</string>
+    <string name="about_github_url" translatable="false">https://github.com/dmitrynovichkov/tishina-android</string>
+    <string name="about_privacy_title">Privacy Policy</string>
+    <string name="about_privacy_subtitle">Data collection and usage</string>
+    <string name="about_privacy_url" translatable="false">https://dmitrynovichkov.github.io/tishina-android/privacy/</string>
+
+    <!-- OSS-license inventory (NFR-10). Subtitle clarifies the most common license so the list
+         remains readable even with 15+ entries. -->
+    <string name="about_licenses_section_title">Open-source licenses</string>
+    <string name="about_licenses_section_subtitle">Apache 2.0 unless specified otherwise</string>
+    <string name="about_licenses_empty">No licenses bundled</string>
+    <string name="about_license_open_cd">Open license page</string>
+</resources>

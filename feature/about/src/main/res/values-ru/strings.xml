@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Заголовок экрана AboutScreen (FR-21). -->
+    <string name="about_screen_title">О приложении</string>
+    <string name="about_app_name">Тишина</string>
+    <string name="about_header_subtitle">Измеритель уровня шума</string>
+    <string name="about_version_label">Версия</string>
+    <string name="about_app_icon_cd">Иконка приложения</string>
+    <string name="about_back_cd">Назад</string>
+
+    <!-- Краткое описание под шапкой (отражает § 1 спецификации). -->
+    <string name="about_description">Тишина измеряет уровень окружающего звукового давления через микрофон телефона. Сохраняйте замеры, просматривайте историю и делитесь показаниями — полностью офлайн, без сторонней аналитики.</string>
+
+    <!-- Полный текст дисклеймера (FR-22). Точная длинная формулировка из § 11 спецификации;
+         якоря «MEMS» и ссылка на NIOSH сохраняются для regression-тестов. -->
+    <string name="about_disclaimer_title">О точности измерений</string>
+    <string name="about_disclaimer_body">Тишина не является сертифицированным шумомером и не заменяет приборы класса 1 или 2 по IEC 61672. MEMS-микрофоны смартфонов сильно различаются между моделями и даже между экземплярами одной модели — типичная точность после калибровки составляет ±3…±5 дБ(А) в диапазоне 50–95 дБ. Около границ динамического диапазона микрофона и ниже фонового шума помещения погрешность ещё выше.\n\nДля профессиональных или регуляторных измерений используйте соответствующий стандарт и калиброванное оборудование. Исследование NIOSH Sound Level Meter App (Kardous &amp; Shaw, 2014, doi:10.1121/1.4865269) показало, что смартфон-шумомеры могут приближаться к профессиональной точности только после аккуратной калибровки против эталонного прибора.\n\nТишина — это быстрый ориентировочный инструмент: оценить громкость в комнате, шум транспорта за окном, понять, тише ли музыка соседа 50 дБ или громче 90 дБ. Подходит для повседневной осведомлённости и личных замеров, но не для доказательств в юридических или связанных с охраной труда контекстах.</string>
+
+    <!-- Секция ссылок. В Phase 5 — placeholder-URL; Phase Release заменит на финальные. -->
+    <string name="about_links_section_title">Ссылки</string>
+    <string name="about_github_title">Репозиторий GitHub</string>
+    <string name="about_github_subtitle">Исходный код, issues и релизы</string>
+    <string name="about_privacy_title">Политика конфиденциальности</string>
+    <string name="about_privacy_subtitle">Сбор и использование данных</string>
+
+    <!-- Лицензии OSS-зависимостей (NFR-10). -->
+    <string name="about_licenses_section_title">Лицензии open-source</string>
+    <string name="about_licenses_section_subtitle">Apache 2.0, если не указано иначе</string>
+    <string name="about_licenses_empty">Список лицензий пуст</string>
+    <string name="about_license_open_cd">Открыть страницу лицензии</string>
+</resources>
