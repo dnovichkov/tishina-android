@@ -40,7 +40,11 @@ class AboutScreenScreenshotTest {
     @Test
     fun about_default_dark() = capture(state = defaultState(), dark = true, name = "about_default_dark")
 
+    // Empty-licenses baselines need a taller viewport so that the LicensesEmptyState
+    // placeholder is in frame — the class-default h720dp clips it below the fold and
+    // would produce a baseline that is byte-identical to about_default_*.
     @Test
+    @Config(qualifiers = "w360dp-h1400dp-xhdpi")
     fun about_empty_licenses_light() = capture(
         state = defaultState().copy(ossLicenses = emptyList()),
         dark = false,
@@ -48,6 +52,7 @@ class AboutScreenScreenshotTest {
     )
 
     @Test
+    @Config(qualifiers = "w360dp-h1400dp-xhdpi")
     fun about_empty_licenses_dark() = capture(
         state = defaultState().copy(ossLicenses = emptyList()),
         dark = true,

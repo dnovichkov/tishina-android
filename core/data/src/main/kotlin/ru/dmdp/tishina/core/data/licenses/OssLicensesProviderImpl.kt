@@ -4,7 +4,6 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerializationException
 import ru.dmdp.tishina.core.data.di.IoDispatcher
 import ru.dmdp.tishina.core.domain.model.OssLicense
 import ru.dmdp.tishina.core.domain.repository.OssLicensesProvider
@@ -23,13 +22,13 @@ import javax.inject.Singleton
  * isn't free. The `suspend` interface lets us hop onto [IoDispatcher] here so the
  * AboutViewModel's cold-launch resolve doesn't block Main.
  *
- * **Failure handling:** we catch [IOException] (missing asset) and [SerializationException]
- * (malformed JSON) specifically, returning an empty list so AboutScreen falls back to the
- * placeholder. The cost of a silently empty list is preferable to crashing on a malformed
- * JSON in the field — Phase 5 ships a manually curated file, but Phase Release may switch
- * to a Gradle-generated one where transient errors are realistic. We deliberately do NOT
- * use `runCatching` here because it would also swallow `CancellationException` and break
- * structured concurrency.
+ * **Failure handling:** we catch [IOException] (missing asset / unreadable stream) here
+ * and return an empty list so AboutScreen falls back to the placeholder. Malformed JSON
+ * is the parser's concern: [OssLicensesParser.parse] already guarantees a never-throw
+ * contract via its own crash-free wrapper (covered by `OssLicensesParserTest`), so there
+ * is nothing for `SerializationException` to propagate up to this layer. We deliberately
+ * do NOT wrap the whole block in `runCatching` because it would also swallow
+ * `CancellationException` and break structured concurrency.
  */
 @Singleton
 class OssLicensesProviderImpl @Inject constructor(
@@ -44,8 +43,6 @@ class OssLicensesProviderImpl @Inject constructor(
                 OssLicensesParser.parse(reader.readText())
             }
         } catch (io: IOException) {
-            emptyList()
-        } catch (parse: SerializationException) {
             emptyList()
         }
     }
