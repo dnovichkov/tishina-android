@@ -3,6 +3,7 @@ package ru.dmdp.tishina.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -68,10 +69,10 @@ class SettingsViewModel @Inject constructor(
     fun onEvent(event: SettingsUiEvent) {
         when (event) {
             is SettingsUiEvent.ChangeCalibration -> handleChangeCalibration(event.db)
-            is SettingsUiEvent.ResetCalibration -> viewModelScope.launch { resetCalibration() }
-            is SettingsUiEvent.ChangeTimeWeighting -> viewModelScope.launch { updateTimeWeighting(event.weighting) }
-            is SettingsUiEvent.ChangeThemeMode -> viewModelScope.launch { updateThemeMode(event.mode) }
-            is SettingsUiEvent.ChangeDynamicColors -> viewModelScope.launch { updateDynamicColors(event.enabled) }
+            is SettingsUiEvent.ResetCalibration -> launchPersistence { resetCalibration() }
+            is SettingsUiEvent.ChangeTimeWeighting -> launchPersistence { updateTimeWeighting(event.weighting) }
+            is SettingsUiEvent.ChangeThemeMode -> launchPersistence { updateThemeMode(event.mode) }
+            is SettingsUiEvent.ChangeDynamicColors -> launchPersistence { updateDynamicColors(event.enabled) }
             is SettingsUiEvent.ChangeAppLocale -> handleChangeAppLocale(event.locale)
         }
     }
@@ -79,18 +80,59 @@ class SettingsViewModel @Inject constructor(
     private fun handleChangeCalibration(db: Float) {
         viewModelScope.launch {
             val result = updateCalibration(db)
-            if (result.isFailure) {
-                effectChannel.trySend(SettingsUiEffect.ShowSnackbar(CoreUiR.string.settings_calibration_out_of_range))
+            result.onFailure { error ->
+                // `UpdateCalibrationUseCase` returns IllegalArgumentException ONLY for
+                // validation rejections; any other Throwable comes from the repository
+                // (DataStore I/O failure, cancellation, etc.) and must not be reported as
+                // an "out of range" message.
+                val messageRes = if (error is IllegalArgumentException) {
+                    CoreUiR.string.settings_calibration_out_of_range
+                } else {
+                    CoreUiR.string.settings_save_failed
+                }
+                effectChannel.trySend(SettingsUiEffect.ShowSnackbar(messageRes))
             }
         }
     }
 
     private fun handleChangeAppLocale(locale: ru.dmdp.tishina.core.domain.model.AppLocale) {
         viewModelScope.launch {
-            updateAppLocale(locale)
-            // ApplyAppLocale is emitted after persistence so `MainActivity.recreate()` triggered by
-            // AppCompatDelegate sees the new value on its next DataStore read.
-            effectChannel.trySend(SettingsUiEffect.ApplyAppLocale(locale))
+            // Apply the locale ONLY if persistence succeeded — otherwise we'd recreate the
+            // activity into a state the next cold start can't replay (DataStore would still
+            // hold the prior value). try/catch instead of runCatching so a scope cancellation
+            // propagates as cancellation rather than being misrouted to a "save failed"
+            // snackbar at teardown.
+            try {
+                updateAppLocale(locale)
+                effectChannel.trySend(SettingsUiEffect.ApplyAppLocale(locale))
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Throwable) {
+                effectChannel.trySend(SettingsUiEffect.ShowSnackbar(CoreUiR.string.settings_save_failed))
+            }
+        }
+    }
+
+    /**
+     * Wraps `viewModelScope.launch` so a DataStore I/O failure surfaces as a
+     * snackbar instead of escaping to the coroutine's default uncaught handler
+     * (which on Android crashes the process). Use-cases below run pure
+     * `repository.update*` writes — none of them can throw a recoverable
+     * validation error, so a single generic message is enough.
+     *
+     * try/catch instead of runCatching so structured cancellation is preserved —
+     * runCatching would swallow `CancellationException` and turn a normal
+     * scope/lifecycle teardown into a bogus "save failed" snackbar.
+     */
+    private fun launchPersistence(block: suspend () -> Unit) {
+        viewModelScope.launch {
+            try {
+                block()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Throwable) {
+                effectChannel.trySend(SettingsUiEffect.ShowSnackbar(CoreUiR.string.settings_save_failed))
+            }
         }
     }
 

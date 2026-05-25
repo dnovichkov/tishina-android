@@ -20,6 +20,8 @@
 
     <!-- FR-14 — surfaced when SettingsViewModel rejects out-of-range calibration. -->
     <string name="settings_calibration_out_of_range">Calibration must be between -20 and +20 dB</string>
+    <!-- Fallback for any settings write that fails after passing validation (e.g. DataStore I/O error). -->
+    <string name="settings_save_failed">Couldn\'t save the change. Please try again.</string>
 
     <!-- Settings screen — top bar & navigation -->
     <string name="settings_back_cd">Back to Measure</string>

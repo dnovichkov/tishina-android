@@ -1,6 +1,7 @@
 package ru.dmdp.tishina.feature.settings
 
 import app.cash.turbine.test
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -271,5 +272,139 @@ class SettingsViewModelTest {
             assertTrue(first is SettingsUiEffect.ApplyAppLocale)
             assertTrue(second is SettingsUiEffect.ShowSnackbar)
         }
+    }
+
+    @Test
+    fun `calibration persistence failure surfaces save_failed not out_of_range`() = runTest {
+        // Reproduces the misclassification bug: a DataStore I/O failure used to be turned
+        // into the "calibration out of range" snackbar because the use-case wrapped both
+        // validation AND persistence inside a single runCatching. After the fix the
+        // ViewModel routes IllegalArgumentException → out_of_range, everything else → save_failed.
+        val repo = ThrowingSettingsRepository()
+        val vm = viewModel(repo)
+        vm.state.first { !it.loading }
+
+        vm.effects.test {
+            vm.onEvent(SettingsUiEvent.ChangeCalibration(2f)) // valid value, persistence boom
+            val effect = awaitItem()
+            assertTrue(effect is SettingsUiEffect.ShowSnackbar)
+            assertEquals(
+                CoreUiR.string.settings_save_failed,
+                (effect as SettingsUiEffect.ShowSnackbar).messageRes,
+            )
+        }
+    }
+
+    @Test
+    fun `theme mode persistence failure surfaces save_failed snackbar`() = runTest {
+        // Before the fix, an exception from updateThemeMode escaped viewModelScope.launch
+        // and reached the uncaught handler (process crash on Android). Now the launch is
+        // wrapped and the user gets a snackbar instead.
+        val repo = ThrowingSettingsRepository()
+        val vm = viewModel(repo)
+        vm.state.first { !it.loading }
+
+        vm.effects.test {
+            vm.onEvent(SettingsUiEvent.ChangeThemeMode(ThemeMode.Dark))
+            val effect = awaitItem()
+            assertTrue(effect is SettingsUiEffect.ShowSnackbar)
+            assertEquals(
+                CoreUiR.string.settings_save_failed,
+                (effect as SettingsUiEffect.ShowSnackbar).messageRes,
+            )
+        }
+    }
+
+    @Test
+    fun `locale persistence failure surfaces save_failed and skips ApplyAppLocale`() = runTest {
+        // ApplyAppLocale would recreate the activity; firing it on persistence failure
+        // would leave the recreated activity reading the prior (unchanged) locale from
+        // DataStore — confusing flicker for no effect. We must skip the apply on failure.
+        val repo = ThrowingSettingsRepository()
+        val vm = viewModel(repo)
+        vm.state.first { !it.loading }
+
+        vm.effects.test {
+            vm.onEvent(SettingsUiEvent.ChangeAppLocale(AppLocale.English))
+            val effect = awaitItem()
+            assertTrue(effect is SettingsUiEffect.ShowSnackbar)
+            assertEquals(
+                CoreUiR.string.settings_save_failed,
+                (effect as SettingsUiEffect.ShowSnackbar).messageRes,
+            )
+            // No ApplyAppLocale should follow — expectNoEvents proves the channel is quiet.
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `cancellation during persistence does NOT surface save_failed snackbar`() = runTest {
+        // runCatching in the prior implementation swallowed CancellationException — so a
+        // scope/lifecycle cancellation mid-write would land in the .onFailure branch and
+        // emit a bogus "save failed" snackbar at teardown. The fix must rethrow
+        // CancellationException so the launch coroutine simply cancels with no UI effect.
+        val repo = CancellingSettingsRepository()
+        val vm = viewModel(repo)
+        vm.state.first { !it.loading }
+
+        vm.effects.test {
+            vm.onEvent(SettingsUiEvent.ChangeThemeMode(ThemeMode.Dark))
+            // No snackbar effect must reach the channel — the launch coroutine cancelled
+            // cleanly when the use-case threw CancellationException.
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `dynamic colors and time weighting persistence failures surface save_failed`() = runTest {
+        // Parametric check for the remaining settings paths that go through launchPersistence().
+        val repo = ThrowingSettingsRepository()
+        val vm = viewModel(repo)
+        vm.state.first { !it.loading }
+
+        vm.effects.test {
+            vm.onEvent(SettingsUiEvent.ChangeDynamicColors(false))
+            val first = awaitItem()
+            assertTrue(first is SettingsUiEffect.ShowSnackbar)
+            assertEquals(
+                CoreUiR.string.settings_save_failed,
+                (first as SettingsUiEffect.ShowSnackbar).messageRes,
+            )
+
+            vm.onEvent(SettingsUiEvent.ChangeTimeWeighting(TimeWeighting.SLOW))
+            val second = awaitItem()
+            assertTrue(second is SettingsUiEffect.ShowSnackbar)
+
+            vm.onEvent(SettingsUiEvent.ResetCalibration)
+            val third = awaitItem()
+            assertTrue(third is SettingsUiEffect.ShowSnackbar)
+        }
+    }
+
+    /**
+     * Subclass of [FakeSettingsRepository] whose every write throws. Used to drive the
+     * ViewModel's error-handling paths without standing up a real DataStore. The reads
+     * (`config`, `appearance` flows) keep the inherited in-memory implementation so the
+     * `state` flow is still observable.
+     */
+    private class ThrowingSettingsRepository(private val boom: Throwable = IllegalStateException("disk write failed")) :
+        FakeSettingsRepository() {
+        override suspend fun updateCalibrationOffset(db: Float): Unit = throw boom
+        override suspend fun updateThemeMode(mode: ThemeMode): Unit = throw boom
+        override suspend fun updateDynamicColors(enabled: Boolean): Unit = throw boom
+        override suspend fun updateAppLocale(locale: AppLocale): Unit = throw boom
+        override suspend fun updateTimeWeighting(weighting: TimeWeighting): Unit = throw boom
+        override suspend fun resetCalibration(): Unit = throw boom
+    }
+
+    /**
+     * Repository whose writes throw [CancellationException] — mirrors what happens when the
+     * surrounding scope (viewModelScope tied to lifecycle) cancels mid-suspend. The ViewModel
+     * must let this propagate as cancellation, NOT route it through the save-failed snackbar
+     * path.
+     */
+    private class CancellingSettingsRepository : FakeSettingsRepository() {
+        override suspend fun updateThemeMode(mode: ThemeMode): Unit =
+            throw CancellationException("scope cancelled mid-write")
     }
 }

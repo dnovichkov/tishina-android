@@ -84,9 +84,17 @@ fun TishinaApp(
     ) -> Unit = { _, onNavigateBack ->
         ru.dmdp.tishina.feature.history.detail.DetailScreen(onNavigateBack = onNavigateBack)
     },
+    // FR-21 entry-point: on compact layouts the outer TopAppBar (with its About icon) is
+    // suppressed for Settings, so the Settings footer link is the only way into About from
+    // a phone. Default must forward `onAboutClick` — otherwise SettingsScreen's own
+    // `onAboutClick = {}` default kicks in and the footer becomes a no-op. We can't capture
+    // the body-local `onAboutClick` callback here (parameter defaults can only see other
+    // parameters and top-level/extensions in scope), so call `navController.navigateToAbout()`
+    // directly — that's the same body the body-local callback invokes.
     settingsContent: @Composable (onApplyLocale: (AppLocale) -> Unit) -> Unit = { applyLocale ->
         SettingsScreen(
             onNavigateBack = { navController.popBackStack() },
+            onAboutClick = { navController.navigateToAbout() },
             onApplyLocale = applyLocale,
         )
     },
@@ -112,6 +120,19 @@ fun TishinaApp(
     // destination and must remain reachable from peer tabs.
     val isOnSettings = currentDestination.matchesSettings()
     val suppressOuterTopBar = isOnDetail || isOnSettings
+    // Both layout branches mount the same NavHost — extract the call once so the function
+    // stays under the detekt LongMethod ceiling and the two branches read as pure layout.
+    val navHost: @Composable () -> Unit = {
+        TishinaNavHost(
+            navController = navController,
+            onApplyLocale = onApplyLocale,
+            onAboutClick = onAboutClick,
+            measureContent = measureContent,
+            historyContent = historyContent,
+            detailContent = detailContent,
+            settingsContent = settingsContent,
+        )
+    }
 
     Surface(
         modifier = Modifier
@@ -129,16 +150,7 @@ fun TishinaApp(
                     onItemSelected = { dest -> navController.navigateTopLevel(dest) },
                     onAboutClick = onAboutClick,
                 )
-                Box(modifier = Modifier.fillMaxSize()) {
-                    TishinaNavHost(
-                        navController = navController,
-                        onApplyLocale = onApplyLocale,
-                        measureContent = measureContent,
-                        historyContent = historyContent,
-                        detailContent = detailContent,
-                        settingsContent = settingsContent,
-                    )
-                }
+                Box(modifier = Modifier.fillMaxSize()) { navHost() }
             }
         } else {
             Scaffold(
@@ -169,16 +181,7 @@ fun TishinaApp(
                 // default — their insets are consumed by the outer TopAppBar.
                 contentWindowInsets = if (suppressOuterTopBar) WindowInsets(0) else ScaffoldDefaults.contentWindowInsets,
             ) { padding ->
-                Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                    TishinaNavHost(
-                        navController = navController,
-                        onApplyLocale = onApplyLocale,
-                        measureContent = measureContent,
-                        historyContent = historyContent,
-                        detailContent = detailContent,
-                        settingsContent = settingsContent,
-                    )
-                }
+                Box(modifier = Modifier.fillMaxSize().padding(padding)) { navHost() }
             }
         }
     }

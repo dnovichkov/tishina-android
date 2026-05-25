@@ -36,6 +36,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+            FR-18 — On Android 12 and below `AppCompatDelegate.setApplicationLocales` only
+            persists the per-app locale across cold starts when this service is declared
+            with `autoStoreLocales=true` (AppCompat 1.6+ opt-in). Without it the locale
+            disappears after process death because AppCompat has nothing to write to.
+            On API 33+ the platform `LocaleManager` persists the value directly, and this
+            service is unused — the declaration is harmless on newer APIs.
+        -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
     </application>
 
 </manifest>

@@ -3,6 +3,7 @@ package ru.dmdp.tishina.core.domain.usecase
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -115,5 +116,42 @@ class UpdateCalibrationUseCaseTest {
 
         assertTrue(result.isFailure)
         assertEquals(boom, result.exceptionOrNull())
+    }
+
+    @Test
+    fun `repository persistence error is not reported as IllegalArgumentException`() = runTest {
+        // Validation rejections use IllegalArgumentException to signal "user input was bad";
+        // any error from the repository must NOT match that type, so the call site can
+        // distinguish a range violation from a disk write failure and show the right copy.
+        coEvery { repository.updateCalibrationOffset(any()) } throws IllegalStateException("disk full")
+
+        val result = useCase(2.0f)
+
+        assertTrue(result.isFailure)
+        assertTrue(
+            result.exceptionOrNull() !is IllegalArgumentException,
+            "Repository failures must surface their own type, not get masked as IllegalArgumentException",
+        )
+    }
+
+    @Test
+    fun `CancellationException from repository is rethrown not wrapped into Result_failure`() = runTest {
+        // runCatching swallows CancellationException — that would convert a scope/lifecycle
+        // cancellation into a regular Result.failure, the caller would emit a bogus
+        // "save failed" snackbar at teardown, and structured cancellation would break. The
+        // use-case must rethrow CancellationException so the calling coroutine sees the
+        // cancel signal directly.
+        val cancellation = CancellationException("scope cancelled mid-write")
+        coEvery { repository.updateCalibrationOffset(any()) } throws cancellation
+
+        var caught: Throwable? = null
+        try {
+            useCase(2.0f)
+        } catch (e: Throwable) {
+            caught = e
+        }
+
+        assertTrue(caught is CancellationException, "CancellationException must propagate, was $caught")
+        assertEquals(cancellation, caught)
     }
 }

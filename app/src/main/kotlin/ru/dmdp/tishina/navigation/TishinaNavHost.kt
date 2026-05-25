@@ -19,6 +19,10 @@ fun TishinaNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
     onApplyLocale: (AppLocale) -> Unit = {},
+    // Wired from TishinaApp so the Settings footer link (FR-21 entry-point on compact
+    // layouts, where the outer TopAppBar — and its About icon — is suppressed) resolves
+    // to the same About destination as the top-bar icon on tablets / nav-rail.
+    onAboutClick: () -> Unit = {},
     measureContent: @Composable () -> Unit = { MeasureScreen() },
     // Stub slots mirror the `measureContent` pattern from Phase 2 — they let unit tests
     // exercise the NavHost graph without standing up Hilt-injected ViewModels (which would
@@ -45,6 +49,7 @@ fun TishinaNavHost(
     settingsContent: @Composable (onApplyLocale: (AppLocale) -> Unit) -> Unit = { applyLocale ->
         SettingsScreen(
             onNavigateBack = { navController.popBackStack() },
+            onAboutClick = onAboutClick,
             onApplyLocale = applyLocale,
         )
     },

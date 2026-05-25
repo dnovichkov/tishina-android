@@ -18,6 +18,7 @@
     <string name="spl_stats_placeholder">—</string>
 
     <string name="settings_calibration_out_of_range">Калибровка должна быть в диапазоне от −20 до +20 дБ</string>
+    <string name="settings_save_failed">Не удалось сохранить изменение. Попробуйте ещё раз.</string>
 
     <string name="settings_back_cd">Назад к измерению</string>
 
