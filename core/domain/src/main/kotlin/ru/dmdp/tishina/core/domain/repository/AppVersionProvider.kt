@@ -11,10 +11,12 @@ import ru.dmdp.tishina.core.domain.model.AppVersion
  * stable across API 26+ and is exactly what survives an APK split, unlike a hardcoded
  * `BuildConfig.VERSION_NAME` read which is generated per-module and can drift.
  *
- * Implementations must be safe to call from any dispatcher and must never throw —
- * a missing PackageInfo is a programmer error (the app cannot be running without
- * one), so the contract is "always returns a valid [AppVersion]".
+ * Marked `suspend` so the implementation can hop onto an IO dispatcher — the underlying
+ * `PackageManager` call is an IPC round-trip and StrictMode flags it as a disk-blocking
+ * operation on cold launches. Implementations must never throw: a `NameNotFoundException`
+ * on the app's own package is degenerate, so the contract is "always returns a valid
+ * [AppVersion]" (defaults to empty name + 0 code on the impossible failure path).
  */
 fun interface AppVersionProvider {
-    fun get(): AppVersion
+    suspend fun get(): AppVersion
 }

@@ -2,6 +2,9 @@ package ru.dmdp.tishina.core.data.licenses
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
+import ru.dmdp.tishina.core.data.di.IoDispatcher
 import ru.dmdp.tishina.core.domain.model.OssLicense
 import ru.dmdp.tishina.core.domain.repository.OssLicensesProvider
 import javax.inject.Inject
@@ -14,6 +17,10 @@ import javax.inject.Singleton
  * release APK once and only once (per the Gradle merge order, the application module's
  * assets win — keeping curation in a single place).
  *
+ * **Thread discipline:** `AssetManager.open` is a real file-system call and JSON parsing
+ * isn't free. The `suspend` interface lets us hop onto [IoDispatcher] here so the
+ * AboutViewModel's cold-launch resolve doesn't block Main.
+ *
  * **Failure handling:** `runCatching` traps both `IOException` (missing asset) and any
  * parser errors, returning an empty list so AboutScreen falls back to the placeholder.
  * The cost of a silently empty list is preferable to crashing on a malformed JSON in
@@ -21,13 +28,18 @@ import javax.inject.Singleton
  * a Gradle-generated one where transient errors are realistic.
  */
 @Singleton
-class OssLicensesProviderImpl @Inject constructor(@ApplicationContext private val context: Context) : OssLicensesProvider {
+class OssLicensesProviderImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+) : OssLicensesProvider {
 
-    override fun load(): List<OssLicense> = runCatching {
-        context.assets.open(ASSET_NAME).bufferedReader().use { reader ->
-            OssLicensesParser.parse(reader.readText())
-        }
-    }.getOrDefault(emptyList())
+    override suspend fun load(): List<OssLicense> = withContext(ioDispatcher) {
+        runCatching {
+            context.assets.open(ASSET_NAME).bufferedReader().use { reader ->
+                OssLicensesParser.parse(reader.readText())
+            }
+        }.getOrDefault(emptyList())
+    }
 
     private companion object {
         const val ASSET_NAME = "oss_licenses.json"

@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -132,6 +133,16 @@ fun TishinaApp(
         {
             showDisclaimerSheet = false
             navController.navigateToAbout()
+        }
+    }
+    // Auto-dismiss the sheet if the user navigates away from Measure (bottom-nav tap, deep
+    // link). The «?» icon is suppressed off-Measure, but the sheet itself is hoisted at the
+    // app root and would otherwise linger above the new screen — keyed on the current
+    // destination so we re-run on every route change.
+    val isOnMeasureForSheet = currentDestination.matchesMeasure()
+    LaunchedEffect(isOnMeasureForSheet) {
+        if (!isOnMeasureForSheet && showDisclaimerSheet) {
+            showDisclaimerSheet = false
         }
     }
     // Both layout branches mount the same NavHost — extract the call once so the function

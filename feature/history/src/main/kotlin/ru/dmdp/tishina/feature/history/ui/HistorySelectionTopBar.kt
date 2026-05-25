@@ -52,22 +52,14 @@ fun HistorySelectionTopBar(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
     ),
 ) {
-    val title = if (selectedCount > 0) {
-        pluralStringResource(
-            id = R.plurals.history_selection_topbar_count,
-            count = selectedCount,
-            selectedCount,
-        )
-    } else {
-        // count=0 still happens (ClearSelection state). pluralStringResource doesn't define
-        // a "zero" form on every locale, so we explicitly fall back to "0 selected" via
-        // the same plural — works on ru/en since the "other" form contains %d.
-        pluralStringResource(
-            id = R.plurals.history_selection_topbar_count,
-            count = selectedCount,
-            selectedCount,
-        )
-    }
+    // pluralStringResource handles count=0 by falling through to the "other" form on ru/en
+    // (both plurals carry %d) — same call covers the ClearSelection intermediate state where
+    // the selection set is empty but the bar is still up.
+    val title = pluralStringResource(
+        id = R.plurals.history_selection_topbar_count,
+        count = selectedCount,
+        selectedCount,
+    )
     TopAppBar(
         modifier = modifier.testTag(HistorySelectionTopBarTestTag),
         colors = colors,

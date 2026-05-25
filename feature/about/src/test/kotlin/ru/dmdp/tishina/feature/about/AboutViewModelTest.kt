@@ -1,7 +1,7 @@
 package ru.dmdp.tishina.feature.about
 
 import app.cash.turbine.test
-import io.mockk.every
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -22,11 +22,10 @@ import ru.dmdp.tishina.core.testing.rules.MainDispatcherRule
 /**
  * Contract for [AboutViewModel] — FR-21 AboutScreen state pipeline.
  *
- * Both providers are synchronous: `AppVersionProvider.get()` reads `PackageManager`
- * (cheap, in-process), `OssLicensesProvider.load()` reads a small asset (single
- * disk read at first call). The ViewModel still pushes them onto `viewModelScope`
- * so a slow provider can't block the main thread; tests use a `StandardTestDispatcher`
- * to control when the resolve actually fires.
+ * Both providers are `suspend` — production implementations in `:core:data` hop onto
+ * `Dispatchers.IO` so the ViewModel's resolve never blocks Main. Tests use a
+ * `StandardTestDispatcher` to control when the resolve actually fires, and `coEvery`
+ * because the provider interfaces declare `suspend fun get()/load()`.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @DisplayName("AboutViewModel — resolves version + OSS licenses for FR-21")
@@ -44,8 +43,8 @@ class AboutViewModelTest {
 
     @Test
     fun `initial state shows loading with empty defaults`() = runTest {
-        val versionProvider = mockk<AppVersionProvider> { every { get() } returns sampleVersion }
-        val licensesProvider = mockk<OssLicensesProvider> { every { load() } returns sampleLicenses }
+        val versionProvider = mockk<AppVersionProvider> { coEvery { get() } returns sampleVersion }
+        val licensesProvider = mockk<OssLicensesProvider> { coEvery { load() } returns sampleLicenses }
 
         val viewModel = AboutViewModel(versionProvider, licensesProvider)
 
@@ -60,8 +59,8 @@ class AboutViewModelTest {
 
     @Test
     fun `state resolves to loaded snapshot with version and licenses`() = runTest {
-        val versionProvider = mockk<AppVersionProvider> { every { get() } returns sampleVersion }
-        val licensesProvider = mockk<OssLicensesProvider> { every { load() } returns sampleLicenses }
+        val versionProvider = mockk<AppVersionProvider> { coEvery { get() } returns sampleVersion }
+        val licensesProvider = mockk<OssLicensesProvider> { coEvery { load() } returns sampleLicenses }
 
         val viewModel = AboutViewModel(versionProvider, licensesProvider)
 
@@ -78,8 +77,8 @@ class AboutViewModelTest {
 
     @Test
     fun `empty license list still settles loading to false`() = runTest {
-        val versionProvider = mockk<AppVersionProvider> { every { get() } returns sampleVersion }
-        val licensesProvider = mockk<OssLicensesProvider> { every { load() } returns emptyList() }
+        val versionProvider = mockk<AppVersionProvider> { coEvery { get() } returns sampleVersion }
+        val licensesProvider = mockk<OssLicensesProvider> { coEvery { load() } returns emptyList() }
 
         val viewModel = AboutViewModel(versionProvider, licensesProvider)
 

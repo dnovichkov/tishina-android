@@ -14,12 +14,12 @@ import javax.inject.Inject
 /**
  * State holder for `AboutScreen` (FR-21).
  *
- * Both injected providers are synchronous (PackageManager read + small asset read),
- * but resolution still hops onto [viewModelScope] so a slow first-disk hit cannot
- * block the main thread on a cold launch. The state starts in `loading = true` and
- * flips to the loaded snapshot once both lookups complete — keeping it as a single
- * emission means AboutScreen renders the entire frame in one recomposition rather
- * than flashing version-only then licenses.
+ * Both injected providers are `suspend` — their concrete implementations in `:core:data`
+ * hop onto `Dispatchers.IO` for the `PackageManager` IPC and `AssetManager` file read so
+ * Main is never blocked on a cold launch. The state starts in `loading = true` and flips
+ * to the loaded snapshot once both lookups complete — keeping it as a single emission
+ * means AboutScreen renders the entire frame in one recomposition rather than flashing
+ * version-only then licenses.
  *
  * No `Channel` for effects: the screen is fully driven by `state`, and link clicks
  * fire `Intent.ACTION_VIEW` directly from the composable (URLs are static strings).

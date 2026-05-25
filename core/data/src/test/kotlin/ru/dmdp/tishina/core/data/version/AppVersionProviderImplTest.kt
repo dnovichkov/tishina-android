@@ -3,6 +3,9 @@ package ru.dmdp.tishina.core.data.version
 import android.content.pm.PackageInfo
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -20,7 +23,12 @@ import ru.dmdp.tishina.core.domain.model.AppVersion
  * assertion captures the actual SQL-of-PackageManager path, not a hardcoded BuildConfig
  * constant — Phase Release will rev versionName from `0.1.0-foundation`, and this test
  * keeps passing without modification because the provider doesn't bake the value in.
+ *
+ * The provider is `suspend` and hops onto an IO dispatcher; tests inject an
+ * [UnconfinedTestDispatcher] so the IO hop is observable in the same `runTest` virtual
+ * clock as the call site.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [Build.VERSION_CODES.TIRAMISU])
 class AppVersionProviderImplTest {
@@ -30,11 +38,11 @@ class AppVersionProviderImplTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<android.app.Application>()
-        provider = AppVersionProviderImpl(context)
+        provider = AppVersionProviderImpl(context, UnconfinedTestDispatcher())
     }
 
     @Test
-    fun `get returns AppVersion with PackageManager values`() {
+    fun `get returns AppVersion with PackageManager values`() = runTest {
         seedPackageInfo(versionName = "0.5.0-polish", versionCode = 42)
 
         val version = provider.get()
@@ -43,7 +51,7 @@ class AppVersionProviderImplTest {
     }
 
     @Test
-    fun `get coerces null versionName to empty string`() {
+    fun `get coerces null versionName to empty string`() = runTest {
         seedPackageInfo(versionName = null, versionCode = 3)
 
         val version = provider.get()
@@ -53,7 +61,7 @@ class AppVersionProviderImplTest {
     }
 
     @Test
-    fun `displayName composes versionName and build number`() {
+    fun `displayName composes versionName and build number`() = runTest {
         seedPackageInfo(versionName = "1.0.0", versionCode = 7)
 
         val version = provider.get()

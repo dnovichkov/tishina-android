@@ -258,7 +258,7 @@ class FakeMeasurementRepositoryTest {
     }
 
     @Test
-    fun `sparkline preview is empty when input samples are empty`() = runTest {
+    fun `sparkline preview has one point for a single-sample input`() = runTest {
         val repo = FakeMeasurementRepository()
         val id = repo.save(newMeasurement(samples = listOf(SoundSample(40f, 0L))))
 
@@ -266,6 +266,16 @@ class FakeMeasurementRepositoryTest {
         assertNotNull(sparkline)
         // 1 sample → at most 1 sparkline point.
         assertEquals(1, sparkline?.size)
+    }
+
+    @Test
+    fun `sparkline preview is empty when input samples are empty`() = runTest {
+        val repo = FakeMeasurementRepository()
+        val id = repo.save(newMeasurement(samples = emptyList()))
+
+        val sparkline = repo.getById(id)?.summary?.sparklinePreview
+        assertNotNull(sparkline)
+        assertEquals(0, sparkline?.size)
     }
 
     @Test

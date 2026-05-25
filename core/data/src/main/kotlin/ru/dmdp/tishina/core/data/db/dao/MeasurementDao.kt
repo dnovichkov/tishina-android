@@ -87,8 +87,16 @@ abstract class MeasurementDao {
     /**
      * Bulk-delete every measurement whose id is in [ids]. Samples are removed by the
      * `FOREIGN KEY ... ON DELETE CASCADE` declaration on `SampleEntity`, so a single
-     * round-trip removes both tables. Unknown ids are silently skipped; an empty
-     * collection is a no-op (Room generates `IN (NULL)` which matches nothing).
+     * round-trip removes both tables. Unknown ids are silently skipped.
+     *
+     * **Callers must not pass an empty collection** — SQLite rejects `IN ()` as a syntax
+     * error, and Room's parameter expansion doesn't synthesize a safe sentinel. The
+     * repository short-circuits on empty input before reaching this DAO; treat this as a
+     * private contract enforced upstream rather than relying on the database to no-op.
+     *
+     * **Parameter limit**: SQLite caps the IN-clause parameter count at
+     * `SQLITE_MAX_VARIABLE_NUMBER` (999 pre-API-32, 32766 thereafter). The repository
+     * chunks large bulk deletes before forwarding here.
      *
      * Powers History's bulk-delete flow (FR-12) via
      * [ru.dmdp.tishina.core.data.repository.MeasurementRepositoryImpl.deleteAll].

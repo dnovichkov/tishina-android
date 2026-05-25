@@ -133,6 +133,21 @@ class MeasurementRepositoryImplBulkDeleteTest {
         assertEquals("fresh", summaries.single().title)
     }
 
+    @Test
+    fun `deleteAll chunks input beyond the SQLite IN parameter limit`() = runTest {
+        // 1100 measurements forces chunking on devices where SQLITE_MAX_VARIABLE_NUMBER is
+        // 999 (API < 32). Without chunking the DAO would throw "too many SQL variables".
+        // Inserts use minimal sample lists to keep the test fast on slow CI hosts.
+        val ids = (1..1100).map { i ->
+            repository.save(newMeasurement(createdAtEpochMs = i.toLong() * 1_000L, title = null))
+        }.toSet()
+
+        repository.deleteAll(ids)
+
+        val summaries = repository.observeSummaries().first()
+        assertEquals(emptyList<Long>(), summaries.map { it.id })
+    }
+
     private fun newMeasurement(
         createdAtEpochMs: Long = 1_700_000_000_000L,
         title: String? = "Test",

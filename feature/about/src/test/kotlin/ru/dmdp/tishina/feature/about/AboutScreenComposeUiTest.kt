@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -148,9 +149,15 @@ class AboutScreenComposeUiTest {
             .performScrollToNode(androidx.compose.ui.test.hasTestTag(AboutScreenPrivacyTestTag))
         composeTestRule.onNodeWithTag(AboutScreenPrivacyTestTag).performClick()
 
+        // Compare against the exact resource value rather than a substring — a typo or
+        // swap with `about_github_url` would slip through a `contains("privacy")` check
+        // because both happen to be web URLs.
+        val expectedUrl = ApplicationProvider
+            .getApplicationContext<android.content.Context>()
+            .getString(ru.dmdp.tishina.feature.about.R.string.about_privacy_url)
         assertEquals(1, opened.size)
         assertNotNull(opened.first())
-        assertTrue(opened.first().contains("privacy"))
+        assertEquals(expectedUrl, opened.first())
     }
 
     @Test

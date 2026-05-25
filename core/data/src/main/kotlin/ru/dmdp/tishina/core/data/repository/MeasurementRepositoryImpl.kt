@@ -82,15 +82,28 @@ class MeasurementRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteAll(ids: Set<Long>) {
-        // Short-circuit empty input so we don't burn a dispatcher hop on a no-op. Room
-        // would also accept it (the generated `IN (NULL)` matches no rows), but skipping
-        // here keeps `observeSummaries` from emitting a redundant tick.
+        // Short-circuit empty input so we don't burn a dispatcher hop on a no-op and so
+        // `observeSummaries` doesn't emit a redundant tick. SQLite also rejects `IN ()`
+        // as a syntax error, so this guard doubles as the DAO contract.
         if (ids.isEmpty()) return
-        withContext(ioDispatcher) { dao.deleteByIds(ids) }
+        withContext(ioDispatcher) {
+            // SQLite caps the IN-clause parameter count at `SQLITE_MAX_VARIABLE_NUMBER`
+            // — 999 on Android < API 32, 32766 thereafter. A SelectAll over a History with
+            // > 999 entries would otherwise hit "too many SQL variables" on older devices.
+            // 900 leaves headroom for Room's positional binding overhead.
+            ids.chunked(SQLITE_MAX_VARIABLE_NUMBER).forEach { chunk ->
+                dao.deleteByIds(chunk)
+            }
+        }
     }
 
     override suspend fun updateNote(id: Long, note: String?) {
         withContext(ioDispatcher) { dao.updateNote(id, note) }
+    }
+
+    private companion object {
+        /** Safe chunk size for SQLite's `IN (?)` parameter list on API < 32. */
+        const val SQLITE_MAX_VARIABLE_NUMBER = 900
     }
 }
 
