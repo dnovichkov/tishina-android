@@ -57,7 +57,7 @@ class HistoryScreenComposeUiTest {
     fun empty_state_cta_triggers_navigate_to_measure() {
         var navigated = false
         composeTestRule.setContent {
-            TishinaTheme(dynamicColor = false) {
+            TishinaTheme(dynamicColors = false) {
                 HistoryScreenContent(
                     state = HistoryUiState(items = emptyList(), loading = false),
                     onEvent = {},
@@ -78,7 +78,7 @@ class HistoryScreenComposeUiTest {
         var openedId: Long? = null
         val items = listOf(sampleSummary(1L), sampleSummary(2L), sampleSummary(3L))
         composeTestRule.setContent {
-            TishinaTheme(dynamicColor = false) {
+            TishinaTheme(dynamicColors = false) {
                 HistoryScreenContent(
                     state = HistoryUiState(items = items, loading = false),
                     onEvent = {},
@@ -96,7 +96,7 @@ class HistoryScreenComposeUiTest {
     fun lazy_column_renders_items_with_stable_keys() {
         val items = listOf(sampleSummary(1L), sampleSummary(2L))
         composeTestRule.setContent {
-            TishinaTheme(dynamicColor = false) {
+            TishinaTheme(dynamicColors = false) {
                 HistoryScreenContent(
                     state = HistoryUiState(items = items, loading = false),
                     onEvent = {},
@@ -118,7 +118,7 @@ class HistoryScreenComposeUiTest {
         // their data was intact on disk. The fix branches on loadFailed and shows a distinct
         // error panel with NO CTA (since starting a new measurement wouldn't fix the load).
         composeTestRule.setContent {
-            TishinaTheme(dynamicColor = false) {
+            TishinaTheme(dynamicColors = false) {
                 HistoryScreenContent(
                     state = HistoryUiState(items = emptyList(), loading = false, loadFailed = true),
                     onEvent = {},
@@ -144,7 +144,7 @@ class HistoryScreenComposeUiTest {
         // with the same non-null id triggers the LaunchedEffect again and shows the snackbar,
         // matching what a rotated screen would observe.
         composeTestRule.setContent {
-            TishinaTheme(dynamicColor = false) {
+            TishinaTheme(dynamicColors = false) {
                 HistoryScreenContent(
                     state = HistoryUiState(
                         items = listOf(sampleSummary(1L)),
@@ -169,7 +169,7 @@ class HistoryScreenComposeUiTest {
         // logic into HistoryScreenContent, the testable composable owns the binding.
         val received = mutableListOf<HistoryUiEvent>()
         composeTestRule.setContent {
-            TishinaTheme(dynamicColor = false) {
+            TishinaTheme(dynamicColors = false) {
                 HistoryScreenContent(
                     state = HistoryUiState(
                         items = listOf(sampleSummary(1L)),
@@ -191,7 +191,7 @@ class HistoryScreenComposeUiTest {
     @Test
     fun loading_state_renders_neither_list_nor_empty_cta() {
         composeTestRule.setContent {
-            TishinaTheme(dynamicColor = false) {
+            TishinaTheme(dynamicColors = false) {
                 HistoryScreenContent(
                     state = HistoryUiState(items = emptyList(), loading = true),
                     onEvent = {},

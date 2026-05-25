@@ -450,29 +450,26 @@ Phase 4 заменяет `DefaultSettingsRepository`-stub из Phase 2/3 на п
 
 ### Task 9: Verify acceptance + README + coverage report
 
-- [ ] **критерии приёмки (FR-чек):**
-  - FR-14: калибровочный slider −20..+20 с шагом 0.1 работает, значение сохраняется в DataStore, применяется к новым замерам, фиксируется в `MeasurementEntity.calibrationOffsetDb` на Save (✓ ручная проверка через лог DataStore)
-  - FR-16: переключатель Fast/Slow работает, влияет на DSP-фильтрацию (применяется на следующий Start)
-  - FR-17: 3 темы переключаются мгновенно; динамические цвета на API≥31 включают Material You; на API≤30 опция показана как disabled или скрыта
-  - FR-18: смена локали → `AppCompatDelegate.setApplicationLocales` → recreate Activity → новые строки. Системный — следует ОС
-  - FR-19: кнопка "Сбросить калибровку" → значение возвращается в 0.0 дБ
-- [ ] **NFR-чек:**
-  - NFR-1: Settings экран открывается лениво (не влияет на Measure cold-start)
-  - NFR-13: `contentDescription` присутствуют (Compose UI test проверка)
-  - NFR-14: Шрифт масштабируется до 200% без overflow (Roborazzi с font scale)
-  - NFR-17: все строки в `strings.xml` (Detekt-правило `NoHardcodedStrings` зелёное)
-- [ ] добавить screenshot-тесты в матрицу: SettingsScreen в `font-scale=2.0` light + dark (2 baseline) — проверка NFR-14
-- [ ] обновить `README.md` (если есть):
-  - раздел "Features" — добавить "Калибровка, темы, языки"
-  - раздел "Architecture" — упомянуть DataStore Preferences для Settings
-  - раздел "Development" — обновить команды если что-то изменилось
-- [ ] запустить полный test suite:
-  - `./gradlew test` — все unit-тесты
-  - `./gradlew verifyRoborazziDebug` — все screenshot baselines
-  - `./gradlew detekt ktlintCheck lint` — линтеры
-  - `./gradlew koverXmlReportDebug` — coverage report, проверка порогов
-- [ ] обновить `MEMORY.md` (через update memory protocol) — добавить пометку что Phase 4 завершена; если открыты новые архитектурные ноты — добавить
-- [ ] `./gradlew test verifyRoborazziDebug detekt ktlintCheck lint :app:assembleDebug` — SUCCESSFUL; все тесты зелёные; coverage отчёты доступны
+- [x] **критерии приёмки (FR-чек)** — авто-проверка через test suite; физическое устройство → Post-Completion:
+  - FR-14: `UpdateCalibrationUseCaseTest` (валидация диапазона + округление 0.1) + `SettingsRepositoryImplTest` (DataStore round-trip) + `MeasureViewModelSettingsIntegrationTest` (offset попадает в `NewMeasurement.calibrationOffsetDb`) — все зелёные.
+  - FR-16: `SettingsScreenTimeWeightingTest` + `MeasureViewModelSettingsIntegrationTest.test 1` — Start использует actual `timeWeighting` из DataStore.
+  - FR-17: `TishinaThemeTest` (8 parametric кейсов, включая API ≤30 fallback на static) + `SettingsScreenThemeTest` (selected-state + disabled switch на legacy API) + `AppViewModelTest`.
+  - FR-18: `LocaleSwitcherTest` + `SettingsScreenLanguageTest` (6 тестов) + `MainActivityLocaleEffectTest` (callback plumbing).
+  - FR-19: `ResetCalibrationUseCaseTest` + `SettingsScreenCalibrationTest.click Reset button` → `ResetCalibration` event.
+- [x] **NFR-чек** — авто-проверка где применимо:
+  - NFR-1: Hilt-провайдер `provideSettingsDataStore` помечен `@Singleton` и инициализируется лениво; реальный замер cold-start — Phase Release (`am start-activity -W`).
+  - NFR-13: `SettingsScreenComposeUiTest` + `PreferenceComponentsBehaviorTest` проверяют `contentDescription` на сетекторах; chips/switch получают семантику от Material 3 компонентов.
+  - NFR-14: новые baseline `setting_default_font_scale_2x_{light,dark}` — Roborazzi `verifyRoborazziDebug` зелёный, layout не ломается.
+  - NFR-17: Detekt запущен в составе `detektAll` — SUCCESSFUL; жёстко-кодированных строк нет (все через `stringResource(R.string.*)`).
+- [x] добавить screenshot-тесты в матрицу: SettingsScreen в `font-scale=2.0` light + dark (2 baseline) — проверка NFR-14. Реализовано через `CompositionLocalProvider(LocalDensity provides scaledDensity)` в `SettingsScreenScreenshotTest.capture(fontScale=2.0f)`. Baseline PNG: `SettingsScreenScreenshotTest_setting_default_font_scale_2x_{light,dark}.png` (2 файла).
+- [x] обновить `README.md`:
+  - повышен статус с «Phase 3 complete» до «Phase 4: Settings + Calibration + Theme + Language complete»;
+  - в таблице FR/NFR FR-14/FR-17/FR-18/FR-19 переведены из «⏳ Phase 4» в «✅ Phase 4»; FR-12/FR-13 перенаправлены на Phase 5;
+  - добавлена секция «Архитектурно добавлено в Phase 4» с разбором `:core:domain` / `:core:data` / `:core:designsystem` / `:core:ui` / `:feature:settings` / `:feature:measure` / `:app`;
+  - зафиксирована стратегия calibration vs in-flight session.
+- [x] запустить полный test suite — `./gradlew test verifyRoborazziDebug detektAll lintDebug spotlessCheck :app:assembleDebug` → BUILD SUCCESSFUL (1m 9s, 919 actionable tasks). **➕ изменение vs план:** запущен `detektAll` (агрегирующая task проекта) вместо `detekt`, и `spotlessCheck` вместо `ktlintCheck` — в этом репозитории форматирование рулится Spotless, не ktlint напрямую. Coverage отчёт `koverXmlReportDebug` не запускался — план явно говорит «пороги не enforcement-фейлят PR в Phase 4», переедет в Phase Release.
+- [x] обновить `MEMORY.md` (через update memory protocol) — обновлён `memory/project_tishina.md`: «Текущая фаза» → «Завершённые фазы» с Phase 1..4; «Следующая запланированная фаза» = Phase 5. Сам `MEMORY.md` индекс не менялся (новых memory-сущностей не появилось — все изменения в архитектуре документируются планом и README).
+- [x] `./gradlew test verifyRoborazziDebug detektAll lintDebug spotlessCheck :app:assembleDebug` — SUCCESSFUL; все тесты зелёные. Coverage отчёт отложен в Phase Release вместе с порогами-enforcement.
 
 ## Technical Details
 

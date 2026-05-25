@@ -17,9 +17,9 @@
 
 ## Статус
 
-**Phase 3: Persistence + History complete.**
+**Phase 4: Settings + Calibration + Theme + Language complete.**
 
-К инфраструктуре Phase 1 и audio pipeline Phase 2 добавлен полноценный persistence-слой (Room) и замкнутый CRUD-цикл: измерить → сохранить → найти в History → открыть Detail → отредактировать заметку → удалить с возможностью Undo.
+К persistence-слою Phase 3 добавлены пользовательские настройки на DataStore Preferences: калибровочный slider −20…+20 дБ с шагом 0.1, переключатель Fast/Slow, выбор темы (Системная / Светлая / Тёмная), Material You (динамические цвета на Android 12+), переключение языка интерфейса (Системный / Русский / English) через `AppCompatDelegate.setApplicationLocales`. Settings-изменения мгновенно прокидываются в `MeasureViewModel` и применяются к следующему запуску замера; калибровочный offset фиксируется в `MeasurementEntity.calibrationOffsetDb` на Save.
 
 Покрытые FR/NFR из [спецификации](docs/specs/tishina-spec.md):
 
@@ -27,20 +27,37 @@
 |---|---|---|
 | FR-2 (runtime permission) | ✅ Phase 2 | `:feature:measure` |
 | FR-3 / FR-4 / FR-5 / FR-7 (Start/live/gauge/Pause/Reset) | ✅ Phase 2 | `:feature:measure` |
-| **FR-6 (Save dialog с валидацией)** | ✅ Phase 3 | `MeasureSaveDialog` + `SaveMeasurementUseCase` |
-| **FR-8 (List orderBy createdAt DESC)** | ✅ Phase 3 | `MeasurementDao.observeSummaries` |
-| **FR-9 (карточка с date/title/avg/duration/sparkline)** | ✅ Phase 3 | `HistoryItemCard` + `SparklineChart` |
-| **FR-10 (Detail с полным графиком + inline-edit заметки)** | ✅ Phase 3 | `DetailScreen` + `DetailViewModel` |
-| **FR-11 (swipe-delete с Snackbar Undo 5s)** | ✅ Phase 3 | `HistoryViewModel.scheduleDelete` |
-| FR-15 / FR-16 (A-weighting + Fast) | ✅ Phase 2 | `:core:audio` |
-| FR-12 / FR-13 (bulk + search) | ⏳ v1.1 | out of MVP |
-| FR-14, FR-17…FR-19 (Settings UI) | ⏳ Phase 4 | планируется |
+| FR-6 (Save dialog с валидацией) | ✅ Phase 3 | `MeasureSaveDialog` + `SaveMeasurementUseCase` |
+| FR-8 (List orderBy createdAt DESC) | ✅ Phase 3 | `MeasurementDao.observeSummaries` |
+| FR-9 (карточка с date/title/avg/duration/sparkline) | ✅ Phase 3 | `HistoryItemCard` + `SparklineChart` |
+| FR-10 (Detail с полным графиком + inline-edit заметки) | ✅ Phase 3 | `DetailScreen` + `DetailViewModel` |
+| FR-11 (swipe-delete с Snackbar Undo 5s) | ✅ Phase 3 | `HistoryViewModel.scheduleDelete` |
+| **FR-14 (калибровочный slider −20…+20 дБ, шаг 0.1)** | ✅ Phase 4 | `SettingsScreen` + `UpdateCalibrationUseCase` |
+| FR-15 / FR-16 (A-weighting + Fast/Slow) | ✅ Phase 2/4 | `:core:audio` + UI toggle в Settings |
+| **FR-17 (Системная/Светлая/Тёмная тема + динамические цвета)** | ✅ Phase 4 | `TishinaTheme` подписан на `AppearanceSettings` через `AppViewModel` |
+| **FR-18 (язык Системный/Русский/Английский)** | ✅ Phase 4 | `LocaleSwitcher` + `AppCompatDelegate.setApplicationLocales` |
+| **FR-19 (Reset калибровки)** | ✅ Phase 4 | `ResetCalibrationUseCase` |
+| FR-12 / FR-13 (bulk + search) | ⏳ Phase 5 | планируется |
 | FR-20 (CSV export) | ⏳ Phase Release | планируется |
-| **NFR-1 (cold start ≤ 1 с)** | ✅ Phase 3 — lazy Room init | замер на эмуляторе → Phase Release |
-| NFR-5 / NFR-6 (lifecycle / rotation) | ✅ Phase 2/3 | `SavedStateHandle` + `rememberSaveable` |
-| **NFR-9 / NFR-11 (no PCM persistence, internal storage)** | ✅ Phase 3 | в Room сохраняются только агрегаты + 5 Гц-семплы dB(A) |
-| **NFR-12 (валидация длин)** | ✅ Phase 3 | UI counter + use-case `Result.failure` + SQLite trigger |
-| NFR-13…NFR-16 (a11y, контраст, Material 3) | ✅ Phase 2/3 | swipe-delete сопровождается trash-иконкой, не только цветом |
+| FR-21 / FR-22 (AboutScreen + дисклеймер) | ⏳ Phase 5 | планируется |
+| NFR-1 (cold start ≤ 1 с) | ✅ Phase 3 — lazy Room init; Phase 4 — lazy DataStore | замер на эмуляторе → Phase Release |
+| NFR-5 / NFR-6 (lifecycle / rotation) | ✅ Phase 2/3/4 | `SavedStateHandle` + `rememberSaveable` + DataStore single source |
+| NFR-9 / NFR-11 (no PCM persistence, internal storage) | ✅ Phase 3 | в Room сохраняются только агрегаты + 5 Гц-семплы dB(A) |
+| NFR-12 (валидация длин) | ✅ Phase 3 | UI counter + use-case `Result.failure` + SQLite trigger |
+| NFR-13…NFR-16 (a11y, контраст, Material 3) | ✅ Phase 2/3/4 | preference-компоненты Settings, font-scale 2x проверен Roborazzi |
+| NFR-17 / NFR-18 / NFR-19 (i18n) | ✅ Phase 4 | все строки в `strings.xml` (RU + EN), формат чисел через локаль |
+
+Архитектурно добавлено в Phase 4:
+
+- `:core:domain` — модели `AppearanceSettings` / `ThemeMode` / `AppLocale` / `AppSettingsSnapshot` (immutable, `CALIBRATION_MIN_DB=-20f`, `CALIBRATION_MAX_DB=20f`, `CALIBRATION_STEP_DB=0.1f`); расширенный `SettingsRepository` интерфейс (`appearance: Flow<AppearanceSettings>` + 4 новых setter'а + `resetCalibration`); use-cases `UpdateCalibrationUseCase` (валидация диапазона + округление до 0.1 + `Result<Float>`), `ResetCalibrationUseCase`, `UpdateTimeWeightingUseCase`, `UpdateThemeModeUseCase`, `UpdateDynamicColorsUseCase`, `UpdateAppLocaleUseCase`, `ObserveAppSettingsUseCase` (combine `config` + `appearance`).
+- `:core:data` — `SettingsRepositoryImpl` на `androidx.datastore:datastore-preferences` 1.1.1 (имя файла `tishina_settings`, `ReplaceFileCorruptionHandler { emptyPreferences() }`, defensive enum-fallback на дефолты); `SettingsKeys` (6 типизированных ключей: `floatPreferencesKey` для калибровки + `stringPreferencesKey` для enum'ов + `booleanPreferencesKey` для динамических цветов); `DataModule` биндит `SettingsRepository` → `SettingsRepositoryImpl` (заменяет stub из Phase 2).
+- `:core:designsystem` — `TishinaTheme(themeMode, dynamicColors, content)` как primary API; внутри `when (themeMode)` → `useDarkTheme`; на API ≥ S guarded ветка `dynamicLightColorScheme`/`dynamicDarkColorScheme(LocalContext.current)`; на API ≤ 30 безопасный fallback на static. Сохранён deprecated boolean-overload (`darkTheme, dynamicColor`) для совместимости с уже-зафиксированными Roborazzi-baseline других модулей.
+- `:core:ui` — переиспользуемые preference-компоненты в `core/ui/preferences/`: `PreferenceCategory`, `ChoicePreference<T>` (Material 3 `FilterChip` в `FlowRow` — устойчивее экспериментального `SegmentedButton`), `SliderPreference` (локальный `mutableFloatStateOf` для smooth drag + commit на `onValueChangeFinished` — natural debouncing, нет лишних DataStore writes), `SwitchPreference` (`Modifier.toggleable(role = Role.Switch)` — TalkBack-friendly).
+- `:feature:settings` — переписан с placeholder'а: `SettingsViewModel` (MVI lite: `SettingsUiState` + `SettingsUiEvent` + `SettingsUiEffect.ApplyAppLocale/ShowSnackbar`); `SettingsScreen` с группами «Measurement» / «Appearance» / «Application language» + footer «About the app» (placeholder до Phase 5); `SettingsUseCaseModule` (`@InstallIn(ViewModelComponent::class)` + `@ViewModelScoped` — тонкий граф); локализационные строки в RU + EN; Roborazzi screenshot-baselines (18 шт., включая font-scale 2x для NFR-14).
+- `:feature:measure` — `MeasureViewModel` теперь инжектится `SettingsRepository` напрямую и подписывается через `stateIn(SharingStarted.Eagerly, MeasurementConfig())` — первый Start уже видит реальное DataStore-значение, а не initial fallback. Активный `MeasurementConfig` снимается snapshot'ом в `startCollecting()` **только при fresh-session** (`sessionCount == 0L`); Resume после Pause сохраняет старый snapshot (одна сессия = один config, иначе `Save` записал бы offset, не соответствующий pre-pause семплам). `Reset` сбрасывает snapshot обратно к `MeasurementConfig()`, чтобы следующий Start re-сэмплировал DataStore.
+- `:app` — `MainActivity` инжектится `AppViewModel @HiltViewModel` (через `by viewModels()` — ComponentActivity-scoped); `AppViewModel` подписан на `ObserveAppSettingsUseCase` с `SharingStarted.Eagerly` (никакого flash-of-default-light на первом frame); `TishinaTheme(themeMode, dynamicColors)` пересобирается реактивно; `LocaleSwitcher` (object с `apply(AppLocale)` + публичным `toLocaleListCompat(...)` для unit-тестируемости); `TishinaNavHost.settingsContent` slot (тот же паттерн что `measureContent`/`historyContent`); `AndroidManifest.xml`: `android:localeConfig="@xml/locales_config"` + `app/src/main/res/xml/locales_config.xml` (требование Android 13+ для появления «Язык приложения» в системных Settings).
+
+Стратегия calibration vs in-flight session (зафиксирована при планировании Phase 4): `MeasurementConfig` инжектится в `StartMeasurementUseCase.invoke(config)` как immutable seed сессии. Если пользователь меняет калибровку во время активного замера — изменение применится только к следующему Start. Hot-reload откладывается на v1.2 (требует AudioRecord-restart и переосмысления состояния DSP-фильтров, что разрушает Leq accumulator).
 
 Архитектурно добавлено в Phase 3:
 

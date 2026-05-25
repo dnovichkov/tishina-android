@@ -1,8 +1,11 @@
 package ru.dmdp.tishina.feature.settings
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.unit.Density
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -135,10 +138,46 @@ class SettingsScreenScreenshotTest {
         name = "setting_dynamic_colors_off_dark",
     )
 
-    private fun capture(state: SettingsUiState, dark: Boolean, name: String) {
+    // NFR-14: интерфейс должен выдерживать масштабирование шрифта до 200 %.
+    // Эти baseline'ы фиксируют, что Settings-экран остаётся читаемым (нет
+    // overflow, обрезанных подписей, заходящих друг на друга чипов) при
+    // увеличении системного шрифта в два раза.
+    @Test
+    fun setting_default_font_scale_2x_light() = capture(
+        state = defaultState(),
+        dark = false,
+        name = "setting_default_font_scale_2x_light",
+        fontScale = 2.0f,
+    )
+
+    @Test
+    fun setting_default_font_scale_2x_dark() = capture(
+        state = defaultState(),
+        dark = true,
+        name = "setting_default_font_scale_2x_dark",
+        fontScale = 2.0f,
+    )
+
+    private fun capture(
+        state: SettingsUiState,
+        dark: Boolean,
+        name: String,
+        fontScale: Float = 1.0f,
+    ) {
         composeTestRule.setContent {
             TishinaTheme(darkTheme = dark, dynamicColor = false) {
-                Host(state)
+                if (fontScale == 1.0f) {
+                    Host(state)
+                } else {
+                    val baseDensity = LocalDensity.current
+                    val scaledDensity = Density(
+                        density = baseDensity.density,
+                        fontScale = fontScale,
+                    )
+                    CompositionLocalProvider(LocalDensity provides scaledDensity) {
+                        Host(state)
+                    }
+                }
             }
         }
         composeTestRule.onRoot().captureSnapshot("SettingsScreenScreenshotTest_$name")

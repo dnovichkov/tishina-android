@@ -7,9 +7,7 @@ import ru.dmdp.tishina.core.domain.repository.SettingsRepository
  * (rather than calling `updateCalibrationOffset(0f)` from the ViewModel) so
  * future logic (analytics, "are you sure?" gate) can be added in one place.
  */
-class ResetCalibrationUseCase(
-    private val repository: SettingsRepository,
-) {
+class ResetCalibrationUseCase(private val repository: SettingsRepository) {
     suspend operator fun invoke() {
         repository.resetCalibration()
     }

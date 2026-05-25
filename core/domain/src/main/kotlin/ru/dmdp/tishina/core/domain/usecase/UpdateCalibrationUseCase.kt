@@ -12,9 +12,7 @@ import kotlin.math.roundToInt
  * [SettingsRepository]. Returns the rounded value on success or wraps any
  * thrown error in [Result.failure].
  */
-class UpdateCalibrationUseCase(
-    private val repository: SettingsRepository,
-) {
+class UpdateCalibrationUseCase(private val repository: SettingsRepository) {
     suspend operator fun invoke(db: Float): Result<Float> = runCatching {
         require(db.isFinite()) { "Calibration offset must be a finite number, was $db" }
         require(db in CALIBRATION_MIN_DB..CALIBRATION_MAX_DB) {

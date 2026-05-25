@@ -54,7 +54,4 @@ enum class AppLocale(val tag: String) {
  * Combined snapshot for downstream consumers (`MeasureViewModel`, `TishinaApp`)
  * that want a single subscription instead of zipping two flows manually.
  */
-data class AppSettingsSnapshot(
-    val config: MeasurementConfig,
-    val appearance: AppearanceSettings,
-)
+data class AppSettingsSnapshot(val config: MeasurementConfig, val appearance: AppearanceSettings)

@@ -12,9 +12,7 @@ import ru.dmdp.tishina.core.domain.repository.SettingsRepository
  *
  * Emits whenever either upstream changes.
  */
-class ObserveAppSettingsUseCase(
-    private val repository: SettingsRepository,
-) {
+class ObserveAppSettingsUseCase(private val repository: SettingsRepository) {
     operator fun invoke(): Flow<AppSettingsSnapshot> =
         combine(repository.config, repository.appearance) { config, appearance ->
             AppSettingsSnapshot(config, appearance)
