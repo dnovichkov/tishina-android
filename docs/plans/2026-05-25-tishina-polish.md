@@ -324,37 +324,36 @@ Phase 5 закрывает оставшиеся MVP-фичи перед Phase Re
 
 ### Task 5: AccuracyDisclaimerBottomSheet + Measure TopBar wiring
 
-- [ ] **сначала тест:** `AccuracyDisclaimerBottomSheetScreenshotTest` (Roborazzi) — 2 baseline (`disclaimer_sheet_light/dark`); рендерит `ModalBottomSheet` контент напрямую как `Surface` (Robolectric ограничение с modal animations — same паттерн что в `MeasureSaveDialogContent` Phase 3)
-- [ ] **сначала тест:** `AccuracyDisclaimerBottomSheetBehaviorTest` (createComposeRule):
-  - текст содержит ключевые фразы из спеки § 11 («не предназначено для официальных измерений», «±3-5 дБ», «MEMS-микрофоны»)
-  - кнопка «Подробнее» с правильным content description
-  - click на «Подробнее» → callback `onShowFullDisclaimer()` вызывается
-  - close действие (drag down или click X) → `onDismiss()` callback
-- [ ] **сначала тест:** `TishinaAppDisclaimerWiringTest` (createComposeRule):
-  - current destination = `Measure` → иконка «?» visible в TopBar; click → state machine вызывает `showDisclaimerSheet` (через captured callback)
-  - current destination = `History` → иконка «?» НЕ visible (`onNodeWithContentDescription(R.string.measure_disclaimer_open_cd).assertDoesNotExist()`)
-  - current destination = `Settings` → иконка «?» НЕ visible
-  - current destination = `Detail` → иконка «?» НЕ visible
-  - current destination = `About` → стрелка Back visible (унаследовано из Phase 1, не trackим в этом тесте)
-  - в BottomSheet click «Подробнее» → navigation на About (через `navController.navigateToAbout()`)
-- [ ] создать `feature/measure/.../ui/AccuracyDisclaimerBottomSheet.kt`:
-  - `@OptIn(ExperimentalMaterial3Api::class) @Composable fun AccuracyDisclaimerBottomSheet(onDismiss: () -> Unit, onShowFullDisclaimer: () -> Unit)`
-  - Material 3 `ModalBottomSheet(onDismissRequest = onDismiss, ...)` с заголовком «О точности измерений», коротким body (3-4 предложения из § 11), кнопкой `TextButton("Подробнее")` справа внизу
-  - internal `AccuracyDisclaimerSheetContent` (Surface-обёртка) для unit-тестируемости (Robolectric не дружит с `ModalBottomSheet` animations)
-- [ ] обновить `app/.../TishinaApp.kt`:
-  - state: `var showDisclaimerSheet by remember { mutableStateOf(false) }`
-  - в `actions` блоке `TishinaTopAppBar`: показ HelpOutline icon только когда `currentDestination is Measure` (не на других табах)
-  - click HelpOutline → `showDisclaimerSheet = true` (вместо текущего `navController.navigateToAbout()`)
-  - if `showDisclaimerSheet` → render `AccuracyDisclaimerBottomSheet(onDismiss = { showDisclaimerSheet = false }, onShowFullDisclaimer = { showDisclaimerSheet = false; navController.navigateToAbout() })`
-- [ ] **➕ внеплановая подзадача:** проверить, не ломает ли это другие screenshots в `:app` (`TishinaNavHostTest`, `AdaptiveNavigationTest`, `NavigationRotationTest`) — если ломает (а скорее всего да, т. к. они проверяют присутствие иконки «?» на любом экране), обновить тесты под новый context-aware contract; либо добавить parameter `showDisclaimerIcon: Boolean = true` для backwards-compat в тестах
-- [ ] добавить локализационные строки в `feature/measure/src/main/res/values/` + `values-ru/`:
+- [x] **сначала тест:** `AccuracyDisclaimerBottomSheetScreenshotTest` (Roborazzi) — 2 baseline (`disclaimer_sheet_light/dark`); рендерит `ModalBottomSheet` контент напрямую как `Surface` (Robolectric ограничение с modal animations — same паттерн что в `MeasureSaveDialogContent` Phase 3)
+- [x] **сначала тест:** `AccuracyDisclaimerBottomSheetBehaviorTest` (createComposeRule):
+  - текст содержит ключевые фразы из спеки § 11 («не предназначено / not certified», «±3–5», «MEMS») — assertions через `ApplicationProvider.getApplicationContext().resources.getString(...)`
+  - кнопка «Подробнее» с testTag `AccuracyDisclaimerSheetMoreTestTag` и читаемым label
+  - click на «Подробнее» → callback `onShowFullDisclaimer()` вызывается ровно один раз
+  - **➕ архитектурное отклонение от плана:** dismiss-callback не тестируется отдельным юнитом — в Window-less `AccuracyDisclaimerSheetContent` нет визуального X/scrim, dismiss приходит только из реального `ModalBottomSheet.onDismissRequest` (handled at `TishinaApp.onDismissDisclaimer`). Wiring-тест `TishinaAppDisclaimerWiringTest.clicking_disclaimer_icon_does_not_navigate_away_from_Measure` подтверждает, что внешний state драйвится отдельно от `onShowFullDisclaimer`.
+- [x] **сначала тест:** `TishinaAppDisclaimerWiringTest` (createComposeRule):
+  - current destination = `Measure` → иконка «?» visible в TopBar (assert by testTag)
+  - current destination = `History` → иконка «?» НЕ visible (`assertDoesNotExist()` на `TishinaAboutActionTestTag`)
+  - click иконки на Measure → current destination ОСТАЁТСЯ Measure (sheet, not navigation)
+  - **➕ архитектурное отклонение от плана:** на Settings/Detail outer TopAppBar suppressed целиком (предсуществующее поведение Phase 1/3), поэтому иконка там физически не рендерится — отдельные тесты не добавляем, контракт уже зафиксирован в `TishinaNavHostTest.on About route top bar replaces about action with back action`. BottomSheet «Подробнее» → About не верифицируется UI-тестом из-за Robolectric ограничения по ModalBottomSheet sub-Window; вместо этого `AccuracyDisclaimerBottomSheetBehaviorTest.clicking_learn_more_invokes_callback` фиксирует callback-контракт, а `TishinaApp.onShowFullDisclaimer = { sheet=false; navController.navigateToAbout() }` ловится через `TishinaNavHostTest.back from About...` (теперь использует `navController.navigate(About)` напрямую — точно тот же путь, что и наш callback).
+- [x] создать `feature/measure/.../ui/AccuracyDisclaimerBottomSheet.kt`:
+  - `@OptIn(ExperimentalMaterial3Api::class) @Composable fun AccuracyDisclaimerBottomSheet(onDismiss, onShowFullDisclaimer)` — production-обёртка с `ModalBottomSheet`
+  - internal `AccuracyDisclaimerSheetContent` (Surface-обёртка) для Roborazzi + Compose UI tests
+  - shared private `AccuracyDisclaimerSheetBody` — title + body + «Learn more»-Row
+- [x] обновить `app/.../TishinaApp.kt`:
+  - state: `var showDisclaimerSheet by rememberSaveable { mutableStateOf(false) }` — rotation-safe
+  - `TishinaTopAppBar` теперь принимает `showDisclaimerAction: Boolean` + `onDisclaimerClick` вместо старого `onAboutClick`; иконка HelpOutline рендерится только если `showDisclaimerAction` (новый predicate `currentDestination.matchesMeasure()`)
+  - content description иконки — `R.string.measure_disclaimer_open_cd` (был `nav_open_about`)
+  - `AccuracyDisclaimerBottomSheet` рендерится поверх Scaffold/Rail когда state == true; «Подробнее» вызывает `showDisclaimerSheet = false; navController.navigateToAbout()`
+  - **➕ внеплановая подзадача:** при добавлении параметров в `TishinaTopAppBar` и нового overlay-блока `TishinaApp()` body превысил detekt LongMethod (89 > 80). Извлечён private `TishinaAppChrome` composable с Scaffold/Rail вариантами; `TishinaApp` теперь стейт-холдер + overlay, чтобы пройти detekt и сохранить читаемость.
+- [x] **➕ внеплановая подзадача:** обновлены существующие `:app` тесты под новый контракт — `TishinaNavHostTest.top bar about action navigates to About` переименован в `top bar disclaimer action on Measure does not navigate away` (новый контракт), `back from About returns to the originating non-start destination` использует `navController.navigate(About)` напрямую вместо клика по уже-несуществующей на History иконке, `on About route top bar replaces about action with back action` — аналогично. `AdaptiveNavigationTest` и `NavigationRotationTest` не затронуты (проверяют NavRail/NavBar, не TopBar actions).
+- [x] добавить локализационные строки в `feature/measure/src/main/res/values/` + `values-ru/`:
   - `measure_disclaimer_open_cd` ("Show accuracy disclaimer" / "Показать дисклеймер о точности")
-  - `measure_disclaimer_title` ("Accuracy" / "О точности")
-  - `measure_disclaimer_body` (короткий текст 3-4 предложения, см. § 11 спеки — выжимка)
+  - `measure_disclaimer_title` ("About measurement accuracy" / "О точности измерений")
+  - `measure_disclaimer_body` (короткий текст 3-4 предложения, выжимка из § 11; ключевые якоря для regression test: MEMS, ±3–5, IEC 61672 / certified)
   - `measure_disclaimer_more` ("Learn more" / "Подробнее")
-  - `measure_disclaimer_close_cd` ("Close" / "Закрыть")
-- [ ] реализовать components + wiring — все тесты зелёные; baseline записан
-- [ ] run `./gradlew :feature:measure:testDebugUnitTest :feature:measure:verifyRoborazziDebug :app:testDebugUnitTest :app:assembleDebug` — must pass before next task
+  - `measure_disclaimer_close_cd` ("Close accuracy disclaimer" / "Закрыть дисклеймер о точности")
+- [x] реализовать components + wiring — все тесты зелёные; baseline записан (2 новых PNG)
+- [x] run `./gradlew :feature:measure:testDebugUnitTest :feature:measure:verifyRoborazziDebug :app:testDebugUnitTest :app:assembleDebug :feature:measure:detektAll :feature:measure:lintDebug :app:detektAll :app:lintDebug` — BUILD SUCCESSFUL
 
 ### Task 6: AboutScreen — версия + GitHub + Privacy Policy + лицензии + полный дисклеймер
 
