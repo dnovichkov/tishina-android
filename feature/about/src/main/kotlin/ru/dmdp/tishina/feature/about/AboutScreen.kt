@@ -20,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -48,6 +48,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.dmdp.tishina.core.domain.model.AppVersion
 import ru.dmdp.tishina.core.domain.model.OssLicense
+import ru.dmdp.tishina.core.designsystem.R as DesignSystemR
 
 const val AboutScreenTestTag: String = "tishina_about_screen"
 const val AboutScreenLoadingTestTag: String = "tishina_about_screen_loading"
@@ -206,11 +207,17 @@ private fun AboutHeader(version: AppVersion) {
             color = MaterialTheme.colorScheme.primaryContainer,
         ) {
             Box(contentAlignment = Alignment.Center) {
+                // Real brand mark from :core:designsystem (Phase 6 Task 1). The drawable's
+                // own `android:tint="?attr/colorOnPrimaryContainer"` makes the stroke pick
+                // up the active theme's onPrimaryContainer, so light/dark themes look right
+                // without two separate vector files. The explicit Icon tint below is a
+                // belt-and-braces fallback for renderers that don't honour the XML tint
+                // attribute under Roborazzi.
                 Icon(
-                    imageVector = Icons.Filled.GraphicEq,
+                    painter = painterResource(id = DesignSystemR.drawable.ic_brand_logo),
                     contentDescription = stringResource(R.string.about_app_icon_cd),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(48.dp),
                 )
             }
         }

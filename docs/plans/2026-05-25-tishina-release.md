@@ -207,23 +207,23 @@ Task structure guidelines:
 
 ### Task 1: Реальная adaptive launcher icon + 512×512 PNG для каталогов
 
-- [ ] **сначала тест:** `AboutScreenIconScreenshotTest` (Roborazzi) — 2 baseline (`about_header_with_real_icon_light/dark`) — fail если иконка не отрисована корректно; baseline записывается **после** создания иконки в этой же task
-- [ ] **➕ возможная подзадача:** `LauncherIconRenderTest` — Compose preview wrapper рендерит foreground vector drawable через `painterResource(R.drawable.ic_launcher_foreground)` + background color; assertion на non-zero pixel coverage; помогает поймать regressions если кто-то случайно сломает vector path
-- [ ] создать `app/src/main/res/drawable/ic_launcher_foreground.xml`:
+- [x] **сначала тест:** `AboutScreenIconScreenshotTest` (Roborazzi) — 2 baseline (`about_header_with_real_icon_light/dark`) — fail если иконка не отрисована корректно; baseline записывается **после** создания иконки в этой же task
+- [x] **➕ возможная подзадача:** `LauncherIconRenderTest` — реализован как `BrandLogoScreenshotTest` в `:core:designsystem` (более логичное место — drawable живёт в designsystem). 2 baseline (`brand_logo_in_primary_container_light/dark`) проверяют рендер `ic_brand_logo` внутри tinted Surface — конструкция, которую AboutHeader использует один к одному.
+- [x] создать `app/src/main/res/drawable/ic_launcher_foreground.xml`:
   - `<vector android:viewportWidth="108" android:viewportHeight="108">` — Material 3 adaptive icon canvas
-  - Path: волнообразная синусоида слева, плавно вырождающаяся в плоскую линию справа; teal `#0FB5BA` stroke; metaphor «звук → тишина» (§ 17 спеки)
-  - Учесть safe zone 66dp в центре (Material 3 spec) — vector path не выходит за пределы
-- [ ] создать `app/src/main/res/values/ic_launcher_background.xml`:
-  - `<resources><color name="ic_launcher_background">#0E2433</color></resources>` — тёмно-синий нейтральный фон (§ 17 спеки)
-- [ ] обновить `app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` и `ic_launcher_round.xml`:
-  - `<adaptive-icon><background android:drawable="@color/ic_launcher_background"/><foreground android:drawable="@drawable/ic_launcher_foreground"/></adaptive-icon>`
-- [ ] **➕ внеплановая подзадача:** добавить legacy `mipmap-{ldpi,mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher.png` через Android Studio Asset Studio (или CLI `aapt2 compile`) для устройств < API 26 (не покрывается adaptive icon API)
-- [ ] создать `app/src/main/play-store-icon.png` — 512×512 PNG версия для каталогов (Play / RuStore / Samsung); НЕ включается в APK (только для метаданных store)
+  - Path: волнообразная синусоида слева (3 затухающих оскилляции, амплитуда 24 → 16.5 → 7.5), плавно вырождающаяся в плоскую линию справа; teal `#0FB5BA` stroke 5dp с round-caps; метафора «звук → тишина»
+  - Safe zone 66dp в центре соблюдена: путь x∈[24,84], y∈[28,78] (3dp запас на каждой стороне)
+- [x] создать `app/src/main/res/values/ic_launcher_background.xml`:
+  - Уже существует в `app/src/main/res/values/colors.xml` (`<color name="ic_launcher_background">#0E2433</color>`) — функционально идентично, отдельный файл не нужен
+- [x] обновить `app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` и `ic_launcher_round.xml`:
+  - Уже ссылаются на `@color/ic_launcher_background` + `@drawable/ic_launcher_foreground` + `<monochrome>` для Android 13+ themed icons; обновлений не потребовалось
+- [x] **➕ внеплановая подзадача:** добавить legacy `mipmap-{ldpi,mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher.png` для устройств < API 26 — сгенерированы через `docs/tools/render_launcher_icon.py` (Pillow-based renderer воспроизводит ту же геометрию что и vector drawable; скрипт коммитим для воспроизводимости)
+- [x] создать `app/src/main/play-store-icon.png` — 512×512 PNG версия для каталогов (Play / RuStore / Samsung); сгенерирован тем же скриптом, НЕ включается в APK (лежит в `src/main/` вне `res/`)
 - [ ] **➕ возможная подзадача:** добавить feature graphic 1024×500 PNG для Google Play в `app/src/main/store-metadata/google-play/feature-graphic.png` — будет создан/обновлён в Task 7
-- [ ] обновить `AboutScreen.kt` (если использует hardcoded resource) — теперь `R.drawable.ic_launcher_foreground` рендерит real иконку в header
-- [ ] verify через `:app:assembleDebug` + manual Android Studio preview Asset Studio
-- [ ] записать baseline `AboutScreenIconScreenshotTest` через `recordRoborazziDebug`
-- [ ] run `./gradlew :feature:about:verifyRoborazziDebug :app:assembleDebug :app:lintDebug` — must pass before next task
+- [x] обновить `AboutScreen.kt` — `Icons.Filled.GraphicEq` заменён на `painterResource(DesignSystemR.drawable.ic_brand_logo)` (отдельный brand-mark в `:core:designsystem` без safe-zone-ограничений, размер 48dp в 72dp Surface)
+- [x] verify через `:app:assembleDebug` + manual Android Studio preview Asset Studio — `:app:assembleDebug` зелёный, screenshot-baseline `BrandLogoScreenshotTest_*` подтверждает рендер
+- [x] записать baseline `AboutScreenIconScreenshotTest` через `recordRoborazziDebug`
+- [x] run `./gradlew :feature:about:verifyRoborazziDebug :app:assembleDebug :app:lintDebug` — must pass before next task
 
 ### Task 2: R8 + ProGuard rules + Resource shrinking (NFR-4: ≤ 6 МБ release APK)
 
