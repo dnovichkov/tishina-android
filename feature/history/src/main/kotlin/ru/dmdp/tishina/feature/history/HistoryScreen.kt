@@ -128,6 +128,17 @@ internal fun HistoryScreenContent(
     // visible — mirrors the `showDisclaimerSheet` pattern in `TishinaApp`.
     var showBulkConfirm by rememberSaveable { mutableStateOf(false) }
 
+    // Auto-dismiss the dialog if the underlying selection becomes empty or selection mode is
+    // exited from elsewhere (BulkUndoConfirmed, async error path, programmatic ExitSelectionMode).
+    // Without this guard the dialog could survive a state change and show a stale count, then
+    // confirming would either hit `scheduleBulkDelete`'s "empty selection" error branch or
+    // delete a different count than the dialog advertised.
+    LaunchedEffect(state.selectionMode, state.selectedIds.isEmpty()) {
+        if (!state.selectionMode || state.selectedIds.isEmpty()) {
+            showBulkConfirm = false
+        }
+    }
+
     Scaffold(
         modifier = modifier
             .fillMaxSize()
@@ -155,9 +166,11 @@ internal fun HistoryScreenContent(
         )
     }
 
-    if (showBulkConfirm) {
+    // Render guarded on a non-empty selection — combined with the LaunchedEffect above this
+    // makes the "Delete N" count truthful: we never display a stale or fallback "1" count.
+    if (showBulkConfirm && state.selectedIds.isNotEmpty()) {
         BulkDeleteConfirmDialog(
-            count = state.selectedIds.size.coerceAtLeast(1),
+            count = state.selectedIds.size,
             onConfirm = {
                 showBulkConfirm = false
                 onEvent(HistoryUiEvent.BulkDeleteRequested)

@@ -323,10 +323,22 @@ class HistoryViewModel @Inject constructor(
 
     private fun enterSelectionMode(initialId: Long?) {
         val seedId = initialId?.takeUnless { it in softDeletedIds.value }
-        internalSelection.value = InternalSelection(
-            mode = true,
-            ids = if (seedId != null) setOf(seedId) else emptySet(),
-        )
+        // Defense-in-depth: if a race delivers EnterSelectionMode while the user is already in
+        // selection mode (UI normally gates this — long-press is wired only when
+        // selectionMode == false), MERGE the seedId into the existing selection instead of
+        // replacing it. Clobber-semantics would silently discard every previously-toggled card,
+        // mirroring a data-loss UX bug. Matches the defense-in-depth posture of scheduleDelete,
+        // which strips ids from the active selection rather than failing loudly.
+        internalSelection.update { current ->
+            if (current.mode) {
+                if (seedId != null) current.copy(ids = current.ids + seedId) else current
+            } else {
+                InternalSelection(
+                    mode = true,
+                    ids = if (seedId != null) setOf(seedId) else emptySet(),
+                )
+            }
+        }
     }
 
     private fun toggleSelection(id: Long) {

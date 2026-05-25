@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -177,7 +178,10 @@ private fun AboutScreenBody(
         if (state.ossLicenses.isEmpty()) {
             item("licenses_empty") { LicensesEmptyState() }
         } else {
-            items(state.ossLicenses) { license ->
+            // Stable key on `name` so a curation-time reorder of oss_licenses.json doesn't
+            // recycle row slots (which would briefly render wrong content during recomposition)
+            // and so the testTag derived from the same `name` matches a stable LazyColumn slot.
+            items(state.ossLicenses, key = { it.name }) { license ->
                 LicenseRow(license = license, onClick = { onOpenUrl(license.url) })
             }
         }
@@ -306,7 +310,10 @@ private fun LinkRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            // Role.Button so TalkBack announces "<title>, button" rather than reading the row
+            // as a generic container — without it the OpenInNew icon (decorative,
+            // contentDescription=null) gives a11y no hint that the row is tappable.
+            .clickable(role = Role.Button, onClick = onClick)
             .testTag(testTag)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -377,7 +384,8 @@ private fun LicenseRow(license: OssLicense, onClick: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                // Role.Button so TalkBack reads each license card as an actionable button.
+                .clickable(role = Role.Button, onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
