@@ -62,6 +62,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: static-checks
     timeout-minutes: 40
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -112,12 +114,10 @@ jobs:
           retention-days: 14
 
       - name: Upload coverage to Codecov
-        if: ${{ secrets.CODECOV_TOKEN != '' }}
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        if: ${{ env.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ env.CODECOV_TOKEN }}
           files: build/reports/kover/reportDebug.xml
           fail_ci_if_error: false
 
