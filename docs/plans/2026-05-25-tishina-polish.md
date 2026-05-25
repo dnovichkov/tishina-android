@@ -168,23 +168,23 @@ Phase 5 закрывает оставшиеся MVP-фичи перед Phase Re
 
 ### Task 1: Domain — DeleteMeasurementsUseCase + MeasurementRepository.deleteAll
 
-- [ ] **сначала тест:** `DeleteMeasurementsUseCaseTest` (JUnit 5 + mockk<MeasurementRepository>) — 6+ кейсов:
+- [x] **сначала тест:** `DeleteMeasurementsUseCaseTest` (JUnit 5 + mockk<MeasurementRepository>) — 6+ кейсов:
   - happy path: `invoke(setOf(1L, 2L, 3L))` → `repository.deleteAll(setOf(1, 2, 3))` вызван → `Result.success(Unit)`
   - empty set → `Result.failure(IllegalArgumentException)` (контракт: empty bulk бессмыслен) + repository НЕ вызван
   - single-id set (1 элемент) → допустимо, не считается empty
   - идемпотентность: повторный вызов с тем же set → repository вызван дважды (use-case stateless)
   - repository throws → `Result.failure` оборачивает exception
   - 1000-id set (большой batch) → пробрасывается as-is (use-case не валидирует размер; SQLite limit `SQLITE_MAX_VARIABLE_NUMBER` обрабатывается Room автоматически чанками — это ответственность Data слоя)
-- [ ] **сначала тест:** `FakeMeasurementRepositoryBulkDeleteTest` (в :core:testing) — `seed(3 measurements)` → `deleteAll(setOf(id1, id3))` → `observeSummaries.first()` содержит только id2; `deleteAll(emptySet())` → no-op без exception
-- [ ] обновить `core/domain/.../repository/MeasurementRepository.kt`:
+- [x] **сначала тест:** `FakeMeasurementRepositoryBulkDeleteTest` (в :core:testing) — `seed(3 measurements)` → `deleteAll(setOf(id1, id3))` → `observeSummaries.first()` содержит только id2; `deleteAll(emptySet())` → no-op без exception
+- [x] обновить `core/domain/.../repository/MeasurementRepository.kt`:
   - добавить `suspend fun deleteAll(ids: Set<Long>)` — bulk-удаление, идемпотентно для несуществующих id
-- [ ] создать `core/domain/.../usecase/DeleteMeasurementsUseCase.kt`:
+- [x] создать `core/domain/.../usecase/DeleteMeasurementsUseCase.kt`:
   - `class DeleteMeasurementsUseCase(private val repository: MeasurementRepository)`
   - `suspend operator fun invoke(ids: Set<Long>): Result<Unit>` — валидация empty, проксирование
-- [ ] обновить `core/testing/.../fakes/FakeMeasurementRepository.kt`:
+- [x] обновить `core/testing/.../fakes/FakeMeasurementRepository.kt`:
   - `override suspend fun deleteAll(ids: Set<Long>)` — удаляет из in-memory map + эмитит новый список
-- [ ] реализовать use-case и интерфейс — все тесты позеленели
-- [ ] run `./gradlew :core:domain:test :core:testing:testDebugUnitTest` — must pass before next task
+- [x] реализовать use-case и интерфейс — все тесты позеленели
+- [x] run `./gradlew :core:domain:test :core:testing:testDebugUnitTest` — must pass before next task
 
 ### Task 2: Data — MeasurementDao.deleteByIds + RepositoryImpl.deleteAll
 

@@ -60,6 +60,11 @@ open class FakeMeasurementRepository : MeasurementRepository {
         store.update { it - id }
     }
 
+    override suspend fun deleteAll(ids: Set<Long>) {
+        if (ids.isEmpty()) return
+        store.update { snapshot -> snapshot - ids }
+    }
+
     override suspend fun updateNote(id: Long, note: String?) {
         store.update { snapshot ->
             val existing = snapshot[id] ?: return@update snapshot
