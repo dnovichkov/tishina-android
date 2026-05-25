@@ -29,15 +29,15 @@ const val SliderPreferenceResetTestTag: String = "tishina_slider_preference_rese
  * Calibration-style slider preference with a current-value label and an
  * optional reset button below.
  *
- * Drag UX: local state holds the in-flight thumb position so the user sees
- * smooth motion, and we only push the committed value upstream from
- * `onValueChangeFinished`. Without this debounce-by-design every DataStore
+ * Drag UX: local state holds the in-flight thumb position; the numeric label
+ * tracks the thumb in real time, and we only push the committed value upstream
+ * from `onValueChangeFinished`. Without this debounce-by-design every DataStore
  * write during a drag would trigger a re-emission, which Compose handles fine
  * but burns IO unnecessarily.
  *
  * @param valueContentDescription optional accessibility text builder driven by
- *   the *committed* value — required for FR / NFR-13 since the visible label
- *   alone reads as a number without context.
+ *   the *in-flight* slider value — required for FR / NFR-13 since the visible
+ *   label alone reads as a number without context.
  */
 @Composable
 fun SliderPreference(
@@ -72,7 +72,7 @@ fun SliderPreference(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = valueFormatter(value),
+                text = valueFormatter(localValue),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.testTag(SliderPreferenceValueTestTag),
@@ -89,7 +89,7 @@ fun SliderPreference(
                 .testTag(SliderPreferenceSliderTestTag)
                 .then(
                     if (valueContentDescription != null) {
-                        Modifier.semantics { contentDescription = valueContentDescription(value) }
+                        Modifier.semantics { contentDescription = valueContentDescription(localValue) }
                     } else {
                         Modifier
                     },

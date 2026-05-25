@@ -85,13 +85,14 @@
 - `MigrationTestHelper` в Robolectric не работает с Room 2.8 KMP-driver (известный bug — открывает БД по абсолютному пути и падает в `inMemoryDatabaseBuilder`-режиме). Schema v1 экспортируется и коммитится, helper будет активирован в androidTest на эмуляторе в Phase 4 при v1→v2.
 - `DetailScreen` Compose UI Test (TextField counter) недоступен под Robolectric из-за `AppNotIdleException` Material 3 AlertDialog + focus animations — покрытие через `DetailViewModelTest` (12 кейсов unit) + instrumentation в Phase Release.
 
-Следующий этап — **Phase 4: Settings + DataStore** (реальный `SettingsRepository` через DataStore Preferences, `SettingsScreen` UI для калибровки/A-C-Z/Fast-Slow/тем/языка, `CWeightingFilter` в `:core:audio`).
+Следующий этап — **Phase 5: Polish + About + Bulk-delete** (полноценный `AboutScreen` с дисклеймером, версией и OSS-лицензиями (FR-21 / FR-22); bulk-выбор/удаление в History (FR-12); поиск и фильтр по дате/тексту (FR-13); `CWeightingFilter` в `:core:audio` (FR-15); CSV-export через Storage Access Framework (FR-20); Share Intent + PNG-снимок графика).
 
 Подробные планы:
 
 - Phase 1: [docs/plans/completed/2026-05-19-tishina-foundation.md](docs/plans/completed/2026-05-19-tishina-foundation.md).
 - Phase 2: [docs/plans/completed/2026-05-19-tishina-audio-engine.md](docs/plans/completed/2026-05-19-tishina-audio-engine.md).
 - Phase 3: [docs/plans/completed/2026-05-20-tishina-history-persistence.md](docs/plans/completed/2026-05-20-tishina-history-persistence.md).
+- Phase 4: [docs/plans/completed/2026-05-20-tishina-settings.md](docs/plans/completed/2026-05-20-tishina-settings.md).
 - Полная спецификация продукта: [docs/specs/tishina-spec.md](docs/specs/tishina-spec.md).
 
 ## Сборка
@@ -132,8 +133,24 @@ HTML-отчёт о покрытии: `build/reports/kover/htmlDebug/index.html`.
 - Размер debug-APK ~28.2 МБ (Phase 3 baseline, +10.3 МБ к Phase 2 — Room runtime, KSP-generated DAO, extended Material icons). NFR-4 (≤ 6 МБ) применим к release-сборке после включения R8/resource shrinking — отложено до Phase Release.
 - При прогоне `clean` + Kover в одном invocation возможна гонка `kover-agent.args FileNotFoundException`. Workaround: разделить на два прогона — `./gradlew clean assembleDebug -x test`, затем `./gradlew testDebugUnitTest verifyRoborazziDebug koverXmlReportDebug`.
 - После `clean` Spotless может выдать stale config-cache. Workaround: удалить `.gradle/configuration-cache/` и повторить.
-- Robolectric 4.13 не поддерживает API 35; для unit-тестов SDK зафиксирован на 33 через `src/test/resources/robolectric.properties` в `:app`, `:core:designsystem`, `:core:ui`, `:core:audio`, `:core:data`, `:feature:measure`, `:feature:history`.
-- `MeasureScreen` использует `hiltViewModel()`, поэтому навигационные тесты в `:app` подменяют его на пустой stub через параметр `measureContent` у `TishinaApp`/`TishinaNavHost`, не нагружая Hilt-граф.
+- Robolectric 4.13 не поддерживает API 35; для unit-тестов SDK зафиксирован на 33 через `src/test/resources/robolectric.properties` в `:app`, `:core:designsystem`, `:core:ui`, `:core:audio`, `:core:data`, `:feature:measure`, `:feature:history`, `:feature:settings`.
+- `MeasureScreen` и `SettingsScreen` используют `hiltViewModel()`, поэтому навигационные тесты в `:app` подменяют их на пустые stub'ы через параметры `measureContent` / `settingsContent` у `TishinaApp`/`TishinaNavHost`, не нагружая Hilt-граф.
+- Phase 4 добавила DataStore Preferences (~250 КБ) и AppCompat 1.7.0 (~600 КБ + транзитивный `emoji2-views-helper` ~1.5 МБ); пересмотр debug-APK baseline отложен до Phase Release вместе с R8.
+- Пользовательские настройки хранятся в app-private DataStore-файле `tishina_settings.preferences_pb`. При повреждении файла применяется `ReplaceFileCorruptionHandler` → возврат к дефолтам. Очистка настроек: системные настройки → Тишина → Очистить данные.
+- `MainActivity` extends `ComponentActivity` (а не `AppCompatActivity`) — Compose-first. Для FR-18 на Android 12 и ниже Activity вручную оборачивает `attachBaseContext` персистентным локалем (`AppCompatDelegate.getApplicationLocales`) и сама вызывает `recreate()` после смены языка; на Android 13+ это делает системный `LocaleManager`.
+
+## Калибровка
+
+Микрофоны Android-устройств различаются между моделями на ±3–5 дБ. Для точных замеров рекомендуется откалибровать приложение под конкретное устройство:
+
+1. **Эталон.** Возьмите либо профессиональный шумомер (Class 2 IEC 61672), либо другое Android-устройство с известной корректной калибровкой.
+2. **Условия.** Стабильный шумовой источник (вентилятор, белый шум 60–70 дБ из соседней комнаты), оба прибора в одной точке на расстоянии ≤ 5 см друг от друга.
+3. **Сравнение.** Запустите замер на 30+ секунд, сравните Leq.
+4. **Коррекция.** Откройте Settings → Калибровка и подвиньте slider на разницу (если эталон показал 65 дБ, а Тишина — 62 дБ, выставьте +3.0 дБ).
+
+Калибровочный offset фиксируется на момент Start и сохраняется в каждой записи (`MeasurementEntity.calibrationOffsetDb`); изменение калибровки во время активного замера применится только к следующему Start. Сброс — кнопка «Сбросить калибровку» возвращает offset к 0.0 дБ.
+
+Автокалибровка по эталону тишины (30 дБ) и пресеты под популярные модели запланированы на v1.2.
 
 ## Контрибьюция
 

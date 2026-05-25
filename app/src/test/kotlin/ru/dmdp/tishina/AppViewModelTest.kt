@@ -9,7 +9,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
 import org.junit.Before
 import org.junit.Test
 import ru.dmdp.tishina.core.domain.model.AppLocale
@@ -102,18 +101,18 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `StateFlow initial value is always non-null AppearanceSettings`() = runTest {
+    fun `StateFlow value with UnconfinedTestDispatcher resolves to persisted appearance`() = runTest {
         // Regression guard: collectAsStateWithLifecycle reads `.value`
-        // synchronously on the first frame — if this ever throws or returns
-        // null we'd flash a half-rendered theme on cold start.
+        // synchronously on the first frame — under UnconfinedTestDispatcher
+        // the Eagerly-started upstream pulls its first emission before
+        // construction returns, so `.value` already reflects the persisted
+        // preference (no flash-of-default on cold start under this scheduler).
         val repository = FakeSettingsRepository(
-            initialAppearance = AppearanceSettings(themeMode = ThemeMode.Dark),
+            initialAppearance = AppearanceSettings(themeMode = ThemeMode.Dark, dynamicColors = false),
         )
         val viewModel = AppViewModel(ObserveAppSettingsUseCase(repository))
         val initial = viewModel.appearance.value
-        // The configured initialValue is `AppearanceSettings()` — the eager
-        // upstream may or may not have replaced it yet depending on dispatcher
-        // ordering, but in both cases we must have a non-null value.
-        assertNotEquals(null, initial)
+        assertEquals(ThemeMode.Dark, initial.themeMode)
+        assertEquals(false, initial.dynamicColors)
     }
 }

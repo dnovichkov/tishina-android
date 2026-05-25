@@ -39,11 +39,11 @@ import ru.dmdp.tishina.core.domain.model.AppLocale
 @Config(sdk = [Build.VERSION_CODES.S_V2])
 class LocaleSwitcherTest {
 
-    private val savedLocales: LocaleListCompat = AppCompatDelegate.getApplicationLocales()
-
     @After
     fun tearDown() {
-        AppCompatDelegate.setApplicationLocales(savedLocales)
+        // Unconditionally clear so a failure mid-test cannot leak ru/en into
+        // sibling test files that share the JVM-static AppCompatDelegate state.
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
     }
 
     @Test
@@ -92,7 +92,7 @@ class LocaleSwitcherTest {
     fun `toLocaleListCompat round-trips every enum value`() {
         // Direct check of the pure mapping function — protects against future enum
         // additions slipping in without a corresponding `when` branch.
-        AppLocale.values().forEach { locale ->
+        AppLocale.entries.forEach { locale ->
             val list = LocaleSwitcher.toLocaleListCompat(locale)
             val expectedTag = locale.tag
             assertEquals(

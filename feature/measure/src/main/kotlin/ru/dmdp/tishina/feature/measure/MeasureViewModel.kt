@@ -9,14 +9,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.dmdp.tishina.core.domain.model.MeasurementConfig
@@ -42,11 +41,15 @@ import javax.inject.Inject
  * session resumes as [MeasurementPhase.Paused] rather than auto-rearming the
  * microphone after a system kill.
  *
- * Phase 4 wires [SettingsRepository] in: `currentConfig` mirrors the DataStore
- * config flow as a hot [StateFlow]. The value is sampled **once per Start** and
- * carried as an immutable seed for the rest of the session. A calibration tweak
- * the user makes while a session is running therefore takes effect at the next
- * Start — never mid-session. Hot-reload (rebuilding the DSP filters and Leq
+ * Phase 4 wires [SettingsRepository] in: the DataStore-backed config flow is
+ * sampled **once per fresh Start** via `config.first()` inside the collect
+ * coroutine and carried as an immutable seed for the rest of the session.
+ * Awaiting `first()` (instead of reading a hot `stateIn` mirror's `.value`)
+ * eliminates the cold-start race where a Start fired immediately after VM
+ * construction would capture the synthetic `MeasurementConfig()` default
+ * before DataStore's first IO read completes. A calibration tweak the user
+ * makes while a session is running therefore takes effect at the next Start
+ * — never mid-session. Hot-reload (rebuilding the DSP filters and Leq
  * accumulator without losing the running aggregate) is deferred to v1.2.
  */
 @HiltViewModel
@@ -55,7 +58,7 @@ class MeasureViewModel @Inject constructor(
     private val startMeasurement: StartMeasurementUseCase,
     private val resetMeasurement: ResetMeasurementUseCase,
     private val saveMeasurement: SaveMeasurementUseCase,
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(restoreInitialState())
@@ -75,21 +78,12 @@ class MeasureViewModel @Inject constructor(
     private var collectJob: Job? = null
 
     /**
-     * Hot mirror of [SettingsRepository.config]. `Eagerly` started so the very
-     * first Start (which can fire before any subscriber on `state`/`effects`)
-     * already has a real DataStore-backed value instead of the synthetic
-     * `MeasurementConfig()` initial. The `initialValue` is only observable for
-     * a single coroutine tick before DataStore's first emission lands.
-     */
-    private val currentConfig: StateFlow<MeasurementConfig> = settingsRepository.config
-        .stateIn(viewModelScope, SharingStarted.Eagerly, MeasurementConfig())
-
-    /**
-     * Snapshot of [currentConfig] taken at the moment the active session began.
-     * Held for the lifetime of the session so a mid-session settings change
-     * cannot retroactively change the data the Save flow persists — historical
-     * rows must reflect the calibration that was active when the user recorded
-     * them. Reset / a brand new Start re-samples [currentConfig].
+     * Snapshot of [SettingsRepository.config] taken at the moment the active
+     * session began. Held for the lifetime of the session so a mid-session
+     * settings change cannot retroactively change the data the Save flow
+     * persists — historical rows must reflect the calibration that was active
+     * when the user recorded them. Reset / a brand new Start re-samples the
+     * repository via [kotlinx.coroutines.flow.first] inside [startCollecting].
      */
     private var activeSessionConfig: MeasurementConfig = MeasurementConfig()
 
@@ -287,15 +281,18 @@ class MeasureViewModel @Inject constructor(
                 recent = current.recent,
             )
         }
-        // Snapshot the config only when a brand-new session begins. Resume after Pause keeps the
-        // original `activeSessionConfig` so a mid-session settings change cannot reframe the
-        // already-recorded buffer (Save reads the same field) — matches the "config = immutable
-        // session seed" semantics carried by SessionSeed itself.
-        if (isFreshSession) {
-            activeSessionConfig = currentConfig.value
-        }
         _state.update { it.copy(phase = MeasurementPhase.Running) }
         collectJob = viewModelScope.launch {
+            // Snapshot the config only when a brand-new session begins. `.first()` awaits
+            // the real DataStore emission so a Start fired in the small window between
+            // VM construction and the first IO read still captures the persisted
+            // calibration, not the synthetic default. Resume after Pause keeps the
+            // original `activeSessionConfig` so a mid-session settings change cannot
+            // reframe the already-recorded buffer (Save reads the same field) — matches
+            // the "config = immutable session seed" semantics carried by SessionSeed.
+            if (isFreshSession) {
+                activeSessionConfig = settingsRepository.config.first()
+            }
             startMeasurement(activeSessionConfig, seed)
                 .onEach { snapshot ->
                     // A SharedFlow-backed upstream may still flush a buffered item between

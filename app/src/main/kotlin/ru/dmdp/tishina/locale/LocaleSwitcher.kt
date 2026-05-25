@@ -11,18 +11,21 @@ import ru.dmdp.tishina.core.domain.model.AppLocale
  *
  * Kept as a `object` (no Hilt) because:
  *  - it is platform-only glue (AndroidX AppCompat + LocaleListCompat),
- *  - `MainActivity` calls it as a method reference (`LocaleSwitcher::apply`)
- *    in response to `SettingsUiEffect.ApplyAppLocale`,
+ *  - `MainActivity` calls it as a method reference in response to
+ *    `SettingsUiEffect.ApplyAppLocale`,
  *  - the per-app locale store lives on `AppCompatDelegate`, which is itself
  *    process-singleton — there is no per-component state worth scoping.
  *
- * Calling [apply] triggers `Activity.recreate()` automatically on Android 12-,
- * and on Android 13+ the system reads the value from `LocaleManager` so the
- * change survives process death without a manual re-apply on next launch.
+ * On Android 13+ the platform `LocaleManager` reads the persisted list and
+ * recreates the activity transparently — no extra work needed. On Android 12
+ * and below `AppCompatDelegate` only auto-recreates activities tracked in its
+ * own delegate list (i.e. subclasses of `AppCompatActivity`); because we
+ * extend `ComponentActivity`, `MainActivity` owns the recreate side-effect
+ * itself (see `MainActivity.applyLocale`).
  *
  * Idempotency: re-applying the same locale is a no-op inside AppCompat — the
- * delegate compares the new list to the existing one before triggering any
- * recreate. Tests assert this in `LocaleSwitcherTest`.
+ * delegate compares the new list to the existing one before mutating state.
+ * Tests assert this in `LocaleSwitcherTest`.
  */
 object LocaleSwitcher {
 

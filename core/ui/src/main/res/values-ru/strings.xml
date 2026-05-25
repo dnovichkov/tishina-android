@@ -7,11 +7,9 @@
 
     <string name="measure_placeholder">В разработке</string>
     <string name="history_placeholder">В разработке</string>
-    <string name="settings_placeholder">В разработке</string>
     <string name="about_placeholder">В разработке</string>
 
     <string name="nav_open_about">Открыть «О приложении»</string>
-    <string name="nav_open_settings">Открыть настройки</string>
     <string name="nav_back">Назад</string>
 
     <string name="spl_stats_min">Мин</string>

@@ -7,11 +7,9 @@
 
     <string name="measure_placeholder">Coming soon</string>
     <string name="history_placeholder">Coming soon</string>
-    <string name="settings_placeholder">Coming soon</string>
     <string name="about_placeholder">Coming soon</string>
 
     <string name="nav_open_about">Open about</string>
-    <string name="nav_open_settings">Open settings</string>
     <string name="nav_back">Back</string>
 
     <!-- Min / Avg / Max strip rendered by SplStatsRow. Shared between Measure and Detail. -->

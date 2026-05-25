@@ -51,11 +51,11 @@ class MainActivityLocaleEffectTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
-    private val savedLocales: LocaleListCompat = AppCompatDelegate.getApplicationLocales()
-
     @After
     fun tearDown() {
-        AppCompatDelegate.setApplicationLocales(savedLocales)
+        // Unconditionally clear so a failure mid-test cannot leak ru/en into
+        // sibling test files that share the JVM-static AppCompatDelegate state.
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
     }
 
     @Test
