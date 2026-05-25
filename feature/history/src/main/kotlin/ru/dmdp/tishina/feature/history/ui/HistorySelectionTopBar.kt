@@ -1,6 +1,7 @@
 package ru.dmdp.tishina.feature.history.ui
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.SelectAll
@@ -17,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.material.icons.filled.Close
 import ru.dmdp.tishina.feature.history.R
 
 const val HistorySelectionTopBarTestTag: String = "history_selection_top_bar"

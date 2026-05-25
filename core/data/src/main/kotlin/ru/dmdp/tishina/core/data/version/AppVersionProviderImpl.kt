@@ -24,9 +24,7 @@ import javax.inject.Singleton
  * over 2 billion). On API < 28 we fall back to the deprecated field directly.
  */
 @Singleton
-class AppVersionProviderImpl @Inject constructor(
-    @ApplicationContext private val context: Context,
-) : AppVersionProvider {
+class AppVersionProviderImpl @Inject constructor(@ApplicationContext private val context: Context) : AppVersionProvider {
 
     override fun get(): AppVersion {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)

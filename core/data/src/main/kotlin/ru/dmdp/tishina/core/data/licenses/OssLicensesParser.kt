@@ -32,12 +32,7 @@ object OssLicensesParser {
     }.getOrDefault(emptyList())
 
     @Serializable
-    private data class Dto(
-        val name: String,
-        val version: String,
-        val license: String,
-        val url: String,
-    ) {
+    private data class Dto(val name: String, val version: String, val license: String, val url: String) {
         fun toDomain(): OssLicense = OssLicense(name, version, license, url)
     }
 }

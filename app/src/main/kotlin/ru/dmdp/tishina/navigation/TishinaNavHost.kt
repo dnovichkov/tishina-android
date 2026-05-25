@@ -53,6 +53,9 @@ fun TishinaNavHost(
             onApplyLocale = applyLocale,
         )
     },
+    aboutContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
+        AboutScreen(onNavigateBack = onNavigateBack)
+    },
 ) {
     NavHost(
         navController = navController,
@@ -80,7 +83,7 @@ fun TishinaNavHost(
             settingsContent(onApplyLocale)
         }
         composable<TishinaDestination.About> {
-            AboutScreen(onNavigateBack = { navController.popBackStack() })
+            aboutContent { navController.popBackStack() }
         }
     }
 }

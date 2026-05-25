@@ -21,9 +21,7 @@ import javax.inject.Singleton
  * a Gradle-generated one where transient errors are realistic.
  */
 @Singleton
-class OssLicensesProviderImpl @Inject constructor(
-    @ApplicationContext private val context: Context,
-) : OssLicensesProvider {
+class OssLicensesProviderImpl @Inject constructor(@ApplicationContext private val context: Context) : OssLicensesProvider {
 
     override fun load(): List<OssLicense> = runCatching {
         context.assets.open(ASSET_NAME).bufferedReader().use { reader ->

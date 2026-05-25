@@ -22,6 +22,7 @@ import org.robolectric.annotation.Config
 import ru.dmdp.tishina.core.designsystem.theme.TishinaTheme
 import ru.dmdp.tishina.navigation.TishinaDestination
 import ru.dmdp.tishina.navigation.TopLevelDestination
+import ru.dmdp.tishina.testutils.AboutScreenTestStub
 import ru.dmdp.tishina.testutils.HistoryEmptyCtaStubTestTag
 import ru.dmdp.tishina.testutils.HistoryScreenTestStub
 import ru.dmdp.tishina.testutils.MeasureContentStubTestTag
@@ -154,6 +155,7 @@ class TishinaNavHostTest {
                     navController = navController,
                     measureContent = { MeasureScreenTestStub() },
                     historyContent = { _, _ -> HistoryScreenTestStub() },
+                    aboutContent = { onNavigateBack -> AboutScreenTestStub(onNavigateBack) },
                 )
             }
         }
@@ -261,6 +263,7 @@ class TishinaNavHostTest {
                     navController = navController,
                     measureContent = { MeasureScreenTestStub() },
                     historyContent = { _, _ -> HistoryScreenTestStub() },
+                    aboutContent = { onNavigateBack -> AboutScreenTestStub(onNavigateBack) },
                 )
             }
         }

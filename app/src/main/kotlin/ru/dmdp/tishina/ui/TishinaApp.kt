@@ -41,7 +41,6 @@ import androidx.navigation.compose.rememberNavController
 import ru.dmdp.tishina.core.domain.model.AppLocale
 import ru.dmdp.tishina.feature.history.detail.DetailRoute
 import ru.dmdp.tishina.feature.measure.MeasureScreen
-import ru.dmdp.tishina.feature.measure.R as MeasureR
 import ru.dmdp.tishina.feature.measure.ui.AccuracyDisclaimerBottomSheet
 import ru.dmdp.tishina.feature.settings.SettingsScreen
 import ru.dmdp.tishina.navigation.AboutIcon
@@ -51,6 +50,7 @@ import ru.dmdp.tishina.navigation.TishinaNavHost
 import ru.dmdp.tishina.navigation.TopLevelDestination
 import ru.dmdp.tishina.navigation.navigateToTopLevel
 import ru.dmdp.tishina.core.ui.R as CoreUiR
+import ru.dmdp.tishina.feature.measure.R as MeasureR
 
 const val TishinaAppRootTestTag: String = "tishina_app_root"
 const val TishinaNavigationBarTestTag: String = "tishina_navigation_bar"
@@ -103,6 +103,13 @@ fun TishinaApp(
             onApplyLocale = applyLocale,
         )
     },
+    // Same stub-slot pattern as the other content slots — production callers omit it to get
+    // the real `AboutScreen` (which itself wires `AboutViewModel` via `hiltViewModel()`).
+    // Navigation tests inject `AboutScreenTestStub` instead so they don't crash trying to
+    // resolve a Hilt entry-point that isn't installed in their test Application.
+    aboutContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
+        ru.dmdp.tishina.feature.about.AboutScreen(onNavigateBack = onNavigateBack)
+    },
 ) {
     val useNavigationRail = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -138,6 +145,7 @@ fun TishinaApp(
             historyContent = historyContent,
             detailContent = detailContent,
             settingsContent = settingsContent,
+            aboutContent = aboutContent,
         )
     }
 
