@@ -19,6 +19,11 @@ android {
                 arguments["room.schemaLocation"] = "$projectDir/schemas"
             }
         }
+        // Phase 6 Task 2 — keep rules for Room entities/DAOs and the
+        // `OssLicensesParser$Dto` are bundled into the AAR so any consumer
+        // (currently `:app`) automatically inherits them when R8 runs in
+        // release mode (`-Pandroid.enableR8.fullMode` is the AGP 8 default).
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     sourceSets {

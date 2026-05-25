@@ -227,30 +227,30 @@ Task structure guidelines:
 
 ### Task 2: R8 + ProGuard rules + Resource shrinking (NFR-4: ≤ 6 МБ release APK)
 
-- [ ] **сначала проверка baseline:** `./gradlew :app:assembleDebug && ls -la app/build/outputs/apk/debug/*.apk` — зафиксировать current size (~19-20 МБ) как стартовая точка
-- [ ] создать `app/proguard-rules.pro`:
-  - Hilt keep rules: `-keep class * extends dagger.hilt.android.internal.managers.* { *; }` + `-keep class * extends androidx.hilt.* { *; }`
-  - Compose runtime: `-keep class androidx.compose.runtime.** { *; }` (для reflection в runtime composer)
-  - Kotlin metadata: `-keepattributes *Annotation*, InnerClasses, EnclosingMethod, Signature`
-  - kotlinx.serialization: следовать official keep rules https://github.com/Kotlin/kotlinx.serialization#android (serializer companion objects, polymorphic registration)
-  - Room: `-keep class * extends androidx.room.RoomDatabase` + `-keep @androidx.room.* class *`
-  - DataStore: уже covered Compose runtime keep rules
-  - reflection-driven domain models: `-keep class ru.dmdp.tishina.core.domain.model.** { *; }` — защита для kotlinx-serialization OSS-licenses parsing
-- [ ] **➕ возможная подзадача:** добавить consumer-proguard-rules.pro в `:core:data/build.gradle.kts` и `:core:domain/build.gradle.kts`, чтобы dependent-modules (`:app`) автоматически подтягивали правила (DRY)
-- [ ] обновить `app/build.gradle.kts:25-28`:
-  - `release { isMinifyEnabled = true; isShrinkResources = true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro") }`
-  - добавить `signingConfig = signingConfigs.getByName("debug")` пока что (Task 6 заменит на release signing) — нужно чтобы `assembleRelease` собирал артефакт для тестирования R8 размеров
-- [ ] **сначала тест:** `R8ReleaseBuildSmokeTest` (`@RunWith(RobolectricTestRunner)`) — невозможен (R8 работает только на реальной сборке); вместо него — обновление CI ci.yml для добавления `:app:assembleRelease` job (Task 6 это сделает). В Phase 6 Task 2 проверяем локально через `bundleRelease`
-- [ ] запустить `./gradlew :app:assembleRelease bundleRelease` локально:
-  - проверить успешную сборку
-  - замерить `ls -la app/build/outputs/apk/release/*.apk` — целевой < 6 МБ
-  - замерить `ls -la app/build/outputs/bundle/release/*.aab` — целевой < 8 МБ
-- [ ] **➕ возможная подзадача:** запустить `apkanalyzer` (через `:app:analyzeReleaseBundle` AGP 8.3+ или CLI) на release APK; идентифицировать top-10 heaviest dependencies; если NFR-4 не достигается — добавить targeted keep-rules + tree-shaking exclude для Hilt-generated classes
-- [ ] **➕ возможная подзадача:** проверить через `bundletool build-apks --bundle=app.aab --output=app.apks` финальный install-size для каждой density-bucket (mdpi/hdpi/xhdpi/xxhdpi); split APK install size может быть меньше universal APK
-- [ ] **сначала тест:** обновить `AboutScreenComposeUiTest` (Phase 5) — assertion на `Build.IS_DEBUG_BUILD ? "debug" : ...` версию-suffix (mentions release build verifier)
-- [ ] **возможная подзадача:** добавить ProGuard mapping.txt upload как CI artifact (`ci.yml` job `build`) — для деобфускации крашей даже до Play Console upload
-- [ ] verify все 13 модулей собираются с R8: `./gradlew clean assembleRelease bundleRelease testReleaseUnitTest verifyRoborazziRelease` (если configured) — must pass before next task
-- [ ] update README.md с финальным release APK size
+- [x] **сначала проверка baseline:** debug APK baseline зафиксирован = 22 671 614 байт ≈ 22.7 МБ (`app/build/outputs/apk/debug/app-debug.apk`). Используется как стартовая точка для сравнения с release-сборкой
+- [x] создать `app/proguard-rules.pro`:
+  - Hilt keep rules: `-keep class dagger.hilt.android.internal.managers.* { *; }` + `dagger.hilt.internal.**` + ViewComponentManager$FragmentContextWrapper + HiltViewModel-аннотированные классы
+  - Compose runtime: `-keepclassmembers class androidx.compose.runtime.** { *; }` (для reflection в runtime composer)
+  - Kotlin metadata: `-keepattributes *Annotation*, InnerClasses, EnclosingMethod, Signature` + `SourceFile, LineNumberTable` + `-renamesourcefileattribute SourceFile`
+  - kotlinx.serialization: official keep rules — `@Serializable` $Companion + `$serializer` через `-if`/`-keepclassmembers` шаблон; явное keep для Navigation 2.9 `TishinaDestination` (data objects) + `DetailRoute` (data class)
+  - Room: `-keep class * extends androidx.room.RoomDatabase` + `-keep @androidx.room.Entity`/`@Dao class * { *; }`
+  - DataStore: покрыт Compose runtime keep rules
+  - reflection-driven domain models: `-keep class ru.dmdp.tishina.core.domain.model.** { *; }`
+  - Lifecycle ViewModel constructor lookup; silenced non-actionable warnings (`StringConcatFactory`, `org.jetbrains.annotations`)
+- [x] **➕ возможная подзадача:** добавить `consumer-rules.pro` в `:core:data` (`consumerProguardFiles("consumer-rules.pro")` в `defaultConfig`) с keep-правилами для Room entity/DAO/database классов и `OssLicensesParser$Dto` сериализатора. `:core:domain` — pure-Kotlin library (без `com.android.library`), consumer-rules там не применимы; правила для domain.model.** живут в `app/proguard-rules.pro`
+- [x] обновить `app/build.gradle.kts:25-28` — `isMinifyEnabled = true`, `isShrinkResources = true`, `proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")`, `signingConfig = signingConfigs.getByName("debug")` (Task 6 заменит на release signing)
+- [x] **сначала тест:** R8 невозможно протестировать через Robolectric (R8 работает только на реальной сборке). Smoke-тест R8-сборки реализован как новый CI job `release-build` в `.github/workflows/ci.yml` (выполняет `assembleRelease`+`bundleRelease` на каждом PR — catches keep-rule regressions до merge)
+- [x] запустить `./gradlew :app:assembleRelease bundleRelease` локально:
+  - сборка успешна (BUILD SUCCESSFUL за 4m 13s холодная + 19s для bundleRelease на горячем кэше)
+  - release APK = 2 389 181 байт ≈ **2.39 МБ** (NFR-4 ≤ 6 МБ ✅ с запасом 60%)
+  - release AAB = 5 362 630 байт ≈ **5.36 МБ** (NFR-4 ≤ 8 МБ ✅ с запасом 33%)
+  - сжатие debug → release = 89.5% (22.7 → 2.4 МБ)
+- [x] **➕ возможная подзадача:** apkanalyzer/analyzeReleaseBundle — NFR-4 достигнут с большим запасом, дополнительный teardown top-10 dependencies не нужен. Если в будущем добавим библиотеку с большим weight (~1.5 МБ+), будем профилировать тогда. R8 mapping.txt + usage.txt + seeds.txt доступны в `app/build/outputs/mapping/release/` для ручного анализа при необходимости
+- [x] **➕ возможная подзадача:** bundletool split-APK install size — пропускаем (universal APK уже 2.4 МБ; split-density APKs гарантированно меньше; ценность анализа для каждого density-bucket появится при превышении NFR-4)
+- [x] **сначала тест:** обновление `AboutScreenComposeUiTest` под debug/release suffix — N/A (skipped — not actionable): в текущей кодовой базе `AppVersion(versionName, versionCode)` приходит из `BuildConfig.VERSION_NAME` без debug/release suffix. Свойство `Build.IS_DEBUG_BUILD` или `BuildConfig.DEBUG` нигде не используется в композаблах AboutScreen — assertion был бы no-op. При появлении `versionNameSuffix = ".debug"` (Task 6 для signing config) тест обновится отдельно
+- [x] **возможная подзадача:** mapping.txt upload как CI artifact — реализовано в новом job `release-build` (`.github/workflows/ci.yml`), артефакт `release-mapping` сохраняется на 90 дней (длиннее обычных 14 — нужен для деобфускации крашей даже спустя месяцы)
+- [x] verify все 13 модулей собираются с R8: `./gradlew :app:assembleRelease :app:bundleRelease` + `:app:testDebugUnitTest :core:data:testDebugUnitTest :feature:about:testDebugUnitTest :feature:about:verifyRoborazziDebug :core:designsystem:verifyRoborazziDebug :app:lintRelease detektAll spotlessCheck :app:lintDebug` — всё зелёное. `testReleaseUnitTest` SKIPPED для всех модулей (testing convention plugin привязывает unit-тесты к debug variant — release-классы те же после R8, но JVM-тесты исполняются на debug bytecode по дизайну)
+- [x] update README.md с финальным release APK size: добавлен раздел про `assembleRelease`/`bundleRelease`, известное ограничение про debug APK ~28.2 МБ Phase 3 baseline обновлено на Phase 6 baseline 22.7 МБ → 2.4 МБ release
 
 ### Task 3: FR-20 — CSV экспорт через Storage Access Framework
 

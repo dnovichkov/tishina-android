@@ -23,8 +23,21 @@ android {
             isMinifyEnabled = false
         }
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // Phase 6 Task 2 — R8 in full mode (AGP 8 default) plus resource
+            // shrinking target NFR-4 (<= 6 MB release APK, <= 8 MB AAB).
+            // Keep rules live in `proguard-rules.pro` plus per-module
+            // `consumer-rules.pro` files bundled into AARs.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            // Phase 6 Task 6 will replace this with the real upload-key signing
+            // config wired through GitHub Secrets. The debug key here lets us
+            // run `assembleRelease`/`bundleRelease` locally to validate R8
+            // output without provisioning a keystore on every dev machine.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 }

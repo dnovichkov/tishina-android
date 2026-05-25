@@ -143,6 +143,17 @@
 
 Собранный APK будет в `app/build/outputs/apk/debug/`.
 
+Release-сборка (R8 + resource shrinking, подписан bundled debug-ключом до подключения upload-keystore в Phase Release Task 6):
+
+```bash
+./gradlew :app:assembleRelease :app:bundleRelease
+```
+
+Результаты:
+- APK: `app/build/outputs/apk/release/app-release.apk` — ~2.4 МБ (NFR-4 цель ≤ 6 МБ ✅).
+- AAB: `app/build/outputs/bundle/release/app-release.aab` — ~5.4 МБ (NFR-4 цель ≤ 8 МБ ✅).
+- `mapping.txt`: `app/build/outputs/mapping/release/mapping.txt` — обязателен для деобфускации crash-стектрейсов в Play Vitals; CI публикует как `release-mapping` артефакт.
+
 ## Тестирование
 
 ```bash
@@ -168,7 +179,7 @@ HTML-отчёт о покрытии: `build/reports/kover/htmlDebug/index.html`.
 
 ## Известные особенности
 
-- Размер debug-APK ~28.2 МБ (Phase 3 baseline, +10.3 МБ к Phase 2 — Room runtime, KSP-generated DAO, extended Material icons). NFR-4 (≤ 6 МБ) применим к release-сборке после включения R8/resource shrinking — отложено до Phase Release.
+- Размер debug-APK ~22.7 МБ (Phase 6 baseline после AppCompat 1.7.0 + DataStore + AppCompat emoji2 + Material icons extended + Phase 5 about). После включения R8 + resource shrinking в Phase 6 Task 2 release APK уменьшается до ~2.4 МБ (NFR-4 ≤ 6 МБ ✅), release AAB — до ~5.4 МБ (NFR-4 ≤ 8 МБ ✅). Сжатие ~89.5%: R8 в full-mode удаляет неиспользуемый Material icons extended (тянет тысячи vector-drawable, а используется десяток), `androidx.compose.material3.windowsizeclass` API-helpers, hilt-навигационные factory'и, неиспользуемые ресурсы.
 - При прогоне `clean` + Kover в одном invocation возможна гонка `kover-agent.args FileNotFoundException`. Workaround: разделить на два прогона — `./gradlew clean assembleDebug -x test`, затем `./gradlew testDebugUnitTest verifyRoborazziDebug koverXmlReportDebug`.
 - После `clean` Spotless может выдать stale config-cache. Workaround: удалить `.gradle/configuration-cache/` и повторить.
 - Robolectric 4.13 не поддерживает API 35; для unit-тестов SDK зафиксирован на 33 через `src/test/resources/robolectric.properties` в `:app`, `:core:designsystem`, `:core:ui`, `:core:audio`, `:core:data`, `:feature:measure`, `:feature:history`, `:feature:settings`, `:feature:about`.
