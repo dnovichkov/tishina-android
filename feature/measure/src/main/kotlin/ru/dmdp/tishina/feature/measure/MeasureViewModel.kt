@@ -291,16 +291,29 @@ class MeasureViewModel @Inject constructor(
             // reframe the already-recorded buffer (Save reads the same field) — matches
             // the "config = immutable session seed" semantics carried by SessionSeed.
             //
-            // `runCatching` shields the launch from a thrown IOException emerging upstream
-            // of `startMeasurement`'s `.catch`. Without it, a DataStore IO failure (disk
-            // full / corruption-handler bypassed / transient FS error) would propagate to
-            // viewModelScope's UncaughtExceptionHandler after phase was already set to
-            // Running on line 284 — the UI would freeze on "Running, 0.0 dB" with no
-            // snackbar and no engine to recover from. Default-config fallback keeps the
-            // measurement workable; the user can re-trigger Start later to retry the read.
+            // try/catch (with explicit CancellationException rethrow) instead of
+            // `runCatching`: a Pause that lands while `.first()` is still awaiting DataStore
+            // would have its CancellationException swallowed by runCatching, returning the
+            // default config and forging on into `.collect()` — structured concurrency would
+            // self-heal at the next suspension point, but the brief window leaves
+            // `activeSessionConfig` in an unintended default state. Rethrowing CE matches the
+            // discipline used elsewhere in this VM (see the `.catch` on the snapshot flow).
+            //
+            // The non-CE catch still shields the launch from a thrown IOException emerging
+            // upstream of `startMeasurement`'s `.catch`. Without it, a DataStore IO failure
+            // (disk full / corruption-handler bypassed / transient FS error) would propagate
+            // to viewModelScope's UncaughtExceptionHandler after phase was already set to
+            // Running on line 284 — the UI would freeze on "Running, 0.0 dB" with no snackbar
+            // and no engine to recover from. Default-config fallback keeps the measurement
+            // workable; the user can re-trigger Start later to retry the read.
             if (isFreshSession) {
-                activeSessionConfig = runCatching { settingsRepository.config.first() }
-                    .getOrDefault(MeasurementConfig())
+                activeSessionConfig = try {
+                    settingsRepository.config.first()
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (_: Throwable) {
+                    MeasurementConfig()
+                }
             }
             startMeasurement(activeSessionConfig, seed)
                 .onEach { snapshot ->

@@ -41,7 +41,13 @@ class UpdateCalibrationUseCase(private val repository: SettingsRepository) {
                 ),
             )
         }
-        val rounded = (db / CALIBRATION_STEP_DB).roundToInt() * CALIBRATION_STEP_DB
+        // Re-clamp after rounding: `0.1f` is not exactly representable, so multiplying back
+        // can produce a value fractionally outside [-20, +20] for inputs sitting exactly on
+        // the boundary (e.g. 20.0f → 20.000002f). Without this clamp the persisted value
+        // would drift outside the advertised range, and any downstream validator that re-reads
+        // the stored value would incorrectly reject it.
+        val rounded = ((db / CALIBRATION_STEP_DB).roundToInt() * CALIBRATION_STEP_DB)
+            .coerceIn(CALIBRATION_MIN_DB, CALIBRATION_MAX_DB)
         // try/catch instead of runCatching because runCatching swallows
         // CancellationException — turning a scope/lifecycle cancellation into a regular
         // Result.failure breaks structured cancellation and would surface a bogus

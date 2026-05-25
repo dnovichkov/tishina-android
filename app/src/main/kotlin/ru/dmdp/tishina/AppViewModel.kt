@@ -17,9 +17,17 @@ import javax.inject.Inject
  * can react to FR-17 changes (theme mode + dynamic colors) without each screen
  * re-subscribing to [ObserveAppSettingsUseCase].
  *
- * Starts EAGERLY so the splash/first-frame already has the correct theme
- * applied — no flash of default-light then dark when the user previously
- * picked dark mode.
+ * Starts EAGERLY so the upstream DataStore subscription kicks off as soon as the
+ * VM is created (during `MainActivity.onCreate`, before `setContent`), giving the
+ * IO read the earliest possible head-start. EAGERLY does NOT guarantee the value
+ * is persisted-loaded by the time Compose first reads `appearance.value` — the
+ * DataStore IO hop is asynchronous, so the very first frame of a cold start may
+ * still render with [AppearanceSettings] defaults (System theme, dynamic colors on)
+ * before snapping to the persisted preference one frame later. A true flicker-free
+ * cold start would require deferring `setContent` via SplashScreen.keepOnScreenCondition
+ * until the first non-default emission lands; that is deferred to a Phase 5 polish task.
+ * WhileSubscribed would have the same behaviour with extra teardown noise on rotation,
+ * so EAGERLY is still the right default here even without the flicker claim.
  */
 @HiltViewModel
 class AppViewModel @Inject constructor(observeAppSettings: ObserveAppSettingsUseCase) : ViewModel() {
@@ -28,11 +36,6 @@ class AppViewModel @Inject constructor(observeAppSettings: ObserveAppSettingsUse
         .map { snapshot -> snapshot.appearance }
         .stateIn(
             scope = viewModelScope,
-            // EAGERLY (not WhileSubscribed) because MainActivity reads the
-            // value in `setContent` synchronously — a WhileSubscribed flow
-            // could emit `initialValue` on the first frame and then flip to
-            // the persisted preference one frame later, producing a visible
-            // theme flicker on every cold start.
             started = SharingStarted.Eagerly,
             initialValue = AppearanceSettings(),
         )

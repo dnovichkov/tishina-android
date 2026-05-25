@@ -114,10 +114,22 @@ class SettingsRepositoryImpl @Inject constructor(
      * "never written" — return the default. A non-null string that doesn't resolve
      * via [decode] (downgrade / typo) is treated the same way so the UI never has to
      * special-case "I have a value but I don't understand it".
+     *
+     * Catches [IllegalArgumentException] specifically (the only failure mode
+     * [Enum.valueOf] produces) rather than `runCatching`, which would silently swallow
+     * a [kotlinx.coroutines.CancellationException] and break structured cancellation if
+     * `decode` ever became suspending. Narrow catch keeps that contract honest.
      */
     private inline fun <T : Enum<T>> parseOrDefault(
         raw: String?,
         default: T,
         decode: (String) -> T,
-    ): T = if (raw == null) default else runCatching { decode(raw) }.getOrDefault(default)
+    ): T {
+        if (raw == null) return default
+        return try {
+            decode(raw)
+        } catch (_: IllegalArgumentException) {
+            default
+        }
+    }
 }
