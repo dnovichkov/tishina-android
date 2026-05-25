@@ -3,19 +3,24 @@ package ru.dmdp.tishina.feature.settings
 import app.cash.turbine.test
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import ru.dmdp.tishina.core.domain.model.AppLocale
 import ru.dmdp.tishina.core.domain.model.AppearanceSettings
+import ru.dmdp.tishina.core.domain.model.FrequencyWeighting
 import ru.dmdp.tishina.core.domain.model.MeasurementConfig
 import ru.dmdp.tishina.core.domain.model.ThemeMode
 import ru.dmdp.tishina.core.domain.model.TimeWeighting
+import ru.dmdp.tishina.core.domain.repository.SettingsRepository
 import ru.dmdp.tishina.core.domain.usecase.ObserveAppSettingsUseCase
 import ru.dmdp.tishina.core.domain.usecase.ResetCalibrationUseCase
 import ru.dmdp.tishina.core.domain.usecase.UpdateAppLocaleUseCase
@@ -379,6 +384,54 @@ class SettingsViewModelTest {
             val third = awaitItem()
             assertTrue(third is SettingsUiEffect.ShowSnackbar)
         }
+    }
+
+    @Test
+    fun `observeAppSettings flow throwing emits non-loading state and save_failed snackbar`() = runTest {
+        // Без `.catch` на state-flow исключение из DataStore-read улетает в viewModelScope мимо
+        // UI: экран навсегда залипает на `loading = true`, а в худшем случае uncaught-handler
+        // роняет процесс. Defensively выходим в non-loading state с дефолтами и сигналим
+        // пользователю snackbar'ом. Зеркалит паттерн из HistoryViewModel.
+        val vm = SettingsViewModel(
+            observeAppSettings = ObserveAppSettingsUseCase(ThrowingReadRepository()),
+            updateCalibration = UpdateCalibrationUseCase(FakeSettingsRepository()),
+            resetCalibration = ResetCalibrationUseCase(FakeSettingsRepository()),
+            updateTimeWeighting = UpdateTimeWeightingUseCase(FakeSettingsRepository()),
+            updateThemeMode = UpdateThemeModeUseCase(FakeSettingsRepository()),
+            updateDynamicColors = UpdateDynamicColorsUseCase(FakeSettingsRepository()),
+            updateAppLocale = UpdateAppLocaleUseCase(FakeSettingsRepository()),
+        )
+
+        // State выходит в non-loading с дефолтами, не пинится навсегда.
+        val fallback = vm.state.first { !it.loading }
+        assertFalse(fallback.loading)
+        assertEquals(0f, fallback.calibrationOffsetDb, 0.0001f)
+
+        vm.effects.test {
+            val effect = awaitItem()
+            assertTrue(effect is SettingsUiEffect.ShowSnackbar)
+            assertEquals(
+                CoreUiR.string.settings_save_failed,
+                (effect as SettingsUiEffect.ShowSnackbar).messageRes,
+            )
+        }
+    }
+
+    /**
+     * Read-side ошибка: оба flow бросают при первом запросе. Используется чтобы проверить,
+     * что `.catch` на state-flow в `SettingsViewModel` корректно ловит I/O failure из
+     * DataStore и не даёт UI залипнуть в loading-состоянии.
+     */
+    private class ThrowingReadRepository : SettingsRepository {
+        override val config: Flow<MeasurementConfig> = flow { throw IllegalStateException("read failed") }
+        override val appearance: Flow<AppearanceSettings> = flow { throw IllegalStateException("read failed") }
+        override suspend fun updateCalibrationOffset(db: Float) = Unit
+        override suspend fun updateFrequencyWeighting(weighting: FrequencyWeighting) = Unit
+        override suspend fun updateTimeWeighting(weighting: TimeWeighting) = Unit
+        override suspend fun updateThemeMode(mode: ThemeMode) = Unit
+        override suspend fun updateDynamicColors(enabled: Boolean) = Unit
+        override suspend fun updateAppLocale(locale: AppLocale) = Unit
+        override suspend fun resetCalibration() = Unit
     }
 
     /**

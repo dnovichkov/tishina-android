@@ -2,7 +2,9 @@ package ru.dmdp.tishina
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -13,7 +15,11 @@ import org.junit.Before
 import org.junit.Test
 import ru.dmdp.tishina.core.domain.model.AppLocale
 import ru.dmdp.tishina.core.domain.model.AppearanceSettings
+import ru.dmdp.tishina.core.domain.model.FrequencyWeighting
+import ru.dmdp.tishina.core.domain.model.MeasurementConfig
 import ru.dmdp.tishina.core.domain.model.ThemeMode
+import ru.dmdp.tishina.core.domain.model.TimeWeighting
+import ru.dmdp.tishina.core.domain.repository.SettingsRepository
 import ru.dmdp.tishina.core.domain.usecase.ObserveAppSettingsUseCase
 import ru.dmdp.tishina.core.testing.fakes.FakeSettingsRepository
 
@@ -98,6 +104,30 @@ class AppViewModelTest {
         assertEquals(AppLocale.System, viewModel.appearance.first().locale)
         repository.updateAppLocale(AppLocale.English)
         assertEquals(AppLocale.English, viewModel.appearance.first().locale)
+    }
+
+    @Test
+    fun `appearance flow throwing falls back to defaults instead of crashing viewModelScope`() = runTest {
+        // Защитный сценарий: если DataStore чтение бросает (corruption-handler не сработал,
+        // транзиентная I/O), без `.catch` исключение уходит в `viewModelScope` и роняет
+        // активити при старте — а blast radius у этой VM огромный (TishinaTheme + все экраны).
+        // Проверяем, что вместо краша мы degrade на дефолтный `AppearanceSettings()`.
+        val viewModel = AppViewModel(ObserveAppSettingsUseCase(ThrowingSettingsRepository()))
+
+        val emitted = viewModel.appearance.first()
+        assertEquals(AppearanceSettings(), emitted)
+    }
+
+    private class ThrowingSettingsRepository : SettingsRepository {
+        override val config: Flow<MeasurementConfig> = flow { throw IllegalStateException("DataStore failed") }
+        override val appearance: Flow<AppearanceSettings> = flow { throw IllegalStateException("DataStore failed") }
+        override suspend fun updateCalibrationOffset(db: Float) = Unit
+        override suspend fun updateFrequencyWeighting(weighting: FrequencyWeighting) = Unit
+        override suspend fun updateTimeWeighting(weighting: TimeWeighting) = Unit
+        override suspend fun updateThemeMode(mode: ThemeMode) = Unit
+        override suspend fun updateDynamicColors(enabled: Boolean) = Unit
+        override suspend fun updateAppLocale(locale: AppLocale) = Unit
+        override suspend fun resetCalibration() = Unit
     }
 
     @Test

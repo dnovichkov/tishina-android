@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.map
 import ru.dmdp.tishina.core.data.di.IoDispatcher
 import ru.dmdp.tishina.core.domain.model.AppLocale
 import ru.dmdp.tishina.core.domain.model.AppearanceSettings
+import ru.dmdp.tishina.core.domain.model.AppearanceSettings.Companion.CALIBRATION_MAX_DB
+import ru.dmdp.tishina.core.domain.model.AppearanceSettings.Companion.CALIBRATION_MIN_DB
 import ru.dmdp.tishina.core.domain.model.FrequencyWeighting
 import ru.dmdp.tishina.core.domain.model.MeasurementConfig
 import ru.dmdp.tishina.core.domain.model.ThemeMode
@@ -58,7 +60,13 @@ class SettingsRepositoryImpl @Inject constructor(
                     prefs[SettingsKeys.TIME_WEIGHTING],
                     TimeWeighting.FAST,
                 ) { TimeWeighting.valueOf(it) },
-                calibrationOffsetDb = prefs[SettingsKeys.CALIBRATION_OFFSET_DB] ?: 0f,
+                // Defense-in-depth: `UpdateCalibrationUseCase` валидирует значение перед
+                // записью, но это единственный gate. Прямая запись через repository (или
+                // даунгрейд из будущей версии с более широким диапазоном) могла бы оставить
+                // NaN / out-of-range на диске. Без этой проверки NaN утекает в SPL-пайплайн
+                // и каждая последующая сессия записывается как NaN. Паттерн зеркалит
+                // `parseOrDefault` для enum-полей — единый стиль defensive reads.
+                calibrationOffsetDb = readCalibrationOffset(prefs[SettingsKeys.CALIBRATION_OFFSET_DB]),
             )
         }
         .distinctUntilChanged()
@@ -107,6 +115,16 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun resetCalibration() {
         updateCalibrationOffset(0f)
+    }
+
+    /**
+     * Read the stored calibration offset, defensively clamped to the documented
+     * [CALIBRATION_MIN_DB, CALIBRATION_MAX_DB] range. `null` and non-finite values
+     * fall back to 0 dB — same fail-safe stance as [parseOrDefault] for enums.
+     */
+    private fun readCalibrationOffset(raw: Float?): Float {
+        if (raw == null || !raw.isFinite()) return 0f
+        return raw.coerceIn(CALIBRATION_MIN_DB, CALIBRATION_MAX_DB)
     }
 
     /**

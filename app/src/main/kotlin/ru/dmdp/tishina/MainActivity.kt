@@ -81,8 +81,13 @@ class MainActivity : ComponentActivity() {
 
     private fun wrapWithPersistedLocale(base: Context): Context {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return base
-        val locales = AppCompatDelegate.getApplicationLocales()
-        if (locales.isEmpty) return base
+        // `AppCompatDelegate.getApplicationLocales()` лениво инициализирует AppCompat'овский
+        // SharedPreferences-стор. На повреждённых prefs или неисправном
+        // `AppLocalesMetadataHolderService` это бросает — без обёртки активити не стартует.
+        // Получая base.context обратно, мы пускаем юзера на системной локали, а DataStore
+        // / `AppViewModel` потом отрисует выбранную локаль в Settings; degrade > crash.
+        val locales = runCatching { AppCompatDelegate.getApplicationLocales() }.getOrNull()
+        if (locales == null || locales.isEmpty) return base
         val config = Configuration(base.resources.configuration)
         config.setLocales(LocaleList.forLanguageTags(locales.toLanguageTags()))
         return base.createConfigurationContext(config)

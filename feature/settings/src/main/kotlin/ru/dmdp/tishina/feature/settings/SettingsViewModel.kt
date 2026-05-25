@@ -8,6 +8,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -55,6 +56,15 @@ class SettingsViewModel @Inject constructor(
 
     val state: StateFlow<SettingsUiState> = observeAppSettings()
         .map { snapshot -> snapshot.toUiState() }
+        // Без `.catch` любой бросок из DataStore (corruption-handler не сработал, диск упал,
+        // транзиентная ошибка FS) уходит в `viewModelScope` мимо UI и пинит экран на
+        // `loading = true` навсегда — а в худшем случае дефолтный uncaught handler роняет
+        // процесс. Зеркалит паттерн из `HistoryViewModel` (.catch на combine), который уже
+        // был добавлен ровно по той же причине.
+        .catch { _ ->
+            effectChannel.trySend(SettingsUiEffect.ShowSnackbar(CoreUiR.string.settings_save_failed))
+            emit(SettingsUiState(loading = false))
+        }
         .stateIn(
             scope = viewModelScope,
             // 5 s grace lets a config-change-driven recreate land without re-collecting from

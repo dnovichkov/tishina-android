@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.cash.turbine.test
 import kotlinx.coroutines.CoroutineScope
@@ -259,6 +260,38 @@ class SettingsRepositoryImplTest {
             rebuiltRepository.appearance.first().themeMode,
         )
         rebuiltScope.coroutineContext.job.cancelAndJoin()
+    }
+
+    @Test
+    fun `NaN calibration on disk falls back to 0 instead of poisoning the pipeline`() = runBlocking {
+        // Если NaN всё-таки оказался в DataStore (прямая запись мимо use-case'а, даунгрейд),
+        // без defensive-read NaN утекает в SPL-калькулятор и каждая последующая сессия пишется
+        // как NaN. Проверяем, что чтение возвращает безопасный 0f.
+        val calibrationKey = floatPreferencesKey("calibration_offset_db")
+        dataStore.edit { prefs -> prefs[calibrationKey] = Float.NaN }
+
+        assertEquals(0f, repository.config.first().calibrationOffsetDb, 0.0001f)
+    }
+
+    @Test
+    fun `out-of-range calibration on disk is clamped to advertised bounds`() = runBlocking {
+        // Защита от даунгрейда из будущей версии с более широким диапазоном — клампим к
+        // объявленному в `AppearanceSettings.Companion`.
+        val calibrationKey = floatPreferencesKey("calibration_offset_db")
+        dataStore.edit { prefs -> prefs[calibrationKey] = 50f }
+
+        assertEquals(20f, repository.config.first().calibrationOffsetDb, 0.0001f)
+
+        dataStore.edit { prefs -> prefs[calibrationKey] = -50f }
+        assertEquals(-20f, repository.config.first().calibrationOffsetDb, 0.0001f)
+    }
+
+    @Test
+    fun `positive infinity calibration on disk falls back to 0`() = runBlocking {
+        val calibrationKey = floatPreferencesKey("calibration_offset_db")
+        dataStore.edit { prefs -> prefs[calibrationKey] = Float.POSITIVE_INFINITY }
+
+        assertEquals(0f, repository.config.first().calibrationOffsetDb, 0.0001f)
     }
 
     @Test

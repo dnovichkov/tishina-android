@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import ru.dmdp.tishina.core.domain.model.AppearanceSettings
@@ -34,6 +35,14 @@ class AppViewModel @Inject constructor(observeAppSettings: ObserveAppSettingsUse
 
     val appearance: StateFlow<AppearanceSettings> = observeAppSettings()
         .map { snapshot -> snapshot.appearance }
+        // Defense-in-depth: if DataStore чтение упало (corruption-handler не отработал,
+        // транзиентная I/O ошибка), без `.catch` исключение улетает в `viewModelScope`
+        // → дефолтный uncaught handler → краш активити при старте. Тут blast radius
+        // больше, чем у feature-VM: на эту StateFlow подписаны и `TishinaTheme`, и все
+        // экраны через `MainActivity`. Сваливаемся обратно на дефолтный
+        // `AppearanceSettings()` — пользователь увидит системную тему вместо своей,
+        // но приложение продолжит работать.
+        .catch { emit(AppearanceSettings()) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
