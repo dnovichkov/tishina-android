@@ -23,6 +23,7 @@ import ru.dmdp.tishina.core.designsystem.theme.TishinaTheme
 import ru.dmdp.tishina.navigation.TishinaDestination
 import ru.dmdp.tishina.navigation.TopLevelDestination
 import ru.dmdp.tishina.testutils.AboutScreenTestStub
+import ru.dmdp.tishina.testutils.AboutStubBackTestTag
 import ru.dmdp.tishina.testutils.HistoryEmptyCtaStubTestTag
 import ru.dmdp.tishina.testutils.HistoryScreenTestStub
 import ru.dmdp.tishina.testutils.MeasureContentStubTestTag
@@ -143,7 +144,11 @@ class TishinaNavHostTest {
         // from History must NOT discard History from the back stack — Back must land back
         // on History (not on the start destination Measure). Phase 5 removed the global «?»
         // icon from History (FR-22 sheet is Measure-only), so we drive the navigation via
-        // the same callback the BottomSheet's "Learn more" button uses in production.
+        // the same callback the BottomSheet's "Learn more" button uses in production. The
+        // outer TopBar is fully suppressed on About (AboutScreen brings its own Scaffold +
+        // back arrow), so the test stub exposes a clickable back affordance that fires the
+        // same `onNavigateBack` callback the real screen wires into its leading TopAppBar
+        // icon.
         var capturedController: NavHostController? = null
         composeTestRule.setContent {
             TishinaTheme(darkTheme = false, dynamicColor = false) {
@@ -177,10 +182,9 @@ class TishinaNavHostTest {
         }
         composeTestRule.waitForIdle()
 
-        // Press Back from About.
-        composeTestRule
-            .onNodeWithTag(ru.dmdp.tishina.ui.TishinaBackActionTestTag)
-            .performClick()
+        // Press Back from About via the stub's back-affordance — same callback the real
+        // AboutScreen TopAppBar back arrow invokes in production.
+        composeTestRule.onNodeWithTag(AboutStubBackTestTag).performClick()
         composeTestRule.waitForIdle()
 
         val current = capturedController!!.currentBackStackEntry?.destination
@@ -251,7 +255,12 @@ class TishinaNavHostTest {
 
     @Test
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
-    fun `on About route top bar replaces about action with back action`() {
+    fun `outer top bar is suppressed on About route and the stub back affordance pops`() {
+        // AboutScreen brings its own Scaffold + TopAppBar (back arrow + title) — same pattern
+        // as DetailScreen and SettingsScreen. So on the About route the outer TishinaTopAppBar
+        // must be fully suppressed; otherwise users see two stacked title bars on phones.
+        // The stub stands in for the real screen here, but the navigation contract under test
+        // is the same: outer chrome gone, back affordance lives inside the screen.
         var capturedController: NavHostController? = null
         composeTestRule.setContent {
             TishinaTheme(darkTheme = false, dynamicColor = false) {
@@ -269,10 +278,9 @@ class TishinaNavHostTest {
         }
         composeTestRule.waitForIdle()
 
-        // On Measure the disclaimer action exists; it is NOT the same affordance as the
-        // back arrow, which is About-only.
+        // On Measure the outer TopBar is displayed with the disclaimer action.
+        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaTopAppBarTestTag).assertIsDisplayed()
         composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaAboutActionTestTag).assertIsDisplayed()
-        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaBackActionTestTag).assertDoesNotExist()
 
         // Navigate to About the same way production does (matches `navigateToAbout()` helper —
         // see Settings footer link / FR-22 BottomSheet "Learn more" entry points).
@@ -283,23 +291,23 @@ class TishinaNavHostTest {
         }
         composeTestRule.waitForIdle()
 
-        // On the About route the trailing «?» icon is gone (About is the destination already)
-        // and the leading slot flips to a back affordance.
+        // On the About route the outer TopBar is gone entirely — AboutScreen brings its own.
+        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaTopAppBarTestTag).assertDoesNotExist()
         composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaAboutActionTestTag).assertDoesNotExist()
-        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaBackActionTestTag).assertIsDisplayed()
 
-        composeTestRule
-            .onNodeWithTag(ru.dmdp.tishina.ui.TishinaBackActionTestTag)
-            .performClick()
+        // The stub's back affordance fires `onNavigateBack`, which pops the back stack the
+        // same way the real screen's TopAppBar back arrow does.
+        composeTestRule.onNodeWithTag(AboutStubBackTestTag).performClick()
         composeTestRule.waitForIdle()
 
         // Back action must pop the About destination — we land back on Measure (the start dest).
         val current = capturedController!!.currentBackStackEntry?.destination
         assertTrue(
-            "After clicking Back from About we must return to the start destination Measure",
+            "After Back from About we must return to the start destination Measure",
             current!!.hasRoute(TishinaDestination.Measure::class),
         )
-        // And on Measure the disclaimer action reappears.
+        // And on Measure the outer TopBar with the disclaimer action reappears.
+        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaTopAppBarTestTag).assertIsDisplayed()
         composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaAboutActionTestTag).assertIsDisplayed()
     }
 }
