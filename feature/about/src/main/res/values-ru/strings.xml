@@ -5,6 +5,13 @@
     <string name="about_app_name">Тишина</string>
     <string name="about_header_subtitle">Измеритель уровня шума</string>
     <string name="about_version_label">Версия</string>
+    <!-- Локализованный формат версии. %1$s = маркетинговая версия, %2$d = номер сборки.
+         Лежит в strings.xml (NFR-17 / NFR-18), чтобы слово «сборка» переводилось вместе
+         с UI — domain-модель `AppVersion` намеренно не содержит UI-форматированных строк. -->
+    <string name="about_version_format">%1$s (сборка %2$d)</string>
+    <!-- Fallback на случай пустого packageManager.versionName (путь NameNotFoundException);
+         убирает пустой префикс, который иначе дал бы "Версия  (сборка 0)". -->
+    <string name="about_version_format_build_only">сборка %1$d</string>
     <string name="about_app_icon_cd">Иконка приложения</string>
     <string name="about_back_cd">Назад</string>
 

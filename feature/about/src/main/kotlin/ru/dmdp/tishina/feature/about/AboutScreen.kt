@@ -67,8 +67,12 @@ private fun licenseTestTag(name: String): String =
  *
  * Link clicks fire `Intent.ACTION_VIEW` directly from the composable (URLs are static
  * placeholders in Phase 5, replaced with real hosts in Phase Release). The Intent is
- * launched against `LocalContext.current` with `FLAG_ACTIVITY_NEW_TASK` so it works
- * from any nested back stack without relying on the Activity hosting the screen.
+ * launched against `LocalContext.current` — in this Compose tree that resolves to the
+ * hosting ComponentActivity, so the browser starts as a sibling Activity in the same
+ * task and Back returns to Tishina. We do NOT add `FLAG_ACTIVITY_NEW_TASK`: that flag
+ * is only required when the caller isn't an Activity, and applying it here would force
+ * the browser into a separate task — pressing Back from the browser would surface Home
+ * (or an unrelated browser task) instead of the AboutScreen.
  *
  * The legacy two-parameter signature `AboutScreen(onNavigateBack, modifier)` is kept
  * intact — `viewModel` carries a default `hiltViewModel()`, so the existing call site
@@ -87,10 +91,7 @@ fun AboutScreen(
         onNavigateBack = onNavigateBack,
         onOpenUrl = { url ->
             runCatching {
-                context.startActivity(
-                    Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                )
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             }
         },
         modifier = modifier,
@@ -224,9 +225,23 @@ private fun AboutHeader(version: AppVersion) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // Build the localised "Version X (build N)" / fallback "Version build N" label in
+        // the UI layer — the domain `AppVersion` deliberately exposes no `displayName` so
+        // the "build"/"сборка" word can come from strings.xml (NFR-17 / NFR-18). Branching
+        // on isBlank() preserves the prior FALLBACK behaviour where PackageManager returned
+        // null versionName: we drop the empty prefix instead of rendering "Version  (build 0)".
+        val versionFormatted = if (version.versionName.isBlank()) {
+            stringResource(R.string.about_version_format_build_only, version.versionCode)
+        } else {
+            stringResource(
+                R.string.about_version_format,
+                version.versionName,
+                version.versionCode,
+            )
+        }
         Text(
             modifier = Modifier.testTag(AboutScreenVersionTestTag),
-            text = stringResource(R.string.about_version_label) + " " + version.displayName,
+            text = stringResource(R.string.about_version_label) + " " + versionFormatted,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

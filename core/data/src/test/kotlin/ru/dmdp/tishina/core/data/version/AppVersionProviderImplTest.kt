@@ -66,15 +66,6 @@ class AppVersionProviderImplTest {
     }
 
     @Test
-    fun `displayName composes versionName and build number`() = runTest {
-        seedPackageInfo(versionName = "1.0.0", versionCode = 7)
-
-        val version = provider.get()
-
-        assertEquals("1.0.0 (build 7)", version.displayName)
-    }
-
-    @Test
     fun `get returns empty AppVersion when package cannot be resolved`() = runTest {
         // Wrap the real Application Context but override packageName so getPackageInfo
         // attempts to resolve a package that was never installed in the Shadow registry,

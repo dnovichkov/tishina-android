@@ -8,21 +8,14 @@ package ru.dmdp.tishina.core.domain.model
  * UI and any future `:feature:settings` "About this app" row without dragging in an
  * Android-specific dependency on `BuildConfig`. The provider lives in `:core:data`.
  *
- * @property versionName Marketing version, e.g. `"0.1.0-foundation"`.
+ * No `displayName` helper is exposed: human-readable formatting is done in the UI layer
+ * via `stringResource(R.string.about_version_format, ...)` so the "build"/"сборка" word
+ * stays localised (NFR-17 / NFR-18). Keeping the model UI-string-free also lets domain
+ * tests run without Android resources.
+ *
+ * @property versionName Marketing version, e.g. `"0.1.0-foundation"`. May be blank when
+ *           `PackageManager.NameNotFoundException` forces a fallback path — the UI
+ *           branches on `versionName.isBlank()` to drop the empty prefix.
  * @property versionCode Monotonically increasing build number for the Play Store.
  */
-data class AppVersion(val versionName: String, val versionCode: Int) {
-
-    /**
-     * Human-readable label rendered as a single line in the About header.
-     *
-     * Guard against the pathological fallback path (`versionName = ""`, e.g. when
-     * `PackageManager.NameNotFoundException` is thrown for our own package): in that
-     * case the prefix is empty, so we drop it instead of rendering a leading space.
-     */
-    val displayName: String get() = if (versionName.isBlank()) {
-        "build $versionCode"
-    } else {
-        "$versionName (build $versionCode)"
-    }
-}
+data class AppVersion(val versionName: String, val versionCode: Int)

@@ -2,7 +2,9 @@ package ru.dmdp.tishina.feature.history
 
 import app.cash.turbine.test
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import ru.dmdp.tishina.core.domain.model.FrequencyWeighting
+import ru.dmdp.tishina.core.domain.model.MeasurementSummary
 import ru.dmdp.tishina.core.domain.model.NewMeasurement
 import ru.dmdp.tishina.core.domain.model.SoundSample
 import ru.dmdp.tishina.core.domain.model.TimeWeighting
@@ -193,6 +196,40 @@ class HistoryViewModelSelectionModeTest {
 
         val state = vm.state.first { !it.loading }
         assertEquals(setOf(ids[1], ids[2]), state.selectedIds)
+    }
+
+    @Test
+    fun `SelectAll surfaces error snackbar instead of crashing when upstream throws`() = runTest {
+        // Regression: SelectAll launches an isolated child coroutine that reads
+        // getMeasurements().first(). The main state pipeline catches upstream failures via
+        // .catch, but this child coroutine is separate — a throwing Flow used to propagate
+        // to CoroutineExceptionHandler and crash. Fix wraps the read in try/catch and emits
+        // the same ShowErrorSnackbar(history_load_failed) that the main pipeline uses, so
+        // the UI degrades gracefully into the loadFailed state instead.
+        val failingRepo = object : FakeMeasurementRepository() {
+            override fun observeSummaries(): Flow<List<MeasurementSummary>> = flow {
+                error("simulated Room IO failure")
+            }
+        }
+        val vm = viewModel(failingRepo)
+        // Drain the upstream-failure snackbar emitted by the main pipeline first so the
+        // assertion below only inspects the SelectAll-driven emission.
+        vm.state.first { !it.loading }
+        vm.effects.test {
+            assertTrue(awaitItem() is HistoryUiEffect.ShowErrorSnackbar)
+
+            vm.onEvent(HistoryUiEvent.EnterSelectionMode())
+            vm.onEvent(HistoryUiEvent.SelectAll)
+            runCurrent()
+
+            val effect = awaitItem()
+            assertTrue(effect is HistoryUiEffect.ShowErrorSnackbar)
+            assertEquals(
+                R.string.history_load_failed,
+                (effect as HistoryUiEffect.ShowErrorSnackbar).messageRes,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

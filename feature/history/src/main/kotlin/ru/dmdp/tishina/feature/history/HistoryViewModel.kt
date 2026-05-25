@@ -353,6 +353,7 @@ class HistoryViewModel @Inject constructor(
         )
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun selectAllVisible() {
         if (!internalSelection.value.mode) return
         // We read upstream + softDeletedIds rather than `state.value.items` because the latter
@@ -361,8 +362,27 @@ class HistoryViewModel @Inject constructor(
         // upstream directly avoids that dependency on subscriber count — at the cost of a
         // single launched coroutine to bridge the suspending .first() into the non-suspend
         // event handler.
+        //
+        // The main state pipeline catches upstream failures via .catch (above), but THIS
+        // coroutine is a separate child of viewModelScope — without a try/catch, a Room IO
+        // failure during SelectAll would propagate to CoroutineExceptionHandler and crash.
+        // Mirror [commitDeleteInternal]: capture the throwable into a typed nullable so detekt
+        // sees it observed (no SwallowedException), then surface the same generic snackbar the
+        // main pipeline uses so the UI degrades gracefully instead of crashing.
         viewModelScope.launch {
-            val all = getMeasurements().first()
+            var failure: Throwable? = null
+            val all = try {
+                getMeasurements().first()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                failure = throwable
+                null
+            }
+            if (failure != null || all == null) {
+                effectChannel.trySend(HistoryUiEffect.ShowErrorSnackbar(R.string.history_load_failed))
+                return@launch
+            }
             val deleted = softDeletedIds.value
             val visibleIds = all.mapNotNullTo(mutableSetOf()) { item ->
                 item.id.takeUnless { id -> id in deleted }

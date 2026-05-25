@@ -5,6 +5,13 @@
     <string name="about_app_name">Tishina</string>
     <string name="about_header_subtitle">Sound Level Meter</string>
     <string name="about_version_label">Version</string>
+    <!-- Localised version label format. %1$s = marketing version name, %2$d = build number.
+         Kept in strings.xml (NFR-17 / NFR-18) so the "build" word stays localised — the
+         domain `AppVersion` model deliberately exposes no UI-formatted string. -->
+    <string name="about_version_format">%1$s (build %2$d)</string>
+    <!-- Fallback used when packageManager.versionName is blank (NameNotFoundException path);
+         skips the empty prefix that would otherwise render "Version  (build 0)". -->
+    <string name="about_version_format_build_only">build %1$d</string>
     <string name="about_app_icon_cd">App icon</string>
     <string name="about_back_cd">Back</string>
 
