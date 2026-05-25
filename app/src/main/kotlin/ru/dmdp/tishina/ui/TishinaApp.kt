@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,8 +24,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -38,6 +41,7 @@ import androidx.navigation.compose.rememberNavController
 import ru.dmdp.tishina.core.domain.model.AppLocale
 import ru.dmdp.tishina.feature.history.detail.DetailRoute
 import ru.dmdp.tishina.feature.measure.MeasureScreen
+import ru.dmdp.tishina.feature.measure.ui.AccuracyDisclaimerBottomSheet
 import ru.dmdp.tishina.feature.settings.SettingsScreen
 import ru.dmdp.tishina.navigation.AboutIcon
 import ru.dmdp.tishina.navigation.AboutLabelRes
@@ -45,13 +49,12 @@ import ru.dmdp.tishina.navigation.TishinaDestination
 import ru.dmdp.tishina.navigation.TishinaNavHost
 import ru.dmdp.tishina.navigation.TopLevelDestination
 import ru.dmdp.tishina.navigation.navigateToTopLevel
-import ru.dmdp.tishina.core.ui.R as CoreUiR
+import ru.dmdp.tishina.feature.measure.R as MeasureR
 
 const val TishinaAppRootTestTag: String = "tishina_app_root"
 const val TishinaNavigationBarTestTag: String = "tishina_navigation_bar"
 const val TishinaNavigationRailTestTag: String = "tishina_navigation_rail"
 const val TishinaAboutActionTestTag: String = "tishina_about_action"
-const val TishinaBackActionTestTag: String = "tishina_back_action"
 const val TishinaTopAppBarTestTag: String = "tishina_top_app_bar"
 
 fun navigationItemTestTag(destination: TopLevelDestination): String =
@@ -98,6 +101,13 @@ fun TishinaApp(
             onApplyLocale = applyLocale,
         )
     },
+    // Same stub-slot pattern as the other content slots — production callers omit it to get
+    // the real `AboutScreen` (which itself wires `AboutViewModel` via `hiltViewModel()`).
+    // Navigation tests inject `AboutScreenTestStub` instead so they don't crash trying to
+    // resolve a Hilt entry-point that isn't installed in their test Application.
+    aboutContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { onNavigateBack ->
+        ru.dmdp.tishina.feature.about.AboutScreen(onNavigateBack = onNavigateBack)
+    },
 ) {
     val useNavigationRail = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -105,21 +115,34 @@ fun TishinaApp(
     val onAboutClick = remember(navController) {
         { navController.navigateToAbout() }
     }
-    val onBackClick: () -> Unit = remember(navController) {
+    // FR-22: the «?» icon in the global TopBar opens the compact accuracy disclaimer sheet
+    // ONLY on the Measure tab — see TishinaAppDisclaimerWiringTest. `rememberSaveable`
+    // survives rotation so users don't lose the sheet mid-read.
+    var showDisclaimerSheet by rememberSaveable { mutableStateOf(false) }
+    val onShowDisclaimer: () -> Unit = remember { { showDisclaimerSheet = true } }
+    val onDismissDisclaimer: () -> Unit = remember { { showDisclaimerSheet = false } }
+    val onShowFullDisclaimer: () -> Unit = remember(navController) {
         {
-            navController.popBackStack()
+            showDisclaimerSheet = false
+            navController.navigateToAbout()
         }
     }
-    val isOnAbout = currentDestination.matchesAbout()
-    // DetailScreen brings its own Scaffold + TopAppBar (VM-driven title plus back/delete
-    // actions). Suppress the outer chrome here so the two TopAppBars don't stack on phones.
-    val isOnDetail = currentDestination.matchesDetail()
-    // SettingsScreen also owns its inner Scaffold + TopAppBar (for SnackbarHost + the
-    // back affordance specified by the plan); suppress the outer TopAppBar to avoid the
-    // same stacked-bar regression. Bottom nav bar still renders — Settings is a top-level
-    // destination and must remain reachable from peer tabs.
-    val isOnSettings = currentDestination.matchesSettings()
-    val suppressOuterTopBar = isOnDetail || isOnSettings
+    // Auto-dismiss the sheet if the user navigates away from Measure (bottom-nav tap, deep
+    // link). The «?» icon is suppressed off-Measure, but the sheet itself is hoisted at the
+    // app root and would otherwise linger above the new screen — keyed on the current
+    // destination so we re-run on every route change.
+    //
+    // The `currentDestination != null` guard is load-bearing: `currentBackStackEntryAsState`
+    // initializes its State with `null` and only emits the real entry asynchronously, so on
+    // first composition after a rotation `matchesMeasure()` would otherwise spuriously return
+    // false and clobber the `rememberSaveable`-restored sheet before the back-stack flow has
+    // had a chance to emit. We only auto-dismiss once we've observed a real destination.
+    val isOnMeasureForSheet = currentDestination.matchesMeasure()
+    LaunchedEffect(currentDestination, isOnMeasureForSheet) {
+        if (currentDestination != null && !isOnMeasureForSheet && showDisclaimerSheet) {
+            showDisclaimerSheet = false
+        }
+    }
     // Both layout branches mount the same NavHost — extract the call once so the function
     // stays under the detekt LongMethod ceiling and the two branches read as pure layout.
     val navHost: @Composable () -> Unit = {
@@ -131,6 +154,7 @@ fun TishinaApp(
             historyContent = historyContent,
             detailContent = detailContent,
             settingsContent = settingsContent,
+            aboutContent = aboutContent,
         )
     }
 
@@ -139,50 +163,81 @@ fun TishinaApp(
             .fillMaxSize()
             .testTag(TishinaAppRootTestTag),
     ) {
-        if (useNavigationRail) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.systemBars),
-            ) {
-                TishinaNavigationRail(
-                    currentDestination = currentDestination,
-                    onItemSelected = { dest -> navController.navigateTopLevel(dest) },
-                    onAboutClick = onAboutClick,
-                )
-                Box(modifier = Modifier.fillMaxSize()) { navHost() }
-            }
-        } else {
-            Scaffold(
-                topBar = {
-                    if (!suppressOuterTopBar) {
-                        TishinaTopAppBar(
-                            currentDestination = currentDestination,
-                            isOnAbout = isOnAbout,
-                            onAboutClick = onAboutClick,
-                            onBackClick = onBackClick,
-                        )
-                    }
-                },
-                bottomBar = {
-                    if (!isOnDetail) {
-                        TishinaNavigationBar(
-                            currentDestination = currentDestination,
-                            onItemSelected = { dest -> navController.navigateTopLevel(dest) },
-                        )
-                    }
-                },
-                // Detail and Settings both bring their own Scaffold + TopAppBar with full
-                // system-bar handling. When we suppress the outer TopAppBar for those screens
-                // we must also zero out `contentWindowInsets`, otherwise the outer Scaffold
-                // still reserves the status-bar inset as content padding and the inner
-                // TopAppBar's own status-bar inset stacks on top of it (≈24 dp empty band
-                // above the inner title on phones). Other top-level destinations keep the
-                // default — their insets are consumed by the outer TopAppBar.
-                contentWindowInsets = if (suppressOuterTopBar) WindowInsets(0) else ScaffoldDefaults.contentWindowInsets,
-            ) { padding ->
-                Box(modifier = Modifier.fillMaxSize().padding(padding)) { navHost() }
-            }
+        TishinaAppChrome(
+            useNavigationRail = useNavigationRail,
+            currentDestination = currentDestination,
+            onAboutClick = onAboutClick,
+            onShowDisclaimer = onShowDisclaimer,
+            onItemSelected = { dest -> navController.navigateTopLevel(dest) },
+            navHost = navHost,
+        )
+        if (showDisclaimerSheet) {
+            AccuracyDisclaimerBottomSheet(
+                onDismiss = onDismissDisclaimer,
+                onShowFullDisclaimer = onShowFullDisclaimer,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TishinaAppChrome(
+    useNavigationRail: Boolean,
+    currentDestination: NavDestination?,
+    onAboutClick: () -> Unit,
+    onShowDisclaimer: () -> Unit,
+    onItemSelected: (TopLevelDestination) -> Unit,
+    navHost: @Composable () -> Unit,
+) {
+    val isOnAbout = currentDestination.matchesAbout()
+    val isOnMeasure = currentDestination.matchesMeasure()
+    // DetailScreen, SettingsScreen and AboutScreen each bring their own Scaffold + TopAppBar
+    // (back arrow, VM-driven title). Suppress the outer chrome on those routes so two top
+    // bars don't stack on phones — see history of the bug in commit logs. Detail also hides
+    // the bottom nav bar (it has its own back affordance via the TopAppBar).
+    val isOnDetail = currentDestination.matchesDetail()
+    val suppressOuterTopBar = isOnDetail || currentDestination.matchesSettings() || isOnAbout
+    if (useNavigationRail) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.systemBars),
+        ) {
+            TishinaNavigationRail(
+                currentDestination = currentDestination,
+                onItemSelected = onItemSelected,
+                onAboutClick = onAboutClick,
+            )
+            Box(modifier = Modifier.fillMaxSize()) { navHost() }
+        }
+    } else {
+        Scaffold(
+            topBar = {
+                if (!suppressOuterTopBar) {
+                    TishinaTopAppBar(
+                        currentDestination = currentDestination,
+                        showDisclaimerAction = isOnMeasure,
+                        onDisclaimerClick = onShowDisclaimer,
+                    )
+                }
+            },
+            bottomBar = {
+                if (!isOnDetail) {
+                    TishinaNavigationBar(
+                        currentDestination = currentDestination,
+                        onItemSelected = onItemSelected,
+                    )
+                }
+            },
+            // Detail and Settings both bring their own Scaffold + TopAppBar with full
+            // system-bar handling. When we suppress the outer TopAppBar we must also zero out
+            // `contentWindowInsets`, otherwise the outer Scaffold still reserves the
+            // status-bar inset as content padding and the inner TopAppBar's own status-bar
+            // inset stacks on top of it (≈24 dp empty band above the inner title on phones).
+            contentWindowInsets = if (suppressOuterTopBar) WindowInsets(0) else ScaffoldDefaults.contentWindowInsets,
+        ) { padding ->
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) { navHost() }
         }
     }
 }
@@ -191,39 +246,28 @@ fun TishinaApp(
 @Composable
 private fun TishinaTopAppBar(
     currentDestination: NavDestination?,
-    isOnAbout: Boolean,
-    onAboutClick: () -> Unit,
-    onBackClick: () -> Unit,
+    showDisclaimerAction: Boolean,
+    onDisclaimerClick: () -> Unit,
 ) {
     val titleRes = currentDestination.topAppBarTitleRes()
     CenterAlignedTopAppBar(
         title = { Text(text = stringResource(id = titleRes)) },
         modifier = Modifier.testTag(TishinaTopAppBarTestTag),
-        navigationIcon = {
-            // On the About route the About IconButton would be a visible no-op (re-navigating
-            // to the current destination with launchSingleTop does nothing); replace it with
-            // a back affordance so the primary action is real.
-            if (isOnAbout) {
-                IconButton(
-                    onClick = onBackClick,
-                    modifier = Modifier.testTag(TishinaBackActionTestTag),
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = stringResource(id = CoreUiR.string.nav_back),
-                    )
-                }
-            }
-        },
         actions = {
-            if (!isOnAbout) {
+            // FR-22: «?» icon opens the compact accuracy disclaimer sheet — exposed only on
+            // the Measure tab. About reaches the same content via its embedded full-text
+            // disclaimer card, and History/Settings/Detail have no semantic tie to it, so
+            // showing the icon there would invite stray taps that surprise users.
+            if (showDisclaimerAction) {
                 IconButton(
-                    onClick = onAboutClick,
+                    onClick = onDisclaimerClick,
                     modifier = Modifier.testTag(TishinaAboutActionTestTag),
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
-                        contentDescription = stringResource(id = CoreUiR.string.nav_open_about),
+                        contentDescription = stringResource(
+                            id = MeasureR.string.measure_disclaimer_open_cd,
+                        ),
                     )
                 }
             }
@@ -234,7 +278,6 @@ private fun TishinaTopAppBar(
 private fun NavDestination?.topAppBarTitleRes(): Int {
     if (this != null) {
         TopLevelDestination.entries.firstOrNull { matches(it) }?.let { return it.labelRes }
-        if (matchesAbout()) return AboutLabelRes
     }
     return TopLevelDestination.Measure.labelRes
 }
@@ -308,6 +351,11 @@ private fun NavDestination?.matchesDetail(): Boolean {
 private fun NavDestination?.matchesSettings(): Boolean {
     if (this == null) return false
     return hasRoute(TishinaDestination.Settings::class)
+}
+
+private fun NavDestination?.matchesMeasure(): Boolean {
+    if (this == null) return false
+    return hasRoute(TishinaDestination.Measure::class)
 }
 
 private fun NavHostController.navigateTopLevel(destination: TopLevelDestination) {

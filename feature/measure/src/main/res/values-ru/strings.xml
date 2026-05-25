@@ -52,4 +52,11 @@
     <string name="measure_save_no_data">Нечего сохранять — запустите измерение</string>
     <string name="measure_save_title_too_long">Имя длиннее 80 символов</string>
     <string name="measure_save_note_too_long">Заметка длиннее 200 символов</string>
+
+    <!-- Accuracy disclaimer BottomSheet (FR-22, спека § 11) -->
+    <string name="measure_disclaimer_open_cd">Показать дисклеймер о точности</string>
+    <string name="measure_disclaimer_title">О точности измерений</string>
+    <string name="measure_disclaimer_body">«Тишина» использует встроенный MEMS-микрофон вашего устройства, оптимизированный под голос. Реальная погрешность показаний — около ±3–5 дБ(А), а выше 90 дБ — больше из-за аппаратной компрессии. Приложение не сертифицировано по IEC 61672 и не предназначено для официальных измерений шума на рабочих местах.</string>
+    <string name="measure_disclaimer_more">Подробнее</string>
+    <string name="measure_disclaimer_close_cd">Закрыть дисклеймер о точности</string>
 </resources>

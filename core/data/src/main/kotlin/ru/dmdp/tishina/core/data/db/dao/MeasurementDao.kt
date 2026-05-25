@@ -84,6 +84,26 @@ abstract class MeasurementDao {
     @Query("DELETE FROM measurements WHERE id = :id")
     abstract suspend fun delete(id: Long)
 
+    /**
+     * Bulk-delete every measurement whose id is in [ids]. Samples are removed by the
+     * `FOREIGN KEY ... ON DELETE CASCADE` declaration on `SampleEntity`, so a single
+     * round-trip removes both tables. Unknown ids are silently skipped.
+     *
+     * **Empty collection is safe** — Room ≥ 2.5 expands an empty `IN ()` into
+     * `IN (NULL)`, which is syntactically valid and matches no rows. The repository
+     * still short-circuits empty input upstream to avoid an unnecessary dispatcher hop
+     * and a redundant `observeSummaries` tick, but the DAO itself does not throw.
+     *
+     * **Parameter limit**: SQLite caps the IN-clause parameter count at
+     * `SQLITE_MAX_VARIABLE_NUMBER` (999 pre-API-32, 32766 thereafter). The repository
+     * chunks large bulk deletes before forwarding here.
+     *
+     * Powers History's bulk-delete flow (FR-12) via
+     * [ru.dmdp.tishina.core.data.repository.MeasurementRepositoryImpl.deleteAll].
+     */
+    @Query("DELETE FROM measurements WHERE id IN (:ids)")
+    abstract suspend fun deleteByIds(ids: Collection<Long>)
+
     @Query("UPDATE measurements SET note = :note WHERE id = :id")
     abstract suspend fun updateNote(id: Long, note: String?)
 

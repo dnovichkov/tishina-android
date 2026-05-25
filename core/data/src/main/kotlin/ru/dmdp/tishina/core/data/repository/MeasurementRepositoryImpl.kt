@@ -13,7 +13,6 @@ import ru.dmdp.tishina.core.data.di.IoDispatcher
 import ru.dmdp.tishina.core.data.mapper.toDetails
 import ru.dmdp.tishina.core.data.mapper.toDomain
 import ru.dmdp.tishina.core.data.mapper.toEntity
-import ru.dmdp.tishina.core.data.mapper.toSummary
 import ru.dmdp.tishina.core.domain.model.MeasurementDetails
 import ru.dmdp.tishina.core.domain.model.MeasurementSummary
 import ru.dmdp.tishina.core.domain.model.NewMeasurement
@@ -81,8 +80,36 @@ class MeasurementRepositoryImpl @Inject constructor(
         withContext(ioDispatcher) { dao.delete(id) }
     }
 
+    override suspend fun deleteAll(ids: Set<Long>) {
+        // Short-circuit empty input so we don't burn a dispatcher hop on a no-op and so
+        // `observeSummaries` doesn't emit a redundant tick. The DAO itself tolerates an
+        // empty collection (Room ≥ 2.5 expands `IN ()` to `IN (NULL)` — see
+        // [MeasurementDao.deleteByIds] kdoc), so this guard is a perf optimization,
+        // not a correctness contract.
+        if (ids.isEmpty()) return
+        withContext(ioDispatcher) {
+            // SQLite caps the IN-clause parameter count at `SAFE_BULK_DELETE_CHUNK_SIZE`
+            // — 999 on Android < API 32, 32766 thereafter. A SelectAll over a History with
+            // > 999 entries would otherwise hit "too many SQL variables" on older devices.
+            // 900 leaves headroom for Room's positional binding overhead.
+            ids.chunked(SAFE_BULK_DELETE_CHUNK_SIZE).forEach { chunk ->
+                dao.deleteByIds(chunk)
+            }
+        }
+    }
+
     override suspend fun updateNote(id: Long, note: String?) {
         withContext(ioDispatcher) { dao.updateNote(id, note) }
+    }
+
+    private companion object {
+        /**
+         * Safe chunk size for SQLite's `IN (?)` parameter list. The hard cap
+         * `SQLITE_MAX_VARIABLE_NUMBER` is 999 pre-API-32 and 32766 thereafter; 900 leaves
+         * headroom for Room's positional binding overhead and stays well under the
+         * lowest-common-denominator limit.
+         */
+        const val SAFE_BULK_DELETE_CHUNK_SIZE = 900
     }
 }
 

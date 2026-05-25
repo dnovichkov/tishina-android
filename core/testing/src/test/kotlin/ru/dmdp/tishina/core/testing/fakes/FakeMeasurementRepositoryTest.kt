@@ -122,6 +122,79 @@ class FakeMeasurementRepositoryTest {
     }
 
     @Test
+    fun `deleteAll removes only the listed ids, leaving the rest intact`() = runTest {
+        val repo = FakeMeasurementRepository()
+        val ids = repo.seed(
+            listOf(
+                newMeasurement(createdAt = 100L),
+                newMeasurement(createdAt = 200L),
+                newMeasurement(createdAt = 300L),
+            ),
+        )
+
+        repo.deleteAll(setOf(ids[0], ids[2]))
+
+        val remaining = repo.observeSummaries().first()
+        assertEquals(listOf(ids[1]), remaining.map { it.id })
+        assertEquals(1, repo.size())
+    }
+
+    @Test
+    fun `deleteAll with empty set is a silent no-op (does not throw)`() = runTest {
+        val repo = FakeMeasurementRepository()
+        repo.seed(listOf(newMeasurement(), newMeasurement()))
+
+        repo.deleteAll(emptySet())
+
+        assertEquals(2, repo.size())
+    }
+
+    @Test
+    fun `deleteAll with unknown ids is idempotent (skips missing rows)`() = runTest {
+        val repo = FakeMeasurementRepository()
+        val ids = repo.seed(listOf(newMeasurement(createdAt = 100L)))
+
+        repo.deleteAll(setOf(99_999L, 88_888L))
+
+        assertEquals(1, repo.size())
+        assertNotNull(repo.getById(ids[0]))
+    }
+
+    @Test
+    fun `deleteAll with mixed (existing + unknown) ids removes only what exists`() = runTest {
+        val repo = FakeMeasurementRepository()
+        val ids = repo.seed(
+            listOf(
+                newMeasurement(createdAt = 100L),
+                newMeasurement(createdAt = 200L),
+            ),
+        )
+
+        repo.deleteAll(setOf(ids[0], 99_999L))
+
+        assertEquals(1, repo.size())
+        assertNull(repo.getById(ids[0]))
+        assertNotNull(repo.getById(ids[1]))
+    }
+
+    @Test
+    fun `deleteAll emits a fresh list through observeSummaries`() = runTest {
+        val repo = FakeMeasurementRepository()
+        repo.observeSummaries().test {
+            assertTrue(awaitItem().isEmpty())
+
+            repo.save(newMeasurement(createdAt = 100L))
+            assertEquals(1, awaitItem().size)
+
+            repo.save(newMeasurement(createdAt = 200L))
+            assertEquals(2, awaitItem().size)
+
+            repo.deleteAll(setOf(1L, 2L))
+            assertTrue(awaitItem().isEmpty())
+        }
+    }
+
+    @Test
     fun `updateNote replaces only the note field`() = runTest {
         val repo = FakeMeasurementRepository()
         val id = repo.save(newMeasurement(title = "T", note = "initial"))
@@ -185,7 +258,7 @@ class FakeMeasurementRepositoryTest {
     }
 
     @Test
-    fun `sparkline preview is empty when input samples are empty`() = runTest {
+    fun `sparkline preview has one point for a single-sample input`() = runTest {
         val repo = FakeMeasurementRepository()
         val id = repo.save(newMeasurement(samples = listOf(SoundSample(40f, 0L))))
 
@@ -193,6 +266,16 @@ class FakeMeasurementRepositoryTest {
         assertNotNull(sparkline)
         // 1 sample → at most 1 sparkline point.
         assertEquals(1, sparkline?.size)
+    }
+
+    @Test
+    fun `sparkline preview is empty when input samples are empty`() = runTest {
+        val repo = FakeMeasurementRepository()
+        val id = repo.save(newMeasurement(samples = emptyList()))
+
+        val sparkline = repo.getById(id)?.summary?.sparklinePreview
+        assertNotNull(sparkline)
+        assertEquals(0, sparkline?.size)
     }
 
     @Test
