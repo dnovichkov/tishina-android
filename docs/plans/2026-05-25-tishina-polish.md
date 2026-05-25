@@ -188,24 +188,28 @@ Phase 5 закрывает оставшиеся MVP-фичи перед Phase Re
 
 ### Task 2: Data — MeasurementDao.deleteByIds + RepositoryImpl.deleteAll
 
-- [ ] **сначала тест:** `MeasurementDaoBulkDeleteTest` (`@RunWith(RobolectricTestRunner)` + Room.inMemoryDatabaseBuilder) — 7+ кейсов:
-  - seed 5 measurements with 10 samples каждый → `deleteByIds(setOf(id1, id3, id5))` → `getAllMeasurements()` возвращает 2 (id2, id4)
-  - CASCADE: после bulk-delete `dao.countSamplesForMeasurement(id1)` == 0 для всех удалённых
-  - пустой set → `deleteByIds(emptySet())` → no rows affected, не throw
-  - несуществующие id → `deleteByIds(setOf(99999L))` → no-op, существующие данные нетронуты
+- [x] **сначала тест:** `MeasurementDaoBulkDeleteTest` (`@RunWith(RobolectricTestRunner)` + Room.inMemoryDatabaseBuilder) — 8 кейсов:
+  - seed 5 measurements with 3 samples каждый → `deleteByIds(setOf(id1, id3, id5))` → `observeSummaries.first()` возвращает 2 (id2, id4)
+  - CASCADE: после bulk-delete `dao.countSamplesForMeasurement(id1/id3/id5)` == 0 для всех удалённых; survivors сохраняют 10/10 samples
+  - пустой set → `deleteByIds(emptySet())` → no rows affected, не throw (Room ≥ 2.5 генерирует `IN (NULL)` — verified)
+  - несуществующие id → `deleteByIds(setOf(99999L, ...))` → no-op, существующие данные нетронуты
   - смешанный set (часть существующих + часть нет) → удаляются только реальные
-  - bulk delete 100 id за раз → все удаляются (smoke для chunking, если Room автоматически разобьёт)
+  - bulk delete 200 id за раз → все удаляются (smoke на SQLITE_MAX_VARIABLE_NUMBER)
   - Turbine: подписка на `observeSummaries` → `deleteByIds(setOf(id1, id2))` → новая эмиссия с уменьшенным списком
-- [ ] **сначала тест:** `MeasurementRepositoryImplBulkDeleteTest` — Robolectric + in-memory Room + реальный mapper:
-  - `seed(3 NewMeasurement)` → `deleteAll(setOf(id1))` → `observeSummaries.first()` содержит 2
-  - параллельные `deleteAll([id1])` + `save(new)` → итог: 2 measurements (1 удалён, 1 добавлен)
-- [ ] обновить `core/data/.../db/dao/MeasurementDao.kt`:
-  - добавить `@Query("DELETE FROM measurements WHERE id IN (:ids)") suspend fun deleteByIds(ids: Set<Long>)` (FK CASCADE автоматически удалит samples благодаря `onDelete = ForeignKey.CASCADE` уже зафиксированному в Phase 3 schema v1)
-- [ ] обновить `core/data/.../repository/MeasurementRepositoryImpl.kt`:
-  - `override suspend fun deleteAll(ids: Set<Long>) = withContext(ioDispatcher) { dao.deleteByIds(ids) }`
-- [ ] **➕ возможная подзадача:** проверить, нужна ли pre-проверка `ids.isEmpty()` на уровне DAO/Repository (SQLite `WHERE id IN ()` на пустом set может бросить syntax error в зависимости от Room generator). Если падает — добавить `if (ids.isEmpty()) return` guard в Impl. Тест уже покрывает empty set case, выяснится при первом запуске.
-- [ ] реализовать DAO query + Repository override — все тесты позеленели
-- [ ] run `./gradlew :core:data:testDebugUnitTest :core:data:detektAll :core:data:lintDebug` — must pass before next task
+  - single-id set → consistency с обычным `delete(id)` (getDetailsById возвращает null, соседи доступны)
+- [x] **сначала тест:** `MeasurementRepositoryImplBulkDeleteTest` — Robolectric + in-memory Room + реальный mapper:
+  - `seed(3)` → `deleteAll(setOf(drop1, drop2))` → getById сохранил keep, drop1/drop2 → null; CASCADE samples = 0
+  - Turbine на `observeSummaries` → `deleteAll(setOf(drop))` → new emission содержит только keep
+  - `deleteAll(emptySet())` → no-op + no Flow emission (Repository short-circuits)
+  - несуществующие id → no-op
+  - `deleteAll(setOf(toDrop))` + `save(fresh)` → итог: 1 measurement (fresh)
+- [x] обновить `core/data/.../db/dao/MeasurementDao.kt`:
+  - добавить `@Query("DELETE FROM measurements WHERE id IN (:ids)") suspend fun deleteByIds(ids: Collection<Long>)` (тип `Collection<Long>` чтобы Room не требовал распаковки; FK CASCADE автоматически удалит samples благодаря `onDelete = ForeignKey.CASCADE` уже зафиксированному в Phase 3 schema v1)
+- [x] обновить `core/data/.../repository/MeasurementRepositoryImpl.kt`:
+  - `override suspend fun deleteAll(ids: Set<Long>)` с `if (ids.isEmpty()) return` guard + `withContext(ioDispatcher) { dao.deleteByIds(ids) }`
+- [x] **➕ возможная подзадача:** проверена — Room 2.8.4 генерирует `WHERE id IN (NULL)` для пустого Collection и не падает на SQLite syntax error. Тем не менее оставили `if (ids.isEmpty()) return` guard в Impl — это (а) экономит coroutine hop через ioDispatcher, (б) не эмитит лишний tick `observeSummaries` Flow для no-op запроса, (в) делает контракт явным для будущих читателей.
+- [x] реализовать DAO query + Repository override — все 13 новых тестов зелёные
+- [x] run `./gradlew :core:data:testDebugUnitTest :core:data:detektAll :core:data:lintDebug` — BUILD SUCCESSFUL
 
 ### Task 3: HistoryViewModel — selection mode state machine + bulk-delete + bulk-undo
 

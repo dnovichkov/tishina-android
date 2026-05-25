@@ -81,6 +81,14 @@ class MeasurementRepositoryImpl @Inject constructor(
         withContext(ioDispatcher) { dao.delete(id) }
     }
 
+    override suspend fun deleteAll(ids: Set<Long>) {
+        // Short-circuit empty input so we don't burn a dispatcher hop on a no-op. Room
+        // would also accept it (the generated `IN (NULL)` matches no rows), but skipping
+        // here keeps `observeSummaries` from emitting a redundant tick.
+        if (ids.isEmpty()) return
+        withContext(ioDispatcher) { dao.deleteByIds(ids) }
+    }
+
     override suspend fun updateNote(id: Long, note: String?) {
         withContext(ioDispatcher) { dao.updateNote(id, note) }
     }

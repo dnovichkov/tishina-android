@@ -84,6 +84,18 @@ abstract class MeasurementDao {
     @Query("DELETE FROM measurements WHERE id = :id")
     abstract suspend fun delete(id: Long)
 
+    /**
+     * Bulk-delete every measurement whose id is in [ids]. Samples are removed by the
+     * `FOREIGN KEY ... ON DELETE CASCADE` declaration on `SampleEntity`, so a single
+     * round-trip removes both tables. Unknown ids are silently skipped; an empty
+     * collection is a no-op (Room generates `IN (NULL)` which matches nothing).
+     *
+     * Powers History's bulk-delete flow (FR-12) via
+     * [ru.dmdp.tishina.core.data.repository.MeasurementRepositoryImpl.deleteAll].
+     */
+    @Query("DELETE FROM measurements WHERE id IN (:ids)")
+    abstract suspend fun deleteByIds(ids: Collection<Long>)
+
     @Query("UPDATE measurements SET note = :note WHERE id = :id")
     abstract suspend fun updateNote(id: Long, note: String?)
 
