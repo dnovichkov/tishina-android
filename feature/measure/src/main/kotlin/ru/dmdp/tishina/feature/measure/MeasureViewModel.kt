@@ -290,8 +290,17 @@ class MeasureViewModel @Inject constructor(
             // original `activeSessionConfig` so a mid-session settings change cannot
             // reframe the already-recorded buffer (Save reads the same field) — matches
             // the "config = immutable session seed" semantics carried by SessionSeed.
+            //
+            // `runCatching` shields the launch from a thrown IOException emerging upstream
+            // of `startMeasurement`'s `.catch`. Without it, a DataStore IO failure (disk
+            // full / corruption-handler bypassed / transient FS error) would propagate to
+            // viewModelScope's UncaughtExceptionHandler after phase was already set to
+            // Running on line 284 — the UI would freeze on "Running, 0.0 dB" with no
+            // snackbar and no engine to recover from. Default-config fallback keeps the
+            // measurement workable; the user can re-trigger Start later to retry the read.
             if (isFreshSession) {
-                activeSessionConfig = settingsRepository.config.first()
+                activeSessionConfig = runCatching { settingsRepository.config.first() }
+                    .getOrDefault(MeasurementConfig())
             }
             startMeasurement(activeSessionConfig, seed)
                 .onEach { snapshot ->

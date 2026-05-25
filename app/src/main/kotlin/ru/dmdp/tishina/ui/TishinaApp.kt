@@ -106,6 +106,12 @@ fun TishinaApp(
     // DetailScreen brings its own Scaffold + TopAppBar (VM-driven title plus back/delete
     // actions). Suppress the outer chrome here so the two TopAppBars don't stack on phones.
     val isOnDetail = currentDestination.matchesDetail()
+    // SettingsScreen also owns its inner Scaffold + TopAppBar (for SnackbarHost + the
+    // back affordance specified by the plan); suppress the outer TopAppBar to avoid the
+    // same stacked-bar regression. Bottom nav bar still renders — Settings is a top-level
+    // destination and must remain reachable from peer tabs.
+    val isOnSettings = currentDestination.matchesSettings()
+    val suppressOuterTopBar = isOnDetail || isOnSettings
 
     Surface(
         modifier = Modifier
@@ -137,7 +143,7 @@ fun TishinaApp(
         } else {
             Scaffold(
                 topBar = {
-                    if (!isOnDetail) {
+                    if (!suppressOuterTopBar) {
                         TishinaTopAppBar(
                             currentDestination = currentDestination,
                             isOnAbout = isOnAbout,
@@ -290,6 +296,11 @@ private fun NavDestination?.matchesAbout(): Boolean {
 private fun NavDestination?.matchesDetail(): Boolean {
     if (this == null) return false
     return hasRoute(DetailRoute::class)
+}
+
+private fun NavDestination?.matchesSettings(): Boolean {
+    if (this == null) return false
+    return hasRoute(TishinaDestination.Settings::class)
 }
 
 private fun NavHostController.navigateTopLevel(destination: TopLevelDestination) {
