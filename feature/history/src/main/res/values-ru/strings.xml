@@ -45,7 +45,7 @@
         <item quantity="other">Удалить %d замера?</item>
     </plurals>
     <plurals name="history_selection_topbar_count">
-        <item quantity="one">Выбран %d</item>
+        <item quantity="one">Выбрано %d</item>
         <item quantity="few">Выбрано %d</item>
         <item quantity="many">Выбрано %d</item>
         <item quantity="other">Выбрано %d</item>

@@ -13,7 +13,6 @@ import ru.dmdp.tishina.core.data.di.IoDispatcher
 import ru.dmdp.tishina.core.data.mapper.toDetails
 import ru.dmdp.tishina.core.data.mapper.toDomain
 import ru.dmdp.tishina.core.data.mapper.toEntity
-import ru.dmdp.tishina.core.data.mapper.toSummary
 import ru.dmdp.tishina.core.domain.model.MeasurementDetails
 import ru.dmdp.tishina.core.domain.model.MeasurementSummary
 import ru.dmdp.tishina.core.domain.model.NewMeasurement
@@ -83,8 +82,10 @@ class MeasurementRepositoryImpl @Inject constructor(
 
     override suspend fun deleteAll(ids: Set<Long>) {
         // Short-circuit empty input so we don't burn a dispatcher hop on a no-op and so
-        // `observeSummaries` doesn't emit a redundant tick. SQLite also rejects `IN ()`
-        // as a syntax error, so this guard doubles as the DAO contract.
+        // `observeSummaries` doesn't emit a redundant tick. The DAO itself tolerates an
+        // empty collection (Room ≥ 2.5 expands `IN ()` to `IN (NULL)` — see
+        // [MeasurementDao.deleteByIds] kdoc), so this guard is a perf optimization,
+        // not a correctness contract.
         if (ids.isEmpty()) return
         withContext(ioDispatcher) {
             // SQLite caps the IN-clause parameter count at `SAFE_BULK_DELETE_CHUNK_SIZE`
