@@ -234,3 +234,127 @@ jobs:
           path: app/build/outputs/mapping/release/mapping.txt
           if-no-files-found: error
           retention-days: 90
+
+  instrumentation-tests:
+    name: Instrumentation tests (API ${{ matrix.api-level }})
+    runs-on: ubuntu-latest
+    # Phase 6 Task 9 — only run on the primary branches to avoid burning
+    # ~30 min × 3 = 90 emulator minutes on every fork PR. The unit tests
+    # (Robolectric + Roborazzi) already cover behavioral regressions;
+    # instrumentation matrix catches platform-specific issues (real RECORD_AUDIO
+    # dialog, navigation rail vs bar on emulator window size class).
+    needs: [unit-tests]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        # API 26 = minSdk floor (Android 8.0)
+        # API 30 = midpoint with scoped-storage enforcement
+        # API 34 = current stable target (matches `targetSdk = 34` baseline)
+        # API 35 deliberately skipped — reactivecircus AOSP images are flaky
+        # on this runner image as of 2026-05, and `assembleRelease` with
+        # targetSdk = 35 already validates the API surface at compile time.
+        api-level: [26, 30, 34]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
+      # KVM acceleration is required for the emulator-runner — ubuntu-latest
+      # supports nested virt only when the runner publishes /dev/kvm. The chmod
+      # is the documented workaround for reactivecircus/android-emulator-runner.
+      - name: Enable KVM group permissions
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run instrumentation tests on API ${{ matrix.api-level }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: ${{ matrix.api-level == 34 && 'google_apis' || 'default' }}
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
+
+      - name: Upload instrumentation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumentation-reports-api-${{ matrix.api-level }}
+          path: |
+            app/build/reports/androidTests/connected/
+            app/build/outputs/androidTest-results/connected/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  macrobenchmark:
+    name: Macrobenchmark (cold-start, API 33)
+    runs-on: ubuntu-latest
+    # Phase 6 Task 9 — runs only on `main` so PRs aren't gated by the slowest
+    # job in the matrix (emulator cold-start measurements are inherently
+    # noisy on virtual hardware). The post-merge cadence still catches
+    # regressions before they reach a release tag — the NFR-1 budget has
+    # ~3-5× headroom on Pixel 6a so transient CI variance is absorbed.
+    needs: [unit-tests]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
+
+      - name: Enable KVM group permissions
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run cold-start benchmark
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: true
+          # `connectedBenchmarkAndroidTest` targets the `benchmark` build type
+          # declared in `:macrobenchmark/build.gradle.kts` (matchingFallbacks
+          # falls through to `:app`'s `release` variant).
+          script: ./gradlew :macrobenchmark:connectedBenchmarkAndroidTest --no-daemon --stacktrace
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macrobenchmark-report
+          path: |
+            macrobenchmark/build/outputs/connected_android_test_additional_output/
+            macrobenchmark/build/outputs/androidTest-results/connected/
+          if-no-files-found: ignore
+          retention-days: 30

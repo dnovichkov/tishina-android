@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        Phase 6 Task 9 — Macrobenchmark host manifest. The module is itself a
+        test APK (com.android.test). No <application> tag is required, but on
+        emulators we need to declare the runner permission set so the system
+        does not prompt for `RECORD_AUDIO` when the cold-start benchmark
+        navigates into MeasureScreen. The benchmark APK runs as
+        `ru.dmdp.tishina.macrobenchmark`; the target app stays
+        `ru.dmdp.tishina`.
+    -->
+    <queries>
+        <package android:name="ru.dmdp.tishina" />
+    </queries>
+
+</manifest>

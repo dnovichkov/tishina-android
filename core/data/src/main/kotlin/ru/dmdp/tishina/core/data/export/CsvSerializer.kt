@@ -77,9 +77,13 @@ internal class CsvSerializer {
          * UTF-8 BOM. The single `U+FEFF` char, when written through an
          * `OutputStreamWriter` configured with `StandardCharsets.UTF_8`, is emitted as
          * the 3-byte sequence `0xEF 0xBB 0xBF` — exactly what Excel for Windows needs
-         * to autodetect the file as UTF-8.
+         * to autodetect the file as UTF-8. The literal is the Unicode escape so an
+         * editor/Spotless pass that silently strips zero-width characters (a regression
+         * that already cost us one CI cycle) cannot delete the byte-order mark, and so
+         * Android Lint's `ByteOrderMark` detector does not flag the literal U+FEFF
+         * embedded in the middle of this source file.
          */
-        private const val BOM: String = ""
+        private const val BOM: String = "\uFEFF"
         private const val LINE_TERMINATOR: String = "\r\n"
         private val SPECIALS: Set<Char> = setOf(',', '"', '\n', '\r')
         internal val HEADER: List<String> = listOf(

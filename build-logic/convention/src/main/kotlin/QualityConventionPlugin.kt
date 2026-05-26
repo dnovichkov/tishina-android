@@ -10,15 +10,22 @@ import ru.dmdp.tishina.buildlogic.configureSpotless
  *
  * Kover is skipped on `:core:testing` because the module ships test utilities — measuring
  * coverage of test-helper code distorts aggregate numbers without surfacing meaningful gaps.
+ * `:macrobenchmark` is also skipped — it ships only `androidTest/` sources (no JVM unit
+ * tests to instrument), so Kover would produce empty coverage reports while still
+ * touching the configuration cache for every Gradle sync.
  */
 class QualityConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
             configureDetekt()
             configureSpotless()
-            if (path != ":core:testing") {
+            if (path !in KOVER_SKIP_PROJECTS) {
                 configureKover()
             }
         }
+    }
+
+    private companion object {
+        private val KOVER_SKIP_PROJECTS = setOf(":core:testing", ":macrobenchmark")
     }
 }

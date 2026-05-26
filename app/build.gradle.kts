@@ -32,7 +32,11 @@ android {
         // to a static `-dev` marker so `versionName` is never empty.
         versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1
         versionName = System.getenv("VERSION_NAME") ?: "1.0.0-dev"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Phase 6 Task 9 — instrumentation tests use a Hilt-aware runner
+        // (HiltTestRunner) to swap the production `TishinaApplication` for
+        // `HiltTestApplication`. Live `androidTest/` sources require this
+        // entry, otherwise Hilt's `@HiltAndroidTest` boots the real graph.
+        testInstrumentationRunner = "ru.dmdp.tishina.HiltTestRunner"
         vectorDrawables.useSupportLibrary = true
         resourceConfigurations += listOf("ru", "en")
     }
@@ -110,4 +114,23 @@ dependencies {
     testImplementation(libs.hilt.android.testing)
     testImplementation(libs.kotlinx.coroutines.test)
     testRuntimeOnly(libs.junit.vintage.engine)
+
+    // Phase 6 Task 9 — instrumentation tests (real emulator API 26/30/34 matrix).
+    // Hilt-aware runner + ComposeRule + UiAutomator (SAF picker is outside the
+    // Compose hierarchy, so the system-UI tap must go through UiAutomator).
+    // KSP must run for `androidTest/` as well so Hilt's generated test
+    // components are emitted alongside the production graph.
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(libs.androidx.test.uiautomator)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    kspAndroidTest(libs.hilt.compiler)
+    // `ui-test-manifest` ships an empty `Activity` declaration used by
+    // `createComposeRule()` so the test process has somewhere to host the
+    // composition without depending on `MainActivity`.
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
