@@ -38,7 +38,7 @@ jobs:
 
       - name: Upload Detekt reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: detekt-reports
           path: |
@@ -48,7 +48,7 @@ jobs:
 
       - name: Upload Lint reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lint-reports
           path: |
@@ -84,7 +84,7 @@ jobs:
 
       - name: Upload Roborazzi failure images
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: roborazzi-failure-images
           path: |
@@ -95,7 +95,7 @@ jobs:
 
       - name: Upload Kover XML report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: kover-xml-report
           path: build/reports/kover/reportDebug.xml
@@ -104,7 +104,7 @@ jobs:
 
       - name: Upload unit-test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unit-test-reports
           path: |
@@ -157,7 +157,7 @@ jobs:
         run: ./gradlew :app:assembleDebug :app:bundleDebug --no-daemon --stacktrace
 
       - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: debug-apk
           path: app/build/outputs/apk/debug/*.apk
@@ -165,7 +165,7 @@ jobs:
           retention-days: 14
 
       - name: Upload debug AAB
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: debug-aab
           path: app/build/outputs/bundle/debug/*.aab
@@ -216,7 +216,7 @@ jobs:
       # by smoke-installing on a maintainer device when investigating obfuscation
       # regressions; the `-debug-key-smoke` suffix makes that scope unmistakable.
       - name: Upload release APK (debug-key smoke build)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-apk-debug-key-smoke
           path: app/build/outputs/apk/release/*.apk
@@ -224,7 +224,7 @@ jobs:
           retention-days: 14
 
       - name: Upload release AAB (debug-key smoke build)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-aab-debug-key-smoke
           path: app/build/outputs/bundle/release/*.aab
@@ -235,7 +235,7 @@ jobs:
       # bug reports, manual stack traces). Keep it as a CI artifact so we have
       # a usable mapping even for builds that never reach Play Console upload.
       - name: Upload R8 mapping.txt
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-mapping
           path: app/build/outputs/mapping/release/mapping.txt
@@ -300,7 +300,7 @@ jobs:
 
       - name: Upload instrumentation reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: instrumentation-reports-api-${{ matrix.api-level }}
           path: |
@@ -357,7 +357,7 @@ jobs:
 
       - name: Upload benchmark report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macrobenchmark-report
           path: |
