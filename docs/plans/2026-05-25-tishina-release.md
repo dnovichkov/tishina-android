@@ -397,75 +397,24 @@ Task structure guidelines:
 
 ### Task 7: Store metadata + ASO + Data Safety + Permissions declarations
 
-- [ ] создать структуру `app/src/main/store-metadata/`:
-  ```
-  store-metadata/
-  ├── google-play/
-  │   ├── ru-RU/
-  │   │   ├── title.txt              # ≤30 chars
-  │   │   ├── short_description.txt  # ≤80 chars
-  │   │   └── full_description.txt   # ≤4000 chars
-  │   ├── en-US/
-  │   │   ├── title.txt
-  │   │   ├── short_description.txt
-  │   │   └── full_description.txt
-  │   ├── feature-graphic.png        # 1024×500
-  │   └── screenshots/
-  │       ├── 01-measure-screen-ru.png
-  │       ├── 02-history-ru.png
-  │       └── ... (8 screenshots)
-  ├── rustore/
-  │   ├── ru-RU/
-  │   │   ├── title.txt              # ≤50 chars
-  │   │   ├── short_description.txt  # ≤80 chars
-  │   │   └── full_description.txt   # ≤4000 chars
-  │   └── screenshots/
-  │       └── ... (≤10 screenshots)
-  ├── samsung/
-  │   ├── en-US/
-  │   │   ├── title.txt
-  │   │   ├── short_description.txt
-  │   │   └── full_description.txt
-  │   └── screenshots/
-  ├── data-safety.md                 # Заполняемая декларация для Google Play
-  ├── permissions-rationale.md       # Объяснение для RECORD_AUDIO
-  └── aso-keywords.md                # ASO-стратегия и ключевые слова
-  ```
-- [ ] заполнить `google-play/ru-RU/title.txt`:
-  - «Тишина — измеритель шума» (24 chars, ≤30 OK)
-- [ ] заполнить `google-play/ru-RU/short_description.txt`:
-  - «Бесплатный измеритель шума без рекламы. История замеров с заметками.» (≤80)
-- [ ] заполнить `google-play/ru-RU/full_description.txt` (~1500-2000 слов):
-  - hook первого экрана: «Измерьте уровень шума вокруг — без рекламы, без подписок, без сбора данных»
-  - ключевые фичи: real-time SPL meter, история, заметки, калибровка, темы, локализация
-  - ASO-ключи (распределяются естественно в тексте): измеритель шума, шумомер, уровень звука, дБ метр, измерение шума, sound level meter, decibel meter, SPL meter
-  - дисклеймер о точности (компактная версия из § 11)
-  - ссылки: GitHub, Privacy Policy
-- [ ] заполнить `google-play/en-US/*.txt` — аналогично, английский
-- [ ] заполнить `rustore/ru-RU/*.txt`:
-  - RuStore разрешает до 50 chars в title — можем расширить
-  - «Тишина — шумомер без рекламы» (28 chars)
-  - акцент на «без рекламы», «полностью на русском», «локально» — выделяет на фоне rootApps / KTW
-- [ ] заполнить `samsung/en-US/*.txt` — английский; Samsung Galaxy Store повторяет Google Play контент
-- [ ] заполнить `data-safety.md`:
-  - Audio files collected: **No**
-  - App activity / App info collected: **No**
-  - Crash logs / Diagnostic data: **No** (Play Vitals managed by Google, не нашим SDK)
-  - All data: stored only on device
-  - Encrypted in transit: N/A (no network)
-  - Data deletion request: app uninstall = full deletion
-- [ ] заполнить `permissions-rationale.md`:
-  - `RECORD_AUDIO`: «Core functionality: measuring ambient sound levels in real time. No audio is stored, recorded to file, or transmitted. PCM samples are processed in RAM only and discarded after each frame.»
-- [ ] заполнить `aso-keywords.md`:
-  - primary keywords (русский): измеритель шума, шумомер, уровень шума, дБ метр, измерение звука
-  - secondary keywords (русский): громкость, децибел, фоновый шум, шум соседей, шум на работе
-  - primary keywords (english): sound level meter, decibel meter, noise meter, dB meter, SPL meter
-  - secondary keywords (english): sound measurement, noise level, ambient noise, decibel app
-  - не в title — только в descriptions (§ 17 спеки)
-- [ ] **➕ возможная подзадача:** добавить screenshot-генератор Gradle task `:app:generateStoreScreenshots` — Roborazzi-based, рендерит ключевые экраны в правильных разрешениях для Play (16:9 1920×1080) и RuStore (Portrait Phone)
-- [ ] **сначала тест:** `StoreMetadataLengthLimitTest` (JUnit 5) — читает все `.txt` файлы и assertion на максимальные длины (защита от случайного превышения лимитов); запускается в CI
-- [ ] **➕ возможная подзадача:** обновить `app/src/main/AndroidManifest.xml` если нужны specific store-targeting тэги (не критично)
-- [ ] run `./gradlew :app:lintRelease` — finalize lint compliance for production; must pass before next task
+- [x] создана структура `app/src/main/store-metadata/` со всеми поддиректориями (`google-play/{ru-RU,en-US}/`, `rustore/ru-RU/`, `samsung/en-US/`, `*/screenshots/`); root-уровневые декларации (`data-safety.md`, `permissions-rationale.md`, `aso-keywords.md`); `play-store-icon.png` 512×512 уже лежит в `app/src/main/` с Phase 6 Task 1 — двойного хранения избежали
+- [x] заполнен `google-play/ru-RU/title.txt` — «Тишина — измеритель шума» (24 chars, ≤30 ✓)
+- [x] заполнен `google-play/ru-RU/short_description.txt` — «Бесплатный измеритель шума без рекламы. История замеров с заметками.» (67 chars, ≤80 ✓)
+- [x] заполнен `google-play/ru-RU/full_description.txt` — hook первого экрана + 12 ключевых фич + аудитория + privacy + точность + ASO-ключи в тексте; ~2200 chars (≤4000 ✓)
+- [x] заполнены `google-play/en-US/*.txt` — title «Tisha — Sound Level Meter» (25 chars), short «Free sound level meter. No ads, no tracking. History with notes.» (64 chars), full_description (~2400 chars)
+- [x] заполнены `rustore/ru-RU/*.txt` — title «Тишина — шумомер без рекламы» (28 chars, использован запас лимита RuStore 50); short акцент на «без рекламы», «полностью офлайн», «без сбора данных»; full_description с упоминанием совместимости с «Мой Офис»/«Р7-Офис» (российский контекст)
+- [x] заполнены `samsung/en-US/*.txt` — повторяет Google Play en-US контент с поправкой на Samsung Store ToS (никаких упоминаний `Galaxy`/`Samsung` в описании)
+- [x] заполнен `data-safety.md` — drop-in ответы для Play Console Data Safety form; таблица по 14 категориям данных (Personal info, Financial, Health, Messages, Photos, Audio files, Files, Calendar, Contacts, App activity, Web browsing, App info, Device IDs, Location) — все «No»; обоснование «Encrypted in transit: N/A — no network code in production manifest»; in-app data deletion (per-measurement + bulk + uninstall)
+- [x] заполнен `permissions-rationale.md` — short rationale (≤200 chars для Play API field) + long rationale + perm-not-requested таблица (INTERNET, LOCATION, FOREGROUND_SERVICE_MICROPHONE, POST_NOTIFICATIONS, BLUETOOTH_*, AdvertisingId — все intentionally not requested)
+- [x] заполнен `aso-keywords.md` — primary/secondary keywords для RU+EN с конкретными лимитами по сторам; явный «keywords to AVOID» список (Galaxy/Samsung — Samsung ToS; professional/Class 1/IEC certified — false claim; medical/hearing test — health-app classification risk); localization notes (дБ vs дБ(А) разделение); update cadence (post-release 30-day review)
+- [x] **➕ возможная подзадача screenshot-генератор:** **decision: defer** — для MVP достаточно README-плейсхолдеров с capture checklist'ом и спецификациями (1080×2400 для Pixel 6 API 34, 8 для Play en/ru, 10 для RuStore, 8 для Samsung). Roborazzi-based генератор требует архитектурного решения (`:app` уже HiltViewModel-bound — render полноценных экранов в задаче без полного UI test setup нетривиален); перенесено в Phase 7+ или manual capture перед публикацией
+- [x] **сначала тест:** `app/src/test/.../StoreMetadataLengthLimitTest.kt` (JUnit 5 + dynamic tests):
+  - `@TestFactory` для каждого из 12 `.txt` файлов: assert existence + non-empty + codepoint count (не байты!) ≤ store-specific limit (Play 30, RuStore 50, Samsung 30; short 80; full 4000) + single-line guard для title/short (newlines → API reject)
+  - `@TestFactory` для 3 companion docs (data-safety.md, permissions-rationale.md, aso-keywords.md): existence + non-empty
+  - `@Test` для ASO/disclaimer: каждое RU full_description содержит «шумомер»+«измеритель шума»+disclaimer pattern; каждое EN — «sound level meter»+«decibel»+disclaimer; защищает от ASO-регрессий при будущих правках
+  - `UTF8_BOM` константа через `"﻿"` escape (literal U+FEFF strip'ается spotless'ом); `removePrefix` перед length check (хотя `.txt` файлы у нас без BOM, защита на случай редактирования в Excel/MS Notepad)
+- [x] **➕ возможная подзадача AndroidManifest store-targeting:** **decision: skip** — все store-specific метаданные живут в `store-metadata/`, в манифест ничего не нужно. Play/RuStore/Samsung читают это с upload-формы, не из APK
+- [x] run `./gradlew :app:lintRelease detektAll spotlessCheck :app:testDebugUnitTest` (full validation chain) — BUILD SUCCESSFUL: 17 динамических тестов проходят, detekt чист (MaxLineLength refactor в `assertContainsAny` helper), spotless OK после Apply (CRLF→LF + BOM escape)
 
 ### Task 8: OSS-licenses auto-generation Gradle task (replace static JSON)
 

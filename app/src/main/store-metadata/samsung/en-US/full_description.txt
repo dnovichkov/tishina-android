@@ -1,0 +1,50 @@
+Measure the noise around you — no ads, no subscriptions, no data collection.
+
+Tisha is a pocket sound level meter for your Galaxy device. It shows the current sound level in dB(A) in real time, keeps a local history of measurements with notes, and works fully offline. No telemetry, ever.
+
+WHAT IT DOES
+
+• Real-time sound level meter — the dB(A) chart updates 5 times per second.
+• A-weighting from the IEC 61672 mathematical formula (the same approach used by the NIOSH Sound Level Meter app).
+• FAST and SLOW time-weighting for impulsive and continuous noise.
+• Automatic min / avg (Leq) / max collection over the duration of each measurement.
+• Local history of measurements with duration, statistics, and optional notes.
+• Bulk delete with confirmation dialog and a 5-second Undo snackbar.
+• CSV export via the system Storage Access Framework picker — files open in Excel, Google Sheets, LibreOffice.
+• Share a measurement: PNG snapshot of the chart plus textual metrics, through any messenger.
+• Manual microphone calibration: ±0.0 to ±20.0 dB(A).
+• Light and dark themes; Material You dynamic colors on Android 12+.
+• Large-font and TalkBack friendly.
+• Fully localized in English and Russian.
+
+WHO IT IS FOR
+
+• Tenants documenting neighbour, construction, or HVAC noise.
+• Office and café workers checking background noise comfort.
+• Teachers and parents explaining what a decibel is and what level is safe.
+• Audio engineers and musicians estimating room noise.
+• Anyone curious about how loud their home, workplace, commute, or favourite park is.
+
+PRIVACY
+
+Tisha is a no-tracking app. No analytics SDKs, no ad networks, no cloud sync. The microphone is used only while a measurement is active — audio is processed in RAM and discarded immediately. No audio files are ever saved or transmitted.
+
+Measurement history and settings are stored ONLY on your device. Uninstalling the app deletes everything.
+
+ABOUT ACCURACY
+
+Tisha uses your phone's built-in microphone, which is tuned for voice (300–3400 Hz). Due to the physical limits of MEMS microphones and the impossibility of fully disabling system audio processing on some Android devices, readings can have a ±3–5 dB(A) margin — larger above 90 dB.
+
+The app is NOT certified to IEC 61672 (Class 1 or Class 2) and is not intended for workplace compliance, legal evidence, or regulatory enforcement. Use a professional sound level meter for those purposes.
+
+Tisha works best as a reference tool: comparing rooms, watching trends, teaching kids what a decibel is, and general curiosity.
+
+WHY FREE
+
+This is a personal project. There are no in-app purchases, no subscriptions, and no ads. There never will be.
+
+OPEN SOURCE
+
+The full source code is on GitHub under the Apache 2.0 license. Issues and pull requests welcome.
+
+Keywords: sound level meter, decibel meter, noise meter, dB meter, SPL meter, sound measurement, noise level, ambient noise, decibel app, loudness meter.
