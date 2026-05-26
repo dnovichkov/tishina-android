@@ -17,7 +17,7 @@ navigationCompose = "2.9.0"
 hiltNavigationCompose = "1.2.0"
 
 # DI
-hilt = "2.55"
+hilt = "2.59.2"
 
 # Data
 room = "2.8.4"
