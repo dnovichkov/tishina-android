@@ -1,9 +1,12 @@
 package ru.dmdp.tishina.feature.history.di
 
+import android.content.Context
+import androidx.core.content.FileProvider
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import ru.dmdp.tishina.core.data.export.MeasurementsExporterImpl
 import ru.dmdp.tishina.core.domain.repository.MeasurementRepository
@@ -14,7 +17,9 @@ import ru.dmdp.tishina.core.domain.usecase.ExportHistoryUseCase
 import ru.dmdp.tishina.core.domain.usecase.GetMeasurementByIdUseCase
 import ru.dmdp.tishina.core.domain.usecase.GetMeasurementsUseCase
 import ru.dmdp.tishina.core.domain.usecase.UpdateMeasurementNoteUseCase
+import ru.dmdp.tishina.core.ui.snapshot.LineChartSnapshotter
 import ru.dmdp.tishina.feature.history.HistoryViewModel
+import ru.dmdp.tishina.feature.history.detail.share.ShareIntentBuilder
 import javax.inject.Named
 import javax.inject.Singleton
 
@@ -90,5 +95,36 @@ internal abstract class HistoryUseCaseModule {
         @Singleton
         @Named(HistoryViewModel.NOW_MILLIS_PROVIDER)
         fun provideNowMillisProvider(): () -> Long = { System.currentTimeMillis() }
+
+        /**
+         * Phase 6 Task 4 — share-Intent infrastructure for FR-10 P1. The snapshotter is a
+         * plain class with no dependencies; provided here so the binding lives next to the
+         * builder it pairs with rather than spreading the share wiring across modules.
+         */
+        @Provides
+        @Singleton
+        fun provideLineChartSnapshotter(): LineChartSnapshotter = LineChartSnapshotter()
+
+        /**
+         * Production wiring for [ShareIntentBuilder] — uses
+         * `androidx.core.content.FileProvider.getUriForFile` with the
+         * `${applicationId}.fileprovider` authority declared in `:app/AndroidManifest.xml`
+         * and the `share/` cache subpath declared in
+         * `:app/src/main/res/xml/file_provider_paths.xml`.
+         */
+        @Provides
+        @Singleton
+        fun provideShareIntentBuilder(@ApplicationContext context: Context): ShareIntentBuilder =
+            ShareIntentBuilder(
+                context = context,
+                cacheSubdir = "share",
+                fileToUri = { file ->
+                    FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        file,
+                    )
+                },
+            )
     }
 }

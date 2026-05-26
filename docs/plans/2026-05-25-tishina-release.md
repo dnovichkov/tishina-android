@@ -322,42 +322,33 @@ Task structure guidelines:
 
 ### Task 4: Share Intent + PNG-снимок графика для Detail
 
-- [ ] **сначала тест:** `LineChartSnapshotterTest` (Robolectric + Compose):
-  - render `SplLineChart` с 60 samples в Bitmap 1080×720
-  - assertion: bitmap.width == 1080, height == 720, non-zero pixel coverage (>= 50%)
-  - empty samples list → Bitmap не падает, renders empty grid
-  - exception в Compose render → возвращает `Result.failure` (caller fallback на text-only share)
-- [ ] **сначала тест:** `DetailViewModelShareTest` (Turbine + FakeMeasurementRepository):
-  - `ShareRequested` → snapshot success → effect `LaunchShareIntent(mimeType="image/png", uri=non-null, text=summary)`
-  - `ShareRequested` → snapshot failure → effect `LaunchShareIntent(mimeType="text/plain", uri=null, text=summary)` (fallback)
-- [ ] **сначала тест:** `DetailShareComposeUiTest` (createComposeRule):
-  - TopAppBar action «Share» visible
-  - tap Share → effect captured → `Intent.ACTION_SEND` через `Shadows.shadowOf(application).nextStartedActivity` assertion
-  - text content содержит title, date, avgDb, durationSec — из summary
-- [ ] **сначала тест:** `DetailShareButtonScreenshotTest` (Roborazzi) — 4 baseline (`detail_share_button_visible_light/dark` + `detail_share_disabled_for_empty_chart_light/dark` если такой кейс есть)
-- [ ] создать `core/ui/.../snapshot/LineChartSnapshotter.kt`:
-  - `class LineChartSnapshotter { suspend fun snapshot(samples: List<SoundSample>, width: Int, height: Int, density: Density): Result<Bitmap> }`
-  - использует Compose Canvas API + `Bitmap.createBitmap` + `Canvas(bitmap).draw(...)` — рендерит SplLineChart на off-screen surface
-  - alternative: использовать `androidx.compose.ui.test.captureToImage()` через test rule (но это test-only API; production-альтернатива — manual draw)
-- [ ] создать `feature/history/.../share/ShareIntentBuilder.kt`:
-  - `class ShareIntentBuilder @Inject constructor(@ApplicationContext context: Context, fileProvider: FileProviderAuthority) { fun build(measurement: MeasurementDetails, chartBitmap: Bitmap?): Intent }`
-  - если bitmap != null → write to cache file `tishina-{id}-{timestamp}.png` через `FileProvider.getUriForFile`; Intent.ACTION_SEND with mimeType="image/png" + `EXTRA_STREAM` + `EXTRA_TEXT`
-  - если bitmap == null → text-only fallback (mimeType="text/plain", `EXTRA_TEXT` с summary)
-  - text format: title \n date \n "Avg: X dB / Min: Y / Max: Z" \n "Duration: M:SS" \n "—\n Сделано в приложении Тишина" (без link для privacy-first)
-- [ ] **➕ внеплановая подзадача:** настроить `FileProvider` в `AndroidManifest.xml`:
-  - `<provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">`
-  - `<meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_provider_paths"/>`
-  - создать `app/src/main/res/xml/file_provider_paths.xml` с `<cache-path name="shared" path="."/>`
-- [ ] обновить `feature/history/.../DetailViewModel.kt`:
+- [x] **сначала тест:** `LineChartSnapshotterTest` (Robolectric NATIVE graphics) — 6 кейсов: bitmap.width/height соответствуют requested size; PNG-round-trip через BitmapFactory; non-zero pixel coverage для 60-sample sine; empty list → header-only bitmap без crash; single sample → no crash; non-positive dimensions → Result.failure
+- [x] **сначала тест:** `DetailViewModelShareTest` (Turbine + Robolectric, GraphicsMode.NATIVE) — 4 кейса: ShareRequested→LaunchShareIntent с image/png; snapshotter failure→text/plain fallback; ShareRequested до load→no-op; subsequent share→another effect
+- [x] **сначала тест:** `DetailShareComposeUiTest` (createComposeRule) — 4 кейса: Share icon visible когда details загружены; hidden пока details==null; tap→ровно один ShareRequested event; Share + Delete coexist в TopBar
+- [x] **сначала тест:** `DetailShareButtonScreenshotTest` (Roborazzi) — 4 baseline (`share_button_visible_light/dark` + `share_button_hidden_loading_light/dark`)
+- [x] создан `core/ui/snapshot/LineChartSnapshotter.kt` — `open class` с `suspend fun snapshot(samples, widthPx, heightPx): Result<Bitmap>`. Использует чистый `android.graphics.Canvas` API (без Compose runtime) — `Bitmap.createBitmap` + `drawRect` (background) + `drawLine` (track) + `drawPath` (polyline). Mirror визуальной логики `SplLineChart` (CHART_WINDOW_MS, MIN/MAX_DB, level-color buckets), но без зависимости от MaterialTheme — share-PNG должен выглядеть одинаково в любой теме receiver-приложения. CancellationException re-throws, остальные Throwable→Result.failure
+- [x] создан `feature/history/detail/share/ShareIntentBuilder.kt`:
+  - constructor `(context: Context, cacheSubdir: String = "share", fileToUri: (File) -> Uri)` — DI-инжектируется через `@Provides` (production wires `FileProvider.getUriForFile` с `${packageName}.fileprovider` authority)
+  - rich path: пишет PNG в `cacheDir/share/tishina-{id}-{ms}.png`, Intent.ACTION_SEND `image/png` + EXTRA_STREAM + EXTRA_TEXT + FLAG_GRANT_READ_URI_PERMISSION
+  - fallback на text/plain если bitmap=null ИЛИ writePngToCache throws (collision с файлом по пути)
+  - text format: title (или default) \n recorded_at \n\n Среднее/Мин/Макс/Длительность \n\n —\n footer (без URL — privacy-first)
+- [x] **➕ внеплановая подзадача:** настроен `FileProvider` в `app/src/main/AndroidManifest.xml`:
+  - `<provider authority="${applicationId}.fileprovider" exported="false" grantUriPermissions="true">` + meta-data `android.support.FILE_PROVIDER_PATHS = @xml/file_provider_paths`
+  - создан `app/src/main/res/xml/file_provider_paths.xml` с `<cache-path name="shared" path="share/"/>` — exposes ONLY `cache/share/` (не весь cache; Compose tooling пишет в `cache/coil-images/` и т.п. — изолировано)
+- [x] обновлён `feature/history/detail/DetailViewModel.kt`:
   - инжектится `LineChartSnapshotter` + `ShareIntentBuilder`
-  - new event `ShareRequested` → coroutineScope { snapshot → buildIntent → emit `LaunchShareIntent` effect }
-  - new effect `LaunchShareIntent(intent: Intent)` (handled в DetailScreen через `Activity.startActivity` или `Intent.createChooser`)
-- [ ] обновить `feature/history/.../DetailScreen.kt`:
-  - TopAppBar action `IconButton { onEvent(ShareRequested) }` с `Icons.Outlined.Share`
-  - subscribe to `LaunchShareIntent` effect → `LocalContext.current.startActivity(Intent.createChooser(intent, "Share measurement"))`
-- [ ] добавить локализационные строки:
-  - `detail_share_cd`, `detail_share_chooser_title`, `detail_share_text_template`
-- [ ] run `./gradlew :core:ui:testDebugUnitTest :feature:history:testDebugUnitTest :feature:history:verifyRoborazziDebug :app:assembleDebug` — must pass before next task
+  - new event `ShareRequested` → `performShare()` snapshot 1080×540 px → buildIntent → `effectChannel.send(LaunchShareIntent(intent))`
+  - defense-in-depth: ShareRequested до загрузки details → silent no-op (UI gate'ит icon, но coldstart race возможна)
+- [x] обновлён `feature/history/detail/DetailScreen.kt`:
+  - extract `TopBarActions` private composable (detekt LongMethod fix — DetailScreenContent был 82 lines)
+  - Share `IconButton` с `Icons.Outlined.Share` + `testTag = DetailShareIconTestTag`, гэйтируется `state.details != null`
+  - LaunchedEffect → `Intent.createChooser(intent, R.string.detail_share_chooser_title)` + `FLAG_ACTIVITY_NEW_TASK` (для не-Activity LocalContext) → `context.startActivity(...)`
+- [x] обновлены `DetailUiEvent` (+ShareRequested), `DetailUiEffect` (+LaunchShareIntent(intent: Intent))
+- [x] обновлены локализационные строки EN/RU: `detail_share_cd`, `detail_share_chooser_title`, `detail_share_avg/min/max/duration/footer`
+- [x] обновлён DI `HistoryUseCaseModule` — `@Provides @Singleton` для `LineChartSnapshotter` и `ShareIntentBuilder` (production wiring к `FileProvider.getUriForFile`)
+- [x] обновлён `DetailViewModelTest` — новые параметры конструктора (LineChartSnapshotter + ShareIntentBuilder с fake fileToUri)
+- [x] перезаписаны baseline `DetailScreenScreenshotTest_*` (6 файлов) — TopAppBar теперь с Share icon
+- [x] run `./gradlew :core:ui:testDebugUnitTest :feature:history:testDebugUnitTest :feature:history:verifyRoborazziDebug :app:assembleDebug` — BUILD SUCCESSFUL; дополнительно зелёные `:app:assembleRelease` (R8 + ProGuard rules не сломаны нашим share-кодом), `spotlessCheck`, `detektAll`, `:feature:history:lintDebug`, `:core:ui:lintDebug`
 
 ### Task 5: Privacy Policy + GitHub Pages hosting + финальные URL
 

@@ -19,7 +19,9 @@ import ru.dmdp.tishina.core.domain.model.NewMeasurement
 import ru.dmdp.tishina.core.domain.usecase.DeleteMeasurementUseCase
 import ru.dmdp.tishina.core.domain.usecase.GetMeasurementByIdUseCase
 import ru.dmdp.tishina.core.domain.usecase.UpdateMeasurementNoteUseCase
+import ru.dmdp.tishina.core.ui.snapshot.LineChartSnapshotter
 import ru.dmdp.tishina.feature.history.R
+import ru.dmdp.tishina.feature.history.detail.share.ShareIntentBuilder
 import javax.inject.Inject
 
 /**
@@ -45,6 +47,8 @@ class DetailViewModel @Inject constructor(
     private val getMeasurementById: GetMeasurementByIdUseCase,
     private val updateNote: UpdateMeasurementNoteUseCase,
     private val deleteMeasurement: DeleteMeasurementUseCase,
+    private val snapshotter: LineChartSnapshotter,
+    private val shareIntentBuilder: ShareIntentBuilder,
 ) : ViewModel() {
 
     private val measurementId: Long = savedStateHandle.toRoute<DetailRoute>().measurementId
@@ -96,6 +100,27 @@ class DetailViewModel @Inject constructor(
             DetailUiEvent.DeleteRequested -> _state.update { it.copy(deleteConfirmVisible = true) }
             DetailUiEvent.DeleteConfirmed -> performDelete()
             DetailUiEvent.DeleteCancelled -> _state.update { it.copy(deleteConfirmVisible = false) }
+            DetailUiEvent.ShareRequested -> performShare()
+        }
+    }
+
+    private fun performShare() {
+        // Tap before load completes is a defensive no-op — the TopAppBar gates the Share button
+        // on details != null but the cold-start race is still possible if the user is fast.
+        val details = _state.value.details ?: return
+        viewModelScope.launch {
+            // Snapshot dimensions chosen to match a comfortable share preview on most messengers
+            // (Telegram caps at 1280 px on the longer edge; we stay below to avoid recompression).
+            val bitmapResult = snapshotter.snapshot(
+                samples = details.samples,
+                widthPx = SHARE_BITMAP_WIDTH_PX,
+                heightPx = SHARE_BITMAP_HEIGHT_PX,
+            )
+            val intent = shareIntentBuilder.build(
+                details = details,
+                chartBitmap = bitmapResult.getOrNull(),
+            )
+            effectChannel.send(DetailUiEffect.LaunchShareIntent(intent))
         }
     }
 
@@ -184,5 +209,12 @@ class DetailViewModel @Inject constructor(
                 effectChannel.send(DetailUiEffect.ShowSnackbar(R.string.detail_delete_failed))
             }
         }
+    }
+
+    private companion object {
+        // Share-Intent PNG dimensions. Big enough to look sharp in messengers, small enough
+        // to stay well under WhatsApp's 16 MB total payload limit even uncompressed.
+        const val SHARE_BITMAP_WIDTH_PX = 1080
+        const val SHARE_BITMAP_HEIGHT_PX = 540
     }
 }

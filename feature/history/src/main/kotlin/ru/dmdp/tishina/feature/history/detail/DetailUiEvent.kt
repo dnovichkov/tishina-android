@@ -26,4 +26,7 @@ sealed interface DetailUiEvent {
 
     /** "Cancel" in confirmation AlertDialog → close dialog without deleting. */
     data object DeleteCancelled : DetailUiEvent
+
+    /** Share icon in TopAppBar → render PNG snapshot and open system chooser (FR-10 P1). */
+    data object ShareRequested : DetailUiEvent
 }

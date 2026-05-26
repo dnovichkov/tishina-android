@@ -31,7 +31,9 @@ import ru.dmdp.tishina.core.domain.usecase.DeleteMeasurementUseCase
 import ru.dmdp.tishina.core.domain.usecase.GetMeasurementByIdUseCase
 import ru.dmdp.tishina.core.domain.usecase.UpdateMeasurementNoteUseCase
 import ru.dmdp.tishina.core.testing.fakes.FakeMeasurementRepository
+import ru.dmdp.tishina.core.ui.snapshot.LineChartSnapshotter
 import ru.dmdp.tishina.feature.history.R
+import ru.dmdp.tishina.feature.history.detail.share.ShareIntentBuilder
 
 /**
  * Behavior covered:
@@ -96,6 +98,12 @@ class DetailViewModelTest {
         getMeasurementById = GetMeasurementByIdUseCase(repo),
         updateNote = UpdateMeasurementNoteUseCase(repo),
         deleteMeasurement = DeleteMeasurementUseCase(repo),
+        snapshotter = LineChartSnapshotter(),
+        shareIntentBuilder = ShareIntentBuilder(
+            context = androidx.test.core.app.ApplicationProvider.getApplicationContext(),
+            cacheSubdir = "share-test",
+            fileToUri = { file -> android.net.Uri.parse("content://test/${file.name}") },
+        ),
     )
 
     @Test

@@ -86,4 +86,15 @@
     <string name="detail_delete_cd">Delete measurement</string>
     <string name="detail_back_cd">Back</string>
     <string name="detail_note_default_title">Measurement</string>
+
+    <!-- Phase 6 Task 4 — Share Intent payload (FR-10 P1). The Share action sends a PNG
+         snapshot of the chart plus a textual summary; if the snapshot fails, only text
+         is sent. The TopAppBar uses detail_share_cd for accessibility. -->
+    <string name="detail_share_cd">Share measurement</string>
+    <string name="detail_share_chooser_title">Share measurement</string>
+    <string name="detail_share_avg">Average: %1$.1f dB(A)</string>
+    <string name="detail_share_min">Min: %1$.1f dB(A)</string>
+    <string name="detail_share_max">Max: %1$.1f dB(A)</string>
+    <string name="detail_share_duration">Duration: %1$s</string>
+    <string name="detail_share_footer">Measured with the Tishina app</string>
 </resources>

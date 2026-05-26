@@ -84,4 +84,12 @@
     <string name="detail_delete_cd">Удалить замер</string>
     <string name="detail_back_cd">Назад</string>
     <string name="detail_note_default_title">Замер</string>
+
+    <string name="detail_share_cd">Поделиться замером</string>
+    <string name="detail_share_chooser_title">Поделиться замером</string>
+    <string name="detail_share_avg">Среднее: %1$.1f дБ(А)</string>
+    <string name="detail_share_min">Мин: %1$.1f дБ(А)</string>
+    <string name="detail_share_max">Макс: %1$.1f дБ(А)</string>
+    <string name="detail_share_duration">Длительность: %1$s</string>
+    <string name="detail_share_footer">Измерено в приложении Тишина</string>
 </resources>
