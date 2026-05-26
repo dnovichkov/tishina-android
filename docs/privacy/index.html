@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="index, follow">
+    <meta name="description" content="Privacy Policy for the Tishina (Тишина) Android sound level meter app. No data collection, no third-party SDKs, no network access.">
+    <title>Политика конфиденциальности — Тишина / Privacy Policy — Tisha</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main>
+        <header class="site-header">
+            <h1>
+                <span lang="ru">Тишина</span>
+                <span class="sep">·</span>
+                <span lang="en">Tisha</span>
+            </h1>
+            <p class="tagline">
+                <span lang="ru">Измеритель уровня шума на Android</span>
+                <span class="sep">·</span>
+                <span lang="en">Android sound level meter</span>
+            </p>
+            <p class="effective-date">
+                <span lang="ru">Действует с 25 мая 2026 г.</span>
+                <span class="sep">·</span>
+                <span lang="en">Effective 25 May 2026</span>
+            </p>
+            <nav aria-label="Language selector" class="lang-nav">
+                <a href="#ru">Русская версия</a>
+                <span aria-hidden="true">·</span>
+                <a href="#en">English version</a>
+            </nav>
+        </header>
+
+        <article id="ru" lang="ru" class="policy-section">
+            <h2>Политика конфиденциальности приложения «Тишина»</h2>
+
+            <p class="lede">
+                Приложение «Тишина» (далее — «Приложение») не собирает, не передаёт
+                и не хранит на удалённых серверах никакие персональные или аудиоданные.
+                Этот документ объясняет, как именно Приложение работает с данными
+                на устройстве пользователя.
+            </p>
+
+            <section>
+                <h3>1. Какие данные обрабатывает Приложение</h3>
+                <p>
+                    Приложение работает локально на устройстве и обрабатывает
+                    исключительно технические данные, необходимые для измерения
+                    уровня окружающего шума:
+                </p>
+                <ul>
+                    <li>
+                        Текущие отсчёты с микрофона — обрабатываются в оперативной
+                        памяти как поток PCM-данных и используются только для
+                        вычисления уровня звукового давления в дБ. Аудио
+                        <strong>не записывается в файлы</strong>, не сохраняется
+                        в постоянную память и не передаётся за пределы устройства.
+                    </li>
+                    <li>
+                        Агрегированные результаты измерений (среднее, минимум,
+                        максимум, длительность, метка времени, опциональное
+                        название и заметка), которые пользователь явно сохранил
+                        в историю замеров. Эти данные хранятся в приватном
+                        хранилище приложения и доступны только самому приложению.
+                    </li>
+                    <li>
+                        Калибровочное смещение в дБ — пользовательская настройка,
+                        сохраняется в DataStore Preferences в приватном хранилище.
+                    </li>
+                </ul>
+            </section>
+
+            <section>
+                <h3>2. Использование микрофона</h3>
+                <p>
+                    Приложение запрашивает разрешение <code>RECORD_AUDIO</code>.
+                    Микрофон активен только пока пользователь явно запустил
+                    измерение в Приложении. Аудиопоток не сохраняется в виде
+                    файла, не транскрибируется, не отправляется на удалённые
+                    серверы и не используется ни в какой форме, кроме вычисления
+                    уровня шума в реальном времени.
+                </p>
+            </section>
+
+            <section>
+                <h3>3. Хранение данных</h3>
+                <p>
+                    Все сохранённые измерения и пользовательские настройки
+                    хранятся только в приватном хранилище приложения на устройстве
+                    (Android internal storage, изолированном песочницей приложения).
+                    Эти данные не синхронизируются в облако и не покидают
+                    устройство автоматически.
+                </p>
+                <p>
+                    Удаление приложения через стандартный механизм Android
+                    приводит к полному удалению всех данных Приложения с устройства.
+                </p>
+            </section>
+
+            <section>
+                <h3>4. Передача данных третьим лицам</h3>
+                <p>
+                    Приложение <strong>не содержит сторонних SDK</strong> для
+                    аналитики, рекламы, A/B-тестирования или сбора отчётов
+                    о сбоях. Приложение не имеет сетевого доступа и не разрешает
+                    в манифесте permission <code>INTERNET</code>.
+                </p>
+                <p>
+                    Никакие данные не передаются третьим лицам, рекламным сетям,
+                    брокерам данных, государственным органам (за исключением
+                    случаев, прямо предусмотренных применимым законодательством),
+                    или в исследовательских целях.
+                </p>
+            </section>
+
+            <section>
+                <h3>5. Экспорт данных пользователем</h3>
+                <p>
+                    Если пользователь явно инициирует экспорт истории измерений
+                    в CSV-файл, открывается системный диалог выбора места
+                    сохранения (Storage Access Framework). Приложение записывает
+                    CSV-файл в выбранную пользователем папку. После сохранения
+                    файл управляется пользователем — Приложение не имеет к нему
+                    автоматического доступа и не отслеживает дальнейшее
+                    использование.
+                </p>
+            </section>
+
+            <section>
+                <h3>6. Дети</h3>
+                <p>
+                    Приложение не предназначено целенаправленно для детей
+                    младше 13 лет и не запрашивает информацию о возрасте
+                    пользователя. Приложение не собирает данные ни от каких
+                    пользователей, поэтому требования COPPA / GDPR-K по
+                    обработке детских данных не применяются.
+                </p>
+            </section>
+
+            <section>
+                <h3>7. Изменения политики</h3>
+                <p>
+                    При существенных изменениях этой политики обновлённая
+                    редакция публикуется по тому же URL вместе с новой датой
+                    в начале документа. История изменений доступна в git-репозитории:
+                    <a href="https://github.com/dnovichkov/tishina-android">github.com/dnovichkov/tishina-android</a>.
+                </p>
+            </section>
+
+            <section>
+                <h3>8. Контакты</h3>
+                <p>
+                    Вопросы и обращения по политике конфиденциальности — через
+                    GitHub Issues:
+                    <a href="https://github.com/dnovichkov/tishina-android/issues">github.com/dnovichkov/tishina-android/issues</a>.
+                </p>
+            </section>
+        </article>
+
+        <hr>
+
+        <article id="en" lang="en" class="policy-section">
+            <h2>Privacy Policy — Tisha</h2>
+
+            <p class="lede">
+                The Tisha app (the “App”) does not collect, transmit, or store
+                any personal data or audio recordings on remote servers. This
+                document explains how the App handles data on the user’s device.
+            </p>
+
+            <section>
+                <h3>1. Data processed by the App</h3>
+                <p>
+                    The App runs locally on the device and processes only the
+                    technical data required to measure ambient noise level:
+                </p>
+                <ul>
+                    <li>
+                        Live microphone samples — processed in RAM as a stream
+                        of PCM audio and used only to compute the sound
+                        pressure level in dB. Audio is
+                        <strong>never written to a file</strong>, never persisted,
+                        and never sent off the device.
+                    </li>
+                    <li>
+                        Aggregated measurement results (average, minimum,
+                        maximum, duration, timestamp, optional title and note)
+                        that the user explicitly saved to history. These are
+                        stored in the App’s private storage and accessible only
+                        to the App itself.
+                    </li>
+                    <li>
+                        Calibration offset in dB — a user-controlled setting
+                        stored in DataStore Preferences inside private storage.
+                    </li>
+                </ul>
+            </section>
+
+            <section>
+                <h3>2. Microphone usage</h3>
+                <p>
+                    The App requests the <code>RECORD_AUDIO</code> permission.
+                    The microphone is active only while the user has explicitly
+                    started a measurement inside the App. The audio stream is
+                    not saved to a file, not transcribed, not uploaded to any
+                    remote server, and not used for any purpose other than
+                    real-time noise-level measurement.
+                </p>
+            </section>
+
+            <section>
+                <h3>3. Data storage</h3>
+                <p>
+                    All saved measurements and user settings are stored only
+                    in the App’s private storage on the device (Android
+                    internal storage, isolated by the application sandbox).
+                    This data is not synced to the cloud and does not leave
+                    the device automatically.
+                </p>
+                <p>
+                    Uninstalling the App through Android’s standard mechanism
+                    fully deletes all App data from the device.
+                </p>
+            </section>
+
+            <section>
+                <h3>4. Third-party data sharing</h3>
+                <p>
+                    The App <strong>contains no third-party SDKs</strong> for
+                    analytics, advertising, A/B testing, or crash reporting.
+                    The App has no network access and does not declare the
+                    <code>INTERNET</code> permission in its manifest.
+                </p>
+                <p>
+                    No data is shared with third parties, advertising networks,
+                    data brokers, government agencies (except where required
+                    by applicable law), or research projects.
+                </p>
+            </section>
+
+            <section>
+                <h3>5. User-initiated data export</h3>
+                <p>
+                    If the user explicitly triggers the CSV export feature,
+                    the system file picker (Storage Access Framework) opens
+                    so the user can choose the destination folder. The App
+                    writes the CSV file to the chosen location. After saving,
+                    the file is fully under the user’s control — the App has
+                    no automatic access to it and does not track its further
+                    use.
+                </p>
+            </section>
+
+            <section>
+                <h3>6. Children</h3>
+                <p>
+                    The App is not specifically directed at children under 13
+                    and does not request the user’s age. The App does not
+                    collect data from any user, so COPPA / GDPR-K requirements
+                    on children’s data processing do not apply.
+                </p>
+            </section>
+
+            <section>
+                <h3>7. Changes to this policy</h3>
+                <p>
+                    Material changes to this policy are published at the same
+                    URL together with a new effective date at the top of the
+                    document. Change history is available in the git
+                    repository:
+                    <a href="https://github.com/dnovichkov/tishina-android">github.com/dnovichkov/tishina-android</a>.
+                </p>
+            </section>
+
+            <section>
+                <h3>8. Contact</h3>
+                <p>
+                    Questions about this Privacy Policy should be raised via
+                    GitHub Issues:
+                    <a href="https://github.com/dnovichkov/tishina-android/issues">github.com/dnovichkov/tishina-android/issues</a>.
+                </p>
+            </section>
+        </article>
+
+        <footer class="site-footer">
+            <p>
+                <span lang="ru">© 2026 Тишина · Apache License 2.0</span>
+                <span class="sep">·</span>
+                <span lang="en">© 2026 Tisha · Apache License 2.0</span>
+            </p>
+        </footer>
+    </main>
+</body>
+</html>

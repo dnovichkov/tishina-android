@@ -1,0 +1,194 @@
+/*
+ * Tishina Privacy Policy stylesheet.
+ *
+ * Static, no JavaScript, no remote font/CDN imports — the policy itself
+ * states "no third-party SDKs / no network beacons" and the document
+ * has to live up to that. System fonts only, single ~3 KB file.
+ */
+
+:root {
+    --bg: #0e2433;
+    --surface: #16334a;
+    --on-bg: #e6f0f5;
+    --on-bg-muted: #a8bccc;
+    --accent: #0fb5ba;
+    --rule: #284861;
+    --max-w: 720px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, "PT Sans", sans-serif;
+    line-height: 1.6;
+    color: var(--on-bg);
+    background-color: var(--bg);
+    -webkit-text-size-adjust: 100%;
+}
+
+main {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+}
+
+.site-header {
+    text-align: center;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 32px;
+}
+
+.site-header h1 {
+    font-size: 2rem;
+    margin: 0 0 8px;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+}
+
+.site-header .tagline {
+    color: var(--on-bg-muted);
+    margin: 0 0 12px;
+    font-size: 1rem;
+}
+
+.site-header .effective-date {
+    margin: 0 0 16px;
+    font-size: 0.9rem;
+    color: var(--on-bg-muted);
+}
+
+.sep {
+    color: var(--on-bg-muted);
+    margin: 0 0.5em;
+}
+
+.lang-nav {
+    margin: 12px 0 0;
+    font-size: 0.95rem;
+}
+
+.lang-nav a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px dashed transparent;
+}
+
+.lang-nav a:hover,
+.lang-nav a:focus {
+    border-bottom-color: var(--accent);
+}
+
+.policy-section {
+    padding: 16px 0 24px;
+}
+
+.policy-section h2 {
+    font-size: 1.5rem;
+    margin: 0 0 16px;
+    color: var(--on-bg);
+}
+
+.policy-section h3 {
+    font-size: 1.1rem;
+    margin: 24px 0 8px;
+    color: var(--accent);
+}
+
+.policy-section p,
+.policy-section ul {
+    margin: 0 0 12px;
+}
+
+.policy-section .lede {
+    background-color: var(--surface);
+    border-left: 4px solid var(--accent);
+    padding: 12px 16px;
+    border-radius: 4px;
+}
+
+.policy-section ul {
+    padding-left: 1.25em;
+}
+
+.policy-section li {
+    margin-bottom: 8px;
+}
+
+.policy-section a {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.policy-section a:hover,
+.policy-section a:focus {
+    text-decoration: none;
+}
+
+.policy-section code {
+    background-color: var(--surface);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.9em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+hr {
+    border: 0;
+    border-top: 1px solid var(--rule);
+    margin: 40px 0;
+}
+
+.site-footer {
+    text-align: center;
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    color: var(--on-bg-muted);
+    font-size: 0.85rem;
+}
+
+@media (max-width: 480px) {
+    main {
+        padding: 24px 16px 48px;
+    }
+    .site-header h1 {
+        font-size: 1.6rem;
+    }
+    .site-header .tagline {
+        font-size: 0.95rem;
+    }
+    .sep {
+        display: block;
+        height: 0;
+        overflow: hidden;
+        margin: 4px 0;
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg: #f7f9fb;
+        --surface: #ffffff;
+        --on-bg: #15202b;
+        --on-bg-muted: #56697a;
+        --accent: #0a7a7e;
+        --rule: #d8dfe5;
+    }
+    .policy-section .lede {
+        background-color: var(--surface);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .policy-section code {
+        background-color: #eef2f5;
+    }
+}

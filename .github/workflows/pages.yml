@@ -1,0 +1,71 @@
+name: Deploy Privacy Policy to GitHub Pages
+
+# Phase 6 Task 5 — публикация `docs/privacy/` на GitHub Pages.
+#
+# Триггеры:
+#  - push в main, который трогает файлы политики или сам workflow;
+#  - manual workflow_dispatch для re-publish без коммита.
+#
+# Опубликованный URL после первого зелёного run:
+#   https://dnovichkov.github.io/tishina-android/privacy/
+#
+# Этот URL уже зашит в `feature/about/.../strings.xml` как
+# `about_privacy_url`, поэтому Repository Settings → Pages должен быть
+# выставлен в "GitHub Actions" (НЕ legacy "Deploy from a branch").
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/privacy/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Pages site
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Stage docs/privacy under /privacy path
+        # GitHub Pages serves the artifact at the repo root, so a request to
+        # `<user>.github.io/tishina-android/privacy/` needs the privacy files
+        # to live under a `privacy/` directory inside the published artifact.
+        # The local source is already at `docs/privacy/` — we just have to
+        # re-stage it one level deeper so the URL path matches what
+        # `about_privacy_url` declares in strings.xml.
+        run: |
+          set -euo pipefail
+          mkdir -p _site/privacy
+          cp -R docs/privacy/. _site/privacy/
+          ls -la _site _site/privacy
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

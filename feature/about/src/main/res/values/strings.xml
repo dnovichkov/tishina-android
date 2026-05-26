@@ -29,10 +29,10 @@
     <string name="about_links_section_title">Links</string>
     <string name="about_github_title">GitHub repository</string>
     <string name="about_github_subtitle">Source code, issues and releases</string>
-    <string name="about_github_url" translatable="false">https://github.com/dmitrynovichkov/tishina-android</string>
+    <string name="about_github_url" translatable="false">https://github.com/dnovichkov/tishina-android</string>
     <string name="about_privacy_title">Privacy Policy</string>
     <string name="about_privacy_subtitle">Data collection and usage</string>
-    <string name="about_privacy_url" translatable="false">https://dmitrynovichkov.github.io/tishina-android/privacy/</string>
+    <string name="about_privacy_url" translatable="false">https://dnovichkov.github.io/tishina-android/privacy/</string>
 
     <!-- OSS-license inventory (NFR-10). Subtitle clarifies the most common license so the list
          remains readable even with 15+ entries. -->

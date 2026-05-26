@@ -352,34 +352,23 @@ Task structure guidelines:
 
 ### Task 5: Privacy Policy + GitHub Pages hosting + финальные URL
 
-- [ ] создать `docs/privacy/index.html`:
+- [x] создать `docs/privacy/index.html`:
   - статичная HTML без JavaScript (privacy-first, не загружает CDN-скрипты)
   - заголовок: «Политика конфиденциальности приложения Тишина» / «Privacy Policy for Tisha»
-  - две колонки/секции: RU + EN
-  - содержимое (выработано по NFR-9..NFR-11 + § 11 спеки):
-    - «Приложение Тишина не собирает, не передаёт и не хранит на удалённых серверах никакие персональные или аудиоданные»
-    - «Микрофон используется только для real-time анализа уровня шума; аудио-потоки не записываются в файлы»
-    - «История измерений сохраняется локально на устройстве (`com.android.providers.system` private app storage); не синхронизируется в облако»
-    - «Приложение не содержит сторонних SDK для аналитики, рекламы или crash-reporting»
-    - «При экспорте CSV пользователь явно выбирает целевую папку через системный picker — приложение не имеет автоматического доступа к storage»
-    - «Контакты для вопросов: <GitHub issues URL>»
-    - дата обновления: 2026-05-25 (Phase 6 release date)
-- [ ] создать `docs/privacy/style.css` — минимальный CSS для читабельности (font-family system, max-width 720px, line-height 1.6); inline в HTML возможно вместо отдельного файла для simplicity
-- [ ] **➕ внеплановая подзадача:** обновить `app/src/main/AndroidManifest.xml` если требуется добавить ссылку на privacy policy в `<application android:metadata="..."/>` (не обязательно для Play Console — там URL вводится отдельно)
-- [ ] настроить GitHub Pages:
-  - Settings → Pages → Source = `main` branch → folder `/docs` (если такой опции нет — переместить в `docs/privacy/` или сделать workflow-publish)
-  - alternative: создать `.github/workflows/pages.yml` для auto-deploy `docs/privacy/` в `gh-pages` branch
-  - URL: `https://dnovichkov.github.io/tishina-android/privacy/` (substring username из git config; verified в `git config user.email`)
-- [ ] обновить `feature/about/src/main/res/values/strings.xml` и `values-ru/`:
-  - `about_github_url` = `https://github.com/dnovichkov/tishina-android` (real username из git config)
+  - две секции на одной странице: RU (`#ru`) + EN (`#en`), с language nav в шапке
+  - 8 разделов в каждой секции: что обрабатывается, микрофон, хранение, третьи лица, экспорт пользователем, дети, изменения политики, контакты
+  - дата обновления: 2026-05-25 (Phase 6 release date)
+- [x] создать `docs/privacy/style.css` — отдельный файл (3.3 КБ); system-fonts, max-width 720px, line-height 1.6; brand-цвета (`--accent: #0fb5ba` teal на `#0e2433`); responsive (mobile breakpoint 480px); поддержка `prefers-color-scheme: light` без JavaScript
+- [x] **➕ внеплановая подзадача:** обновить `AndroidManifest.xml` — пропущено: план явно отмечает «не обязательно для Play Console — там URL вводится отдельно», и в коде сейчас нет потребности в `<meta-data android:name="...privacy_url"/>`
+- [x] настроить GitHub Pages — создан `.github/workflows/pages.yml` для auto-deploy `docs/privacy/` через GitHub Actions (`actions/upload-pages-artifact@v3` + `actions/deploy-pages@v4`); триггеры: push на main с изменениями в `docs/privacy/**` или сам workflow + manual `workflow_dispatch`; permissions `pages: write`, `id-token: write`; staging-шаг копирует `docs/privacy/` в `_site/privacy/` чтобы URL совпал с тем, что зашит в `about_privacy_url`. Settings → Pages → Source = «GitHub Actions» — manual step (Post-Completion в repo UI)
+- [x] обновить `feature/about/src/main/res/values/strings.xml`:
+  - `about_github_url` = `https://github.com/dnovichkov/tishina-android` (real username из git remote `git@github.com:dnovichkov/tishina-android.git`)
   - `about_privacy_url` = `https://dnovichkov.github.io/tishina-android/privacy/`
-- [ ] **сначала тест:** `AboutScreenLinksIntegrationTest` (Robolectric + createComposeRule):
-  - тап «GitHub» → captured Intent.ACTION_VIEW.data == final github URL (не placeholder)
-  - тап «Privacy Policy» → captured Intent.ACTION_VIEW.data == final privacy URL
-  - тестируется через `Shadows.shadowOf(application).nextStartedActivity`
-- [ ] обновлены baseline `AboutScreenScreenshotTest` (Phase 5) — URL подписи могут сменить positioning; перерисовать через `:feature:about:recordRoborazziDebug`
-- [ ] **➕ возможная подзадача:** добавить generative-test для URL validity через `URI.create(it.url).host != null` — защита от typo в strings.xml
-- [ ] run `./gradlew :feature:about:testDebugUnitTest :feature:about:verifyRoborazziDebug :app:assembleDebug` — must pass before next task
+  - значения с атрибутом `translatable="false"` живут только в `values/`, поэтому `values-ru/` править не пришлось — placeholder там был только для титулов, реальный URL не задублирован
+- [x] **сначала тест:** `AboutScreenLinksIntegrationTest` (Robolectric + createComposeRule, 4 кейса): assertion-only тесты на ресурсные строки (не содержат placeholder `dmitrynovichkov`, совпадают с финальными URL дословно) + сценарии тапа на GitHub/Privacy в `AboutScreenContent` с проверкой `Intent(Intent.ACTION_VIEW, Uri.parse(url))` восстанавливает Uri == ресурс
+- [x] обновлены baseline `AboutScreenScreenshotTest` — **N/A**: URL не отображаются в UI (только `about_*_subtitle` тексты, которые не менялись). `verifyRoborazziDebug` зелёный без перезаписи; экономим один цикл `recordRoborazziDebug`
+- [x] **➕ возможная подзадача:** добавлен `AboutUrlValidityTest` (table-driven, JUnit + Robolectric) — для каждого зарегистрированного string-res проверяет: парсится через `URI.create`, schema=`https`, host не пуст, host оканчивается на ожидаемый suffix (`github.com` / `github.io`), нет whitespace в строке. Защита от typo при будущих правках strings.xml
+- [x] run `./gradlew :feature:about:testDebugUnitTest :feature:about:verifyRoborazziDebug :feature:about:lintDebug :app:assembleDebug` — все BUILD SUCCESSFUL
 
 ### Task 6: Release signing + release.yml workflow + GitHub Releases publishing
 
