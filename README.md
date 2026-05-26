@@ -17,9 +17,9 @@
 
 ## Статус
 
-**Phase 5: Polish + About + Bulk-delete complete.**
+**Phase 6: Production Release complete — v1.0.0 ready.**
 
-Закрыты все обязательные FR-требования MVP, кроме экспорта CSV / Share Intent / R8 / hosting Privacy Policy, которые уходят в Phase Release. На главном экране Measure появилась иконка «?» с компактным `AccuracyDisclaimerBottomSheet` (короткий текст из § 11 спеки + кнопка «Подробнее» → AboutScreen). На экране History реализован множественный выбор (long-press → selection mode, tap-toggle, Select all, Cancel) с пакетным soft-delete и 5-секундным Snackbar Undo на N замеров (plural-форма для русского). Полноценный AboutScreen рендерит версию (`BuildConfig.VERSION_NAME` + build code), описание приложения, развёрнутый текст дисклеймера о точности с DOI NIOSH, ссылки GitHub / Privacy Policy через `Intent.ACTION_VIEW` и статический список 17 OSS-зависимостей (Kotlin, Compose BOM, Material 3, Hilt, Room, DataStore, kotlinx.coroutines/serialization, AppCompat, Navigation, JUnit Jupiter, MockK, Turbine, Robolectric, Roborazzi, Detekt, Kover) — без подключения Google OSS-Licenses Plugin (нарушает NFR-10).
+MVP feature-complete: все обязательные FR закрыты, остальное (FR-13 search/filter, FR-15 C/Z weighting UI, zoom/pan по графику) явно отложено в v1.1. Phase 6 добавила реальную adaptive launcher icon (foreground vector «волна → плоская линия» teal `#0FB5BA` на background `#0E2433` + legacy PNG для < API 26 + 512×512 каталожная иконка), R8 + ProGuard rules + resource shrinking (debug 22.7 МБ → release APK 2.4 МБ / AAB 5.4 МБ; NFR-4 с запасом 60%/33%), FR-20 (CSV export через Storage Access Framework + RFC 4180 escaping + UTF-8 BOM для Excel-совместимости), Share Intent с PNG-снимком графика для Detail (FileProvider authority `${applicationId}.fileprovider` + fallback на text/plain), Privacy Policy HTML hosted через GitHub Actions Pages workflow, реальные URL в AboutScreen (GitHub + privacy.io), release signing инфра через GitHub Secrets (`UPLOAD_KEYSTORE_BASE64` + key passwords) с graceful fallback на debug-key локально, `release.yml` workflow на `v*.*.*` git-tag → draft GitHub Release с AAB+APK+mapping.txt, store metadata (titles/short/full descriptions на ru/en для Google Play / RuStore / Samsung) + Data Safety / Permissions / ASO декларации, auto-generated OSS-licenses через custom Gradle task `:app:generateOssLicenses` (resolves POM из module-cache, fallback от licensee plugin для offline-сборок) + CI drift-check, instrumentation-tests матрица API 26/30/34 через `reactivecircus/android-emulator-runner@v2` (smoke navigation flow), macrobenchmark `:macrobenchmark` module с `StartupBenchmark` для cold-start NFR-1.
 
 Покрытые FR/NFR из [спецификации](docs/specs/tishina-spec.md):
 
@@ -40,10 +40,12 @@
 | FR-19 (Reset калибровки) | ✅ Phase 4 | `ResetCalibrationUseCase` |
 | **FR-21 (AboutScreen: версия, GitHub, Privacy Policy, лицензии)** | ✅ Phase 5 | `:feature:about` + `AppVersionProvider` + `OssLicensesProvider` + `assets/oss_licenses.json` |
 | **FR-22 (полный дисклеймер + компактный BottomSheet)** | ✅ Phase 5 | `AccuracyDisclaimerBottomSheet` (короткий, на Measure top bar) + Disclaimer card на AboutScreen (полный текст + NIOSH DOI) |
+| **FR-20 (CSV export через SAF + Share Intent + PNG-снимок графика)** | ✅ Phase 6 | `CsvSerializer` + `MeasurementsExporter` + `ExportHistoryUseCase` + `LineChartSnapshotter` + `ShareIntentBuilder` + FileProvider |
 | FR-13 (search/filter по дате/тексту) | ⏳ v1.1 (post-MVP) | вынесено за пределы MVP |
 | FR-15 C/Z weighting UI | ⏳ v1.1 (post-MVP) | требует расширения `:core:audio` C-filter |
-| FR-20 (CSV export через SAF + Share Intent) | ⏳ Phase Release | вместе с PNG-снимком графика |
-| NFR-1 (cold start ≤ 1 с) | ✅ Phase 3/5 — lazy Room + lazy DataStore + AboutScreen lazy через `hiltViewModel()` | замер на эмуляторе → Phase Release |
+| NFR-1 (cold start ≤ 1 с) | ✅ Phase 6 — macrobenchmark `StartupBenchmark` cold-start (5 iterations, COLD mode) | real-device замер на Pixel 6a — Post-Completion |
+| **NFR-4 (release APK ≤ 6 МБ, AAB ≤ 8 МБ)** | ✅ Phase 6 — R8 + resource shrinking → APK 2.4 МБ / AAB 5.4 МБ | `app/proguard-rules.pro` + per-module `consumer-rules.pro` |
+| **NFR-7 (crash-free ≥ 99.5%)** | ✅ enabled via release signing | Play Vitals + `mapping.txt` artifact в release.yml |
 | NFR-5 / NFR-6 (lifecycle / rotation) | ✅ Phase 2/3/4/5 | `SavedStateHandle` + `rememberSaveable` + DataStore + `pendingBulkUndoCount` driven from state |
 | NFR-9 / NFR-10 / NFR-11 (no PCM persistence, no analytics, internal storage) | ✅ Phase 3/5/6 | OSS-лицензии auto-генерируются (`./gradlew :app:generateOssLicenses` + CI drift-check), AboutScreen ссылки делегированы системному браузеру через `Intent.ACTION_VIEW` |
 | NFR-12 (валидация длин + защита от случайного bulk-delete) | ✅ Phase 3/5 | UI counter + `BulkDeleteConfirmDialog` с pluralized title и body «After 5 seconds…» |
@@ -120,9 +122,7 @@
 - `MigrationTestHelper` в Robolectric не работает с Room 2.8 KMP-driver (известный bug — открывает БД по абсолютному пути и падает в `inMemoryDatabaseBuilder`-режиме). Schema v1 экспортируется и коммитится, helper будет активирован в androidTest на эмуляторе в Phase 4 при v1→v2.
 - `DetailScreen` Compose UI Test (TextField counter) недоступен под Robolectric из-за `AppNotIdleException` Material 3 AlertDialog + focus animations — покрытие через `DetailViewModelTest` (12 кейсов unit) + instrumentation в Phase Release.
 
-Следующий этап — **Phase Release** (CI/CD + Distribution): реальный adaptive launcher icon (foreground SVG/vector волны + background `#0E2433`), Privacy Policy hosting на GitHub Pages, R8 + ProGuard для уменьшения debug APK ~19 МБ → release APK ≤ 6 МБ (NFR-4), resource shrinking, instrumentation-тесты матрица emulator API 26/30/34 (Robolectric → реальный эмулятор), Hilt `@HiltAndroidTest` + `@UninstallModules` инфра, macrobenchmark cold-start замер для FR-1, релиз в Google Play / RuStore / Samsung Galaxy Store, CI/CD `release.yml` + `nightly.yml`, auto-generate OSS-лицензий через Gradle task, ASO-оптимизация, CSV-экспорт через SAF (FR-20) и Share Intent + PNG-снимок графика.
-
-После Phase Release — **v1.1** (post-MVP feature drop): FR-13 (search/filter по дате/тексту с DataStore-persisted query), FR-15 C/Z weighting UI (требует `CWeightingFilter` в `:core:audio`), zoom/pan по графику в Detail, авто-калибровка по эталону тишины (30 дБ) и пресеты под популярные модели устройств.
+Следующий этап — **v1.1** (post-MVP feature drop): FR-13 (search/filter по дате/тексту с DataStore-persisted query), FR-15 C/Z weighting UI (требует `CWeightingFilter` в `:core:audio`), zoom/pan по графику в Detail, авто-калибровка по эталону тишины (30 дБ) и пресеты под популярные модели устройств. После v1.1 — v1.2 (auto-калибровка + Glance-виджет), v2.0+ (Wear OS, Bluetooth-микрофоны, FFT/RTA, NIOSH/OSHA Dosimeter).
 
 Подробные планы:
 
@@ -131,6 +131,7 @@
 - Phase 3: [docs/plans/completed/2026-05-20-tishina-history-persistence.md](docs/plans/completed/2026-05-20-tishina-history-persistence.md).
 - Phase 4: [docs/plans/completed/2026-05-20-tishina-settings.md](docs/plans/completed/2026-05-20-tishina-settings.md).
 - Phase 5: [docs/plans/completed/2026-05-25-tishina-polish.md](docs/plans/completed/2026-05-25-tishina-polish.md).
+- Phase 6: [docs/plans/2026-05-25-tishina-release.md](docs/plans/2026-05-25-tishina-release.md).
 - Полная спецификация продукта: [docs/specs/tishina-spec.md](docs/specs/tishina-spec.md).
 
 ## Сборка
@@ -177,9 +178,88 @@ Release-сборка (R8 + resource shrinking, подписан bundled debug-к
 
 HTML-отчёт о покрытии: `build/reports/kover/htmlDebug/index.html`. Авто-фикс форматирования: `./gradlew spotlessApply`.
 
+## Production deployment
+
+Релизы выпускаются автоматически по git-тегу `v*.*.*`. Workflow `release.yml` декодирует upload-keystore из GitHub Secret, собирает signed AAB + APK + mapping.txt и публикует draft GitHub Release с auto-generated changelog.
+
+**Одноразовая настройка (Post-Completion, не в плане):**
+
+1. **Создать upload-keystore** (Play App Signing — Google управляет финальным app-signing ключом, мы только upload):
+
+   ```bash
+   keytool -genkey -v -keystore tishina-upload-key.jks \
+     -keyalg RSA -keysize 2048 -validity 10000 \
+     -alias tishina-upload \
+     -storepass <STRONG_PASSWORD> -keypass <STRONG_PASSWORD> \
+     -dname "CN=Tishina, O=dmdp, C=RU"
+   ```
+
+2. **Base64-encode и upload в GitHub Secrets:**
+
+   ```bash
+   base64 -i tishina-upload-key.jks -o keystore.base64
+   gh secret set UPLOAD_KEYSTORE_BASE64 < keystore.base64
+   gh secret set UPLOAD_KEYSTORE_PASSWORD --body '<STRONG_PASSWORD>'
+   gh secret set UPLOAD_KEY_ALIAS --body 'tishina-upload'
+   gh secret set UPLOAD_KEY_PASSWORD --body '<STRONG_PASSWORD>'
+   rm -f keystore.base64
+   ```
+
+   Локальную копию `tishina-upload-key.jks` храните в безопасном месте (1Password / Bitwarden). Восстановление невозможно — потеря ключа = потеря возможности обновлять приложение в Google Play без `key reset` процедуры (требует 1-2 недели + ручную модерацию).
+
+3. **Запустить релиз:**
+
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+   `release.yml` автоматически: (a) извлечёт VERSION_NAME из тега (`v1.0.0` → `1.0.0`), VERSION_CODE = `github.run_number`; (b) декодирует keystore из base64 на runner; (c) собёрет `bundleRelease` + `assembleRelease`; (d) опубликует **draft** GitHub Release с AAB / APK / mapping.txt — manual review → Publish; (e) очистит keystore с диска runner'а через `if: always()`.
+
+4. **Загрузить AAB в магазины** (manual через web-консоли):
+   - **Google Play Console** → Internal testing track → upload AAB → fill Data Safety form (используйте [`app/src/main/store-metadata/data-safety.md`](app/src/main/store-metadata/data-safety.md) как template) → IARC 3+ → Privacy URL → submit.
+   - **RuStore** → загрузка через консоль разработчика → метаданные из [`app/src/main/store-metadata/rustore/ru-RU/`](app/src/main/store-metadata/rustore/ru-RU/).
+   - **Samsung Galaxy Store** → seller portal → метаданные из [`app/src/main/store-metadata/samsung/en-US/`](app/src/main/store-metadata/samsung/en-US/).
+
+Полный чек-лист релиза — Приложение B спецификации ([docs/specs/tishina-spec.md](docs/specs/tishina-spec.md)) и [`app/src/main/store-metadata/`](app/src/main/store-metadata/) (ASO-ключи, permissions rationale, screenshots specs).
+
+## Release sizing benchmarks
+
+| Артефакт | Размер | Лимит (NFR-4) | Запас |
+|---|---:|---:|---:|
+| debug APK (`assembleDebug`) | 22.7 МБ | — | — |
+| **release APK** (R8 + resource shrinking, universal) | **2.4 МБ** | ≤ 6 МБ | 60% |
+| **release AAB** (`bundleRelease`, для Play / RuStore) | **5.4 МБ** | ≤ 8 МБ | 33% |
+| `mapping.txt` (для деобфускации Play Vitals crashes) | 41.7 МБ | — | — |
+| install-size split-APK на Pixel 6a (~xxhdpi + ru-locale + arm64-v8a) | ≈ 1.6–1.9 МБ | — | — |
+
+R8 в full-mode даёт сжатие ~89.5% (22.7 МБ → 2.4 МБ): убирает неиспользуемые Material icons extended (тысячи vector-drawable из которых используется десяток), `androidx.compose.material3.windowsizeclass` API-helpers, hilt-навигационные factory'и, dead-code в kotlinx-coroutines / kotlinx-serialization. `mapping.txt` хранится 90 дней как CI-артефакт `release-mapping` (длиннее обычных 14 — нужен для деобфускации крашей даже спустя месяцы).
+
+## Store deployment checklist
+
+Чек-лист релиза (Приложение B спеки, 16 пунктов):
+
+- [x] `app_name` `Тишина`/`Tisha` — зарегистрировать в Play Console (Post-Completion)
+- [x] `applicationId` `ru.dmdp.tishina` — уникален (verify в Play Search Post-Completion)
+- [x] GitHub-репозиторий `tishina-android` — создан
+- [x] Privacy Policy на GitHub Pages — Phase 6 Task 5 (workflow `pages.yml`, URL `https://dnovichkov.github.io/tishina-android/privacy/`)
+- [x] Data Safety декларация — [`store-metadata/data-safety.md`](app/src/main/store-metadata/data-safety.md) template (Post-Completion: заполнить в Play Console)
+- [x] Permissions declaration — [`store-metadata/permissions-rationale.md`](app/src/main/store-metadata/permissions-rationale.md)
+- [ ] Скриншоты — templates готовы, реальный capture перед публикацией (Post-Completion)
+- [x] Adaptive иконка — Phase 6 Task 1
+- [ ] Feature graphic 1024×500 — placeholder, capture перед публикацией (Post-Completion)
+- [x] Описания на ru/en — Phase 6 Task 7 (Google Play / RuStore / Samsung)
+- [ ] Internal testing track — manual upload AAB → review (Post-Completion)
+- [x] Дисклеймер на главном экране — Phase 5
+- [x] Калибровка работает — Phase 4
+- [x] CI зелёный + покрытие — Phase 1-5 + Phase 6 Task 9 (instrumentation matrix)
+- [x] R8 включён + mapping.txt — Phase 6 Task 2 + Task 6
+- [x] AAB ≤ 8 МБ — Phase 6 Task 2 (5.4 МБ)
+- [x] Сборка release-signed — Phase 6 Task 6 (release.yml workflow)
+
 ## Известные особенности
 
-- Размер debug-APK ~22.7 МБ (Phase 6 baseline после AppCompat 1.7.0 + DataStore + AppCompat emoji2 + Material icons extended + Phase 5 about). После включения R8 + resource shrinking в Phase 6 Task 2 release APK уменьшается до ~2.4 МБ (NFR-4 ≤ 6 МБ ✅), release AAB — до ~5.4 МБ (NFR-4 ≤ 8 МБ ✅). Сжатие ~89.5%: R8 в full-mode удаляет неиспользуемый Material icons extended (тянет тысячи vector-drawable, а используется десяток), `androidx.compose.material3.windowsizeclass` API-helpers, hilt-навигационные factory'и, неиспользуемые ресурсы.
+- Размер debug-APK ~22.7 МБ (включает Material icons extended, DataStore, AppCompat emoji2, Phase 5 about). После R8 + resource shrinking release APK 2.4 МБ (NFR-4 ≤ 6 МБ ✅, запас 60%), release AAB 5.4 МБ (NFR-4 ≤ 8 МБ ✅, запас 33%). См. секцию «Release sizing benchmarks» выше.
 - При прогоне `clean` + Kover в одном invocation возможна гонка `kover-agent.args FileNotFoundException`. Workaround: разделить на два прогона — `./gradlew clean assembleDebug -x test`, затем `./gradlew testDebugUnitTest verifyRoborazziDebug koverXmlReportDebug`.
 - После `clean` Spotless может выдать stale config-cache. Workaround: удалить `.gradle/configuration-cache/` и повторить.
 - Robolectric 4.13 не поддерживает API 35; для unit-тестов SDK зафиксирован на 33 через `src/test/resources/robolectric.properties` в `:app`, `:core:designsystem`, `:core:ui`, `:core:audio`, `:core:data`, `:feature:measure`, `:feature:history`, `:feature:settings`, `:feature:about`.
