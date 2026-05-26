@@ -24,8 +24,8 @@ room = "2.8.4"
 datastore = "1.1.1"
 
 # Coroutines / serialization
-kotlinxCoroutines = "1.9.0"
-kotlinxSerialization = "1.7.3"
+kotlinxCoroutines = "1.11.0"
+kotlinxSerialization = "1.11.0"
 
 # Testing
 junit5 = "5.11.3"
@@ -43,7 +43,7 @@ androidxTestRules = "1.6.1"
 detekt = "1.23.7"
 spotless = "6.25.0"
 ktlint = "1.4.0"
-kover = "0.9.0"
+kover = "0.9.8"
 
 [libraries]
 # AndroidX core
