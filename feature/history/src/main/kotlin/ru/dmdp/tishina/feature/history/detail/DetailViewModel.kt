@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ru.dmdp.tishina.core.domain.model.MeasurementDetails
 import ru.dmdp.tishina.core.domain.model.NewMeasurement
 import ru.dmdp.tishina.core.domain.usecase.DeleteMeasurementUseCase
@@ -109,24 +111,36 @@ class DetailViewModel @Inject constructor(
         // on details != null but the cold-start race is still possible if the user is fast.
         val details = _state.value.details ?: return
         viewModelScope.launch {
-            // Snapshot dimensions chosen to match a comfortable share preview on most messengers
-            // (Telegram caps at 1280 px on the longer edge; we stay below to avoid recompression).
-            val bitmapResult = snapshotter.snapshot(
-                samples = details.samples,
-                widthPx = SHARE_BITMAP_WIDTH_PX,
-                heightPx = SHARE_BITMAP_HEIGHT_PX,
-            )
-            val bitmap = bitmapResult.getOrNull()
-            val intent = shareIntentBuilder.build(
-                details = details,
-                chartBitmap = bitmap,
-            )
-            // Release the bitmap's pixel buffer as soon as the PNG file is written. The Intent
-            // carries a file URI, not the bitmap reference, so recycling is safe here.
-            // On API ≥ 26 (project minSdk) the pixel buffer lives on the native heap, so GC
-            // would eventually free it — but explicit recycle keeps StrictMode and LeakCanary
-            // quiet and shortens the window where rapid share-then-share holds two bitmaps live.
-            bitmap?.recycle()
+            // CPU + IO work (Bitmap.createBitmap of a 1080×540 ARGB_8888 surface ≈ 2.3 MB,
+            // Canvas drawing, Bitmap.compress(PNG, 100, ...), then writing the result to
+            // cache file) must NOT run on the Main dispatcher. On low-end devices PNG
+            // compression alone can take 50–200 ms; bundling that into viewModelScope's
+            // Main.immediate would drop frames at every Share tap (NFR-1 / NFR-7 risk).
+            // Dispatchers.Default is correct here — the bottleneck is CPU work (Skia draw +
+            // PNG codec); the short file write to cache piggybacks on the same hop.
+            val intent = withContext(Dispatchers.Default) {
+                // Snapshot dimensions chosen to match a comfortable share preview on most
+                // messengers (Telegram caps at 1280 px on the longer edge; we stay below to
+                // avoid recompression).
+                val bitmapResult = snapshotter.snapshot(
+                    samples = details.samples,
+                    widthPx = SHARE_BITMAP_WIDTH_PX,
+                    heightPx = SHARE_BITMAP_HEIGHT_PX,
+                )
+                val bitmap = bitmapResult.getOrNull()
+                val intent = shareIntentBuilder.build(
+                    details = details,
+                    chartBitmap = bitmap,
+                )
+                // Release the bitmap's pixel buffer as soon as the PNG file is written. The
+                // Intent carries a file URI, not the bitmap reference, so recycling is safe
+                // here. On API ≥ 26 (project minSdk) the pixel buffer lives on the native
+                // heap, so GC would eventually free it — but explicit recycle keeps
+                // StrictMode and LeakCanary quiet and shortens the window where rapid
+                // share-then-share holds two bitmaps live.
+                bitmap?.recycle()
+                intent
+            }
             effectChannel.send(DetailUiEffect.LaunchShareIntent(intent))
         }
     }
