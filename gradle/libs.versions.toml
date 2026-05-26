@@ -2,7 +2,7 @@
 # Build tools
 agp = "8.7.3"
 kotlin = "2.0.21"
-ksp = "2.0.21-1.0.28"
+ksp = "2.3.8"
 
 # AndroidX core
 androidxCore = "1.13.1"
