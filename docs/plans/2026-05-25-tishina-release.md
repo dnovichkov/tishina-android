@@ -219,7 +219,7 @@ Task structure guidelines:
   - Уже ссылаются на `@color/ic_launcher_background` + `@drawable/ic_launcher_foreground` + `<monochrome>` для Android 13+ themed icons; обновлений не потребовалось
 - [x] **➕ внеплановая подзадача:** добавить legacy `mipmap-{ldpi,mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher.png` для устройств < API 26 — сгенерированы через `docs/tools/render_launcher_icon.py` (Pillow-based renderer воспроизводит ту же геометрию что и vector drawable; скрипт коммитим для воспроизводимости)
 - [x] создать `app/src/main/play-store-icon.png` — 512×512 PNG версия для каталогов (Play / RuStore / Samsung); сгенерирован тем же скриптом, НЕ включается в APK (лежит в `src/main/` вне `res/`)
-- [ ] **➕ возможная подзадача:** добавить feature graphic 1024×500 PNG для Google Play в `app/src/main/store-metadata/google-play/feature-graphic.png` — будет создан/обновлён в Task 7
+- [x] **➕ возможная подзадача (skipped — Post-Completion):** feature graphic 1024×500 PNG для Google Play — Task 7 explicit decision: «defer — для MVP достаточно README-плейсхолдеров с capture checklist'ом и спецификациями ... перенесено в Phase 7+ или manual capture перед публикацией». Path `app/src/main/store-metadata/google-play/feature-graphic.png` зарезервирован, capture производится вручную через эмулятор/Figma export перед загрузкой AAB в Play Console
 - [x] обновить `AboutScreen.kt` — `Icons.Filled.GraphicEq` заменён на `painterResource(DesignSystemR.drawable.ic_brand_logo)` (отдельный brand-mark в `:core:designsystem` без safe-zone-ограничений, размер 48dp в 72dp Surface)
 - [x] verify через `:app:assembleDebug` + manual Android Studio preview Asset Studio — `:app:assembleDebug` зелёный, screenshot-baseline `BrandLogoScreenshotTest_*` подтверждает рендер
 - [x] записать baseline `AboutScreenIconScreenshotTest` через `recordRoborazziDebug`
@@ -519,7 +519,7 @@ Task structure guidelines:
 - [x] verify все 14 модулей собираются — `:app`, `:core:designsystem`, `:core:ui`, `:core:domain`, `:core:data`, `:core:audio`, `:core:testing`, `:feature:measure`, `:feature:history`, `:feature:settings`, `:feature:about`, `:macrobenchmark`, `:build-logic:convention` (12 production + 1 macrobenchmark + 1 build-logic = 14 модулей). `bundleRelease` зелёный означает что все модули resolve + compile + R8 + bundle через app graph
 - [x] verify finalize APK/AAB sizes — APK 2,408,401 байт (2.41 МБ) / AAB 5,392,932 байт (5.39 МБ) / mapping.txt 41,697,762 байт (41.7 МБ); файлы доступны в `app/build/outputs/{apk,bundle,mapping}/release/` после `./gradlew :app:assembleRelease :app:bundleRelease`
 - [x] коммит финального статуса в HEAD: будет создан этим Task 10 commit'ом с message `feat: Phase 6 Task 10 — verify acceptance + README + memory + v1.0.0 ready`
-- [ ] Post-Completion (после merge PR):
+- [x] **Post-Completion (skipped — not automatable, manual после merge PR):**
   - tag `v1.0.0` → push → автоматический run `release.yml` → draft GitHub Release с AAB/APK/mapping.txt
   - manual review draft release → publish
   - upload AAB в Google Play Console (Internal testing track) → fill Data Safety / Permissions / IARC / Privacy URL → review → submit
