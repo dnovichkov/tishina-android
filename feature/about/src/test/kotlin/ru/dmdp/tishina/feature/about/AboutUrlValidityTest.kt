@@ -2,13 +2,13 @@ package ru.dmdp.tishina.feature.about
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import java.net.URI
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.net.URI
 
 /**
  * Phase 6 Task 5 — defence-in-depth для строк-URL в `:feature:about`.
@@ -32,11 +32,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class AboutUrlValidityTest {
 
-    private data class LinkUnderTest(
-        val label: String,
-        val resId: Int,
-        val expectedHostSuffix: String,
-    )
+    private data class LinkUnderTest(val label: String, val resId: Int, val expectedHostSuffix: String)
 
     private val linksUnderTest = listOf(
         LinkUnderTest(

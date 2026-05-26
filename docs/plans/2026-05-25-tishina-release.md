@@ -372,44 +372,28 @@ Task structure guidelines:
 
 ### Task 6: Release signing + release.yml workflow + GitHub Releases publishing
 
-- [ ] **локально (Post-Completion):** создать `tishina-upload-key.jks`:
-  - `keytool -genkey -v -keystore tishina-upload-key.jks -keyalg RSA -keysize 2048 -validity 25000 -alias upload`
-  - (НЕ коммитить keystore в репо; .gitignore уже должен покрывать `*.jks` — verify)
-  - base64-encode: `base64 -i tishina-upload-key.jks -o tishina-upload-key.jks.base64`
-  - upload в GitHub Secrets как `UPLOAD_KEYSTORE_BASE64` + `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_PASSWORD`, `UPLOAD_KEY_ALIAS`
-- [ ] обновить `.gitignore`: `*.jks`, `*.keystore`, `key.properties`, `*.base64` (если не покрыто)
-- [ ] обновить `app/build.gradle.kts`:
-  - `signingConfigs { create("release") { storeFile = file(System.getenv("UPLOAD_KEYSTORE_PATH") ?: "../tishina-upload-key.jks"); storePassword = System.getenv("UPLOAD_KEYSTORE_PASSWORD"); keyAlias = System.getenv("UPLOAD_KEY_ALIAS"); keyPassword = System.getenv("UPLOAD_KEY_PASSWORD") } }`
-  - `buildTypes.release.signingConfig = signingConfigs.getByName("release")` (заменить debug signing из Task 2)
-  - fallback на null если env-vars не заданы — позволяет локальный build без keystore (`assembleReleaseUnsigned` task)
-- [ ] обновить `app/build.gradle.kts:14-15`:
-  - dynamic versionCode: `versionCode = System.getenv("VERSION_CODE")?.toInt() ?: 1` (CI передаёт `github.run_number`)
-  - dynamic versionName: `versionName = System.getenv("VERSION_NAME") ?: "1.0.0-dev"` (CI передаёт git-tag without `v` prefix)
-- [ ] создать `.github/workflows/release.yml`:
-  - `on: push: tags: ['v*.*.*']`
-  - jobs:
-    - `build-and-release` (ubuntu-latest, timeout-minutes: 45):
-      - checkout (fetch-depth: 0 для git-log в release notes)
-      - setup-java JDK 17 Zulu
-      - setup-gradle с cache-read-only=false
-      - decode keystore: `echo "${{ secrets.UPLOAD_KEYSTORE_BASE64 }}" | base64 -d > tishina-upload-key.jks`
-      - extract version from tag: `VERSION=${GITHUB_REF#refs/tags/v}` → `echo "VERSION_NAME=$VERSION" >> $GITHUB_ENV` + `VERSION_CODE=${{ github.run_number }}`
-      - assemble: `./gradlew :app:bundleRelease :app:assembleRelease --no-daemon --stacktrace`
-      - upload artifacts: AAB + APK + mapping.txt as separate downloads
-      - create GitHub Release через `softprops/action-gh-release@v2`:
-        - files: AAB, APK, mapping.txt
-        - generate_release_notes: true (auto-collects commits since last tag)
-        - draft: true (manual review перед публикацией)
-- [ ] **➕ внеплановая подзадача:** обновить `.github/workflows/ci.yml`:
-  - добавить job `release-build-smoke`: проверяет что `bundleRelease` собирается с placeholder keystore (debug) — early-warning для R8 breakage на PR-level
-- [ ] **сначала тест:** `dry-run release.yml` через `act -j build-and-release` (если установлен) или push tag `v0.0.0-test` в feature-branch → проверить workflow зелёный → удалить test tag
-- [ ] **➕ возможная подзадача:** создать `.github/workflows/nightly.yml`:
-  - on: schedule: `'0 2 * * *'` (ежедневно в 02:00 UTC)
-  - `./gradlew clean build test verifyRoborazziDebug` на main branch
-  - upload artifacts; create draft Pre-release с `v{date}-nightly` tag
-  - DECISION: добавить только если есть запрос от пользователя; иначе skip — лишний CI cost
-- [ ] verify через `git tag v0.0.0-test && git push origin v0.0.0-test` (на feature-branch) — workflow зелёный? Если да — `git tag -d v0.0.0-test && git push --delete origin v0.0.0-test`
-- [ ] run `./gradlew :app:bundleRelease` локально с GitHub Secrets env-vars подставленными (или fallback debug signing) — must pass before next task
+- [x] **локально (Post-Completion — not automatable):** создание `tishina-upload-key.jks` через `keytool -genkey`, base64-encode + upload в GitHub Secrets (`UPLOAD_KEYSTORE_BASE64`, `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_ALIAS`, `UPLOAD_KEY_PASSWORD`) — interactive шаг, требует физического доступа к разработчику и GitHub repo settings; задокументировано в README «Production deployment» (обновится в Task 10). Workflow `release.yml` уже готов принять эти secrets, как только они будут загружены вручную
+- [x] обновлён `.gitignore` — добавлены `key.properties` (стандартный Android pattern для locally-stored signing creds) и `*.base64` (защита от случайного коммита экспортированного keystore). `*.jks`, `*.keystore`, `keystore.properties` уже были
+- [x] обновлён `app/build.gradle.kts` — `signingConfigs { create("release") { ... } }` создаётся условно: блок `create("release")` исполняется только если все 4 env-vars (`UPLOAD_KEYSTORE_PATH`, `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_ALIAS`, `UPLOAD_KEY_PASSWORD`) заданы И файл keystore физически существует. `buildTypes.release.signingConfig` выбирается через `if (hasUploadKeystore)` → real release signing, иначе fallback на debug. Это решает classic AGP problem: ленивая валидация `storeFile` падает с «Keystore file does not exist» если блок `signingConfigs.create("release")` существует даже при `assembleDebug`
+- [x] обновлён `app/build.gradle.kts:13-22` — динамический `versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1` (CI передаёт `github.run_number`); `versionName = System.getenv("VERSION_NAME") ?: "1.0.0-dev"` (CI передаёт `${GITHUB_REF#refs/tags/v}`)
+- [x] создан `.github/workflows/release.yml`:
+  - `on: push: tags: ['v*.*.*']` + `workflow_dispatch` (для manual re-trigger существующего тега при transient runner failure)
+  - `permissions: contents: write` (требуется для `softprops/action-gh-release@v2` чтобы создавать Release)
+  - `concurrency: cancel-in-progress: false` (release-сборки нельзя прерывать — это терминальная операция)
+  - jobs.build-and-release (ubuntu-latest, 45 min timeout):
+    - checkout `fetch-depth: 0` (нужен полный history для `generate_release_notes`)
+    - JDK 17 Zulu + setup-gradle (`cache-read-only: false`)
+    - resolve version: `VERSION="${TAG#v}"` → output `version_name`, `version_code` (= `github.run_number`)
+    - decode keystore из `secrets.UPLOAD_KEYSTORE_BASE64` в `$RUNNER_TEMP/tishina-upload-key.jks` (гарантированно очищается между job'ами; `rm -f` в финальном step как defence-in-depth с `if: always()`)
+    - assemble через `./gradlew :app:bundleRelease :app:assembleRelease --no-daemon --stacktrace` с env-vars
+    - stage с friendly именами `tishina-${VERSION}.aab/apk/mapping.txt` в `$RUNNER_TEMP/release/`
+    - upload как workflow artifact `tishina-release-${VERSION}` retention 90 дней
+    - `softprops/action-gh-release@v2` → `draft: true` + `generate_release_notes: true` + 3 files
+- [x] **➕ внеплановая подзадача:** `release-build-smoke` job в `.github/workflows/ci.yml` — реализован ещё в Task 2 как job `release-build` (`.github/workflows/ci.yml:163-224`). Проверяет `assembleRelease`+`bundleRelease` с debug-key fallback на каждом PR/push — catches keep-rule regressions до merge. Поддерживается тот же сценарий, что и в release.yml, минус signing/release-publish
+- [x] **сначала тест:** dry-run через `act` — **N/A (skipped — not automatable)**: `act` не установлен в окружении CI/dev и требует локальный Docker для эмуляции GitHub Actions runner; альтернативно push tag v0.0.0-test в feature-branch меняет состояние remote (видим как Release в GitHub UI) и не вписывается в политику «без destructive remote-операций». Workflow валидируется через YAML-синтаксис (loaded GitHub Actions при следующем push), а функциональность через первый реальный `v1.0.0` push в Task 10
+- [x] **➕ возможная подзадача:** `nightly.yml` — **decision: skip**, согласно явному правилу в плане «добавить только если есть запрос от пользователя; иначе skip — лишний CI cost». MVP-релиз не требует nightly builds; добавим в Phase 7+ если будет запрос
+- [x] verify через `git tag v0.0.0-test` — **N/A (skipped — not automatable)**: push в remote меняет shared state (создаёт Release в GitHub UI, видимый сторонним наблюдателям); per policy «no destructive remote ops without explicit approval». Workflow проверится автоматически при настоящем `v1.0.0` push (Task 10 Post-Completion)
+- [x] run `./gradlew :app:bundleRelease` локально (env-vars не заданы → debug fallback) — BUILD SUCCESSFUL за 42 сек; release APK 2.41 МБ (NFR-4 ≤ 6 МБ ✅), release AAB 5.39 МБ (NFR-4 ≤ 8 МБ ✅) — никакой регрессии relative к Task 2 baseline. Дополнительно зелёные `detektAll`, `spotlessCheck`, `:app:lintRelease`, `:app:assembleRelease`, `:feature:about:testDebugUnitTest` (spotless reformat существующего `AboutUrlValidityTest.kt` — pre-existing хвост из Task 5, не относится к Task 6 семантически но включён в коммит для зелёного линта)
 
 ### Task 7: Store metadata + ASO + Data Safety + Permissions declarations
 
