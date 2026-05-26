@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import kotlinx.coroutines.CancellationException
 import ru.dmdp.tishina.core.domain.model.MeasurementDetails
 import ru.dmdp.tishina.feature.history.R
 import java.io.File
@@ -66,12 +67,30 @@ class ShareIntentBuilder(private val context: Context, private val cacheSubdir: 
                 shareDir.mkdirs()
                 if (!shareDir.isDirectory) return null
             }
+            // Prune stale PNGs before writing a new one. The receiving app has already
+            // consumed the previous share's URI grant, so the file is no longer needed.
+            // Without this, repeated shares accumulate ~50–200 KB per call indefinitely
+            // (Android's cache reclaimer only kicks in under pressure). We delete only
+            // the .png files we ourselves write — coil-images and other cache neighbours
+            // are not affected because file_provider_paths.xml exposes nothing outside
+            // `cache/share/`. Failure to delete is non-fatal (file may be in use by a
+            // slow receiver) — the new file is still written successfully.
+            shareDir.listFiles()?.forEach { stale ->
+                if (stale.isFile && stale.name.endsWith(".png")) stale.delete()
+            }
             val filename = "tishina-$measurementId-${System.currentTimeMillis()}.png"
             val file = File(shareDir, filename)
             file.outputStream().use { stream ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, stream)
             }
             fileToUri(file)
+        } catch (cancellation: CancellationException) {
+            // Coroutine cancellation must propagate so structured concurrency works.
+            // The previous `catch (_: Throwable)` swallowed it, leaving the caller to
+            // proceed into Intent construction inside a cancelled scope. Mirrors the
+            // explicit-rethrow pattern in [LineChartSnapshotter] and
+            // [MeasurementsExporterImpl].
+            throw cancellation
         } catch (_: Throwable) {
             null
         }

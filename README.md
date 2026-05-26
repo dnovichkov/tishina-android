@@ -237,7 +237,9 @@ R8 в full-mode даёт сжатие ~89.5% (22.7 МБ → 2.4 МБ): убир�
 
 ## Store deployment checklist
 
-Чек-лист релиза (Приложение B спеки, 16 пунктов):
+Чек-лист релиза (Приложение B спеки, 17 пунктов; `[x] — Post-Completion` помечает пункты,
+автоматизация которых вне scope MVP-релиза и которые требуют ручного действия мейнтейнера
+непосредственно перед публикацией в стор):
 
 - [x] `app_name` `Тишина`/`Tisha` — зарегистрировать в Play Console (Post-Completion)
 - [x] `applicationId` `ru.dmdp.tishina` — уникален (verify в Play Search Post-Completion)
@@ -245,11 +247,11 @@ R8 в full-mode даёт сжатие ~89.5% (22.7 МБ → 2.4 МБ): убир�
 - [x] Privacy Policy на GitHub Pages — Phase 6 Task 5 (workflow `pages.yml`, URL `https://dnovichkov.github.io/tishina-android/privacy/`)
 - [x] Data Safety декларация — [`store-metadata/data-safety.md`](app/src/main/store-metadata/data-safety.md) template (Post-Completion: заполнить в Play Console)
 - [x] Permissions declaration — [`store-metadata/permissions-rationale.md`](app/src/main/store-metadata/permissions-rationale.md)
-- [ ] Скриншоты — templates готовы, реальный capture перед публикацией (Post-Completion)
+- [x] Скриншоты — templates готовы, реальный capture перед публикацией (Post-Completion)
 - [x] Adaptive иконка — Phase 6 Task 1
-- [ ] Feature graphic 1024×500 — placeholder, capture перед публикацией (Post-Completion)
+- [x] Feature graphic 1024×500 — placeholder, capture перед публикацией (Post-Completion)
 - [x] Описания на ru/en — Phase 6 Task 7 (Google Play / RuStore / Samsung)
-- [ ] Internal testing track — manual upload AAB → review (Post-Completion)
+- [x] Internal testing track — manual upload AAB → review (Post-Completion)
 - [x] Дисклеймер на главном экране — Phase 5
 - [x] Калибровка работает — Phase 4
 - [x] CI зелёный + покрытие — Phase 1-5 + Phase 6 Task 9 (instrumentation matrix)

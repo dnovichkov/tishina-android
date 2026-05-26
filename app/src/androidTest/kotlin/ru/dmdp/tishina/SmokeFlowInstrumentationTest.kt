@@ -16,8 +16,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import ru.dmdp.tishina.feature.history.HistoryScreenTestTag
 import ru.dmdp.tishina.feature.measure.MeasureScreenTestTag
-import ru.dmdp.tishina.ui.TishinaAboutActionTestTag
+import ru.dmdp.tishina.navigation.TopLevelDestination
 import ru.dmdp.tishina.ui.TishinaNavigationBarTestTag
+import ru.dmdp.tishina.ui.navigationItemTestTag
 
 /**
  * Phase 6 Task 9 — end-to-end smoke flow on a real Android emulator (CI matrix
@@ -55,13 +56,21 @@ class SmokeFlowInstrumentationTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     /**
-     * Verifies the bottom-bar navigation flow (Measure → History → About) and
-     * that the chrome around each route renders without a crash. We do **not**
-     * exercise FAB / Save / Export here — those touch system UI (permission
-     * sheet on first launch, SAF picker, share-chooser) which interacts with
-     * device-specific OEM dialogs and is the leading source of flakiness on
-     * reactivecircus emulators across API levels. We test the surfaces that
-     * the user reaches between those system gates instead.
+     * Verifies the bottom-bar navigation flow (Measure → History → back) and that
+     * the chrome around each route renders without a crash. We do **not** exercise
+     * FAB / Save / Export here — those touch system UI (permission sheet on first
+     * launch, SAF picker, share-chooser) which interacts with device-specific OEM
+     * dialogs and is the leading source of flakiness on reactivecircus emulators
+     * across API levels. We test the surfaces that the user reaches between those
+     * system gates instead.
+     *
+     * History (not About) is the click target because the CI emulator profile
+     * `pixel_6` resolves to `WindowWidthSizeClass.Compact`, where About lives only
+     * inside Settings's footer link — and the previous version of this test tried
+     * to click `TishinaAboutActionTestTag`, which on Compact widths actually tags
+     * the `?` disclaimer icon (a sheet trigger, NOT a navigation control). The
+     * tag-collision has been fixed (the disclaimer icon now uses a separate tag);
+     * driving the bottom-nav `History` item is a stable target across all widths.
      */
     @Test
     fun smoke_navigateAcrossPrimaryDestinations() {
@@ -82,22 +91,23 @@ class SmokeFlowInstrumentationTest {
         composeRule.onNodeWithTag(MeasureScreenTestTag).assertIsDisplayed()
         composeRule.onNodeWithTag(TishinaNavigationBarTestTag).assertIsDisplayed()
 
-        // Drive the navigation bar via the About action — the only nav-button
-        // pointing outside Measure/History/Settings that exists at every
-        // window-size class (the bottom-bar destinations differ between
-        // Compact and Medium width).
-        composeRule.onNodeWithTag(TishinaAboutActionTestTag).performClick()
+        // Tap the bottom-nav History item. This is a top-level destination that
+        // exists on every supported window-size class, so the test is stable
+        // regardless of emulator profile.
+        composeRule
+            .onNodeWithTag(navigationItemTestTag(TopLevelDestination.History))
+            .performClick()
         composeRule.waitForIdle()
 
-        // About route reachable: assert by tag rather than text because the
+        // History route reachable: assert by tag rather than text because the
         // emulator locale may differ from the test JVM default.
         composeRule.waitUntil(timeoutMillis = SCREEN_TIMEOUT_MS) {
             composeRule
-                .onAllNodes(hasTestTag(ABOUT_SCREEN_TAG))
+                .onAllNodes(hasTestTag(HistoryScreenTestTag))
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         }
-        composeRule.onNodeWithTag(ABOUT_SCREEN_TAG).assertIsDisplayed()
+        composeRule.onNodeWithTag(HistoryScreenTestTag).assertIsDisplayed()
 
         // Back to default destination — using device back so the
         // NavController's pop-handling is exercised on the real platform.
@@ -106,16 +116,12 @@ class SmokeFlowInstrumentationTest {
             composeRule
                 .onAllNodes(hasTestTag(MeasureScreenTestTag))
                 .fetchSemanticsNodes()
-                .isNotEmpty() ||
-                composeRule
-                    .onAllNodes(hasTestTag(HistoryScreenTestTag))
-                    .fetchSemanticsNodes()
-                    .isNotEmpty()
+                .isNotEmpty()
         }
+        composeRule.onNodeWithTag(MeasureScreenTestTag).assertIsDisplayed()
     }
 
     private companion object {
         private const val SCREEN_TIMEOUT_MS = 10_000L
-        private const val ABOUT_SCREEN_TAG = "tishina_about_screen"
     }
 }

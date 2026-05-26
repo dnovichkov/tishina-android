@@ -129,7 +129,26 @@
             </section>
 
             <section>
-                <h3>6. Дети</h3>
+                <h3>6. Передача отдельного измерения через системный диалог «Поделиться»</h3>
+                <p>
+                    На экране деталей измерения пользователь может явно
+                    инициировать действие «Поделиться». Приложение рендерит
+                    PNG-снимок графика измерения во внутренний приватный кэш
+                    (<code>cache/share/</code>) и формирует системный
+                    <code>Intent.ACTION_SEND</code> с приложенным PNG и текстовой
+                    сводкой. Приложение-получатель (мессенджер, почтовый клиент)
+                    получает временное право чтения только этого одного файла
+                    через <code>FileProvider</code> с флагом
+                    <code>FLAG_GRANT_READ_URI_PERMISSION</code>. Никакие
+                    дополнительные разрешения на хранилище Приложение не
+                    запрашивает и не получает. Файл в кэше перезаписывается при
+                    следующем «Поделиться» либо удаляется системой при очистке
+                    кэша приложения.
+                </p>
+            </section>
+
+            <section>
+                <h3>7. Дети</h3>
                 <p>
                     Приложение не предназначено целенаправленно для детей
                     младше 13 лет и не запрашивает информацию о возрасте
@@ -140,7 +159,7 @@
             </section>
 
             <section>
-                <h3>7. Изменения политики</h3>
+                <h3>8. Изменения политики</h3>
                 <p>
                     При существенных изменениях этой политики обновлённая
                     редакция публикуется по тому же URL вместе с новой датой
@@ -150,7 +169,7 @@
             </section>
 
             <section>
-                <h3>8. Контакты</h3>
+                <h3>9. Контакты</h3>
                 <p>
                     Вопросы и обращения по политике конфиденциальности — через
                     GitHub Issues:
@@ -254,7 +273,25 @@
             </section>
 
             <section>
-                <h3>6. Children</h3>
+                <h3>6. Sharing an individual measurement via the system share dialog</h3>
+                <p>
+                    On the measurement detail screen the user may explicitly
+                    invoke the "Share" action. The App renders a PNG snapshot
+                    of the measurement chart into its internal private cache
+                    (<code>cache/share/</code>) and emits a system
+                    <code>Intent.ACTION_SEND</code> carrying the PNG and a
+                    textual summary. The receiving app (messenger, mail client)
+                    is granted temporary read access to that single file via
+                    <code>FileProvider</code> with
+                    <code>FLAG_GRANT_READ_URI_PERMISSION</code>. The App
+                    requests no additional storage permission. The cache file
+                    is overwritten on the next Share invocation or wiped when
+                    the OS clears the app cache.
+                </p>
+            </section>
+
+            <section>
+                <h3>7. Children</h3>
                 <p>
                     The App is not specifically directed at children under 13
                     and does not request the user’s age. The App does not
@@ -264,7 +301,7 @@
             </section>
 
             <section>
-                <h3>7. Changes to this policy</h3>
+                <h3>8. Changes to this policy</h3>
                 <p>
                     Material changes to this policy are published at the same
                     URL together with a new effective date at the top of the
@@ -275,7 +312,7 @@
             </section>
 
             <section>
-                <h3>8. Contact</h3>
+                <h3>9. Contact</h3>
                 <p>
                     Questions about this Privacy Policy should be raised via
                     GitHub Issues:

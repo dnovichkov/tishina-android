@@ -14,6 +14,9 @@ import java.util.Locale
  *  - CRLF (`\r\n`) line terminator including after the last row (RFC 4180 §2.2).
  *  - Fields wrapped in double quotes if and only if they contain `,` `"` `\n` or `\r`;
  *    inner `"` is doubled (`""`).
+ *  - OWASP CSV-injection mitigation: a leading `=`, `+`, `-`, `@`, TAB or CR is prefixed
+ *    with a literal `'` so Excel/LibreOffice treats the cell as text rather than
+ *    evaluating it as a formula (defeats `=HYPERLINK(...)`, `=cmd|...`, etc).
  *  - `Locale.US` for numeric formatting (`.` decimal separator) so RU-locale devices
  *    do not emit `42,3` and collide with the comma field separator.
  *  - `null` title/note serialize to empty fields, never to the string `"null"`.
@@ -57,15 +60,26 @@ internal class CsvSerializer {
     }
 
     /**
-     * RFC 4180 escaping: wrap in `"` and double inner `"` IFF the value contains a
-     * special character. Plain alphanumerics pass through untouched, which keeps the
-     * output compact when nothing needs escaping (the common case for numeric columns).
+     * RFC 4180 escaping plus OWASP CSV-injection mitigation (Excel/LibreOffice formula
+     * execution via leading `=`/`+`/`-`/`@`/TAB/CR). The defence is to prefix any value
+     * whose first character matches [FORMULA_TRIGGERS] with a single quote `'`, which
+     * Excel renders as a literal text leader and refuses to evaluate as a formula. The
+     * single-quote prefix is preserved when the resulting field is quoted, so round-trip
+     * parsers see the prefix as user content and the formula engine never gets a chance
+     * to evaluate it.
+     *
+     * The user-controlled `title` and `note` columns are the realistic attack surface —
+     * a malicious cell like `=HYPERLINK("http://evil","Click")` would otherwise launch
+     * when a victim opens the exported CSV in Excel. We sanitize uniformly across all
+     * columns so a future schema change (e.g. negative `calibrationOffsetDb` formatted
+     * as `-3.0`) doesn't reintroduce the attack vector without anyone noticing.
      */
     private fun escape(value: String): String {
         if (value.isEmpty()) return ""
-        val needsQuoting = value.any { it in SPECIALS }
-        if (!needsQuoting) return value
-        val escaped = value.replace("\"", "\"\"")
+        val sanitized = if (value.first() in FORMULA_TRIGGERS) "'$value" else value
+        val needsQuoting = sanitized.any { it in SPECIALS }
+        if (!needsQuoting) return sanitized
+        val escaped = sanitized.replace("\"", "\"\"")
         return "\"$escaped\""
     }
 
@@ -86,6 +100,12 @@ internal class CsvSerializer {
         private const val BOM: String = "\uFEFF"
         private const val LINE_TERMINATOR: String = "\r\n"
         private val SPECIALS: Set<Char> = setOf(',', '"', '\n', '\r')
+
+        // OWASP-recommended set of "formula trigger" characters. A cell starting with any
+        // of these in Excel/LibreOffice is parsed as a formula or as a tab-separated
+        // injection helper; prefixing the value with a literal `'` neutralises the
+        // formula engine while keeping the cell readable as text.
+        private val FORMULA_TRIGGERS: Set<Char> = setOf('=', '+', '-', '@', '\t', '\r')
         internal val HEADER: List<String> = listOf(
             "id", "createdAt", "durationMs", "avgDb", "minDb", "maxDb", "title", "note",
         )

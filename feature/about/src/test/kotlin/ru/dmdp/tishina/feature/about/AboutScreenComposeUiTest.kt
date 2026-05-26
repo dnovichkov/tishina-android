@@ -28,7 +28,12 @@ import ru.dmdp.tishina.core.domain.model.OssLicense
  *  - link rows propagate URL clicks to `onOpenUrl` so the production composable can fire
  *    the `Intent.ACTION_VIEW` itself (kept out of the pure body for easier testing).
  */
+// Pin the locale to en-US so hardcoded EN strings ("Back", "No licenses") used in the
+// content-description lookups below remain valid. Without this pin, a future change to
+// the module's `robolectric.properties` (or an inherited default change in Robolectric)
+// flipping the locale to `ru` would silently break these tests.
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(qualifiers = "en-rUS")
 class AboutScreenComposeUiTest {
 
     @get:Rule

@@ -176,6 +176,34 @@ class ShareIntentBuilderTest {
     }
 
     @Test
+    fun `rich path prunes stale PNG files in the share cache before writing the new one`() {
+        // Repeated shares used to accumulate `tishina-<id>-<timestamp>.png` files indefinitely
+        // because the builder never deleted older ones. The receiving app has already consumed
+        // its URI grant by the time the next share happens, so pre-existing PNGs are safe to
+        // drop. We seed the cache with two stale files and assert they are gone after the next
+        // build() call, while the new file is created.
+        val shareDir = context.cacheDir.resolve("share").also { it.mkdirs() }
+        val stale1 = shareDir.resolve("tishina-99-12345.png").also { it.writeText("stale1") }
+        val stale2 = shareDir.resolve("tishina-7-67890.png").also { it.writeText("stale2") }
+        // A non-PNG cache file unrelated to share should NOT be deleted — guards against the
+        // pruner becoming too aggressive and clearing unrelated cache state.
+        val unrelated = shareDir.resolve("readme.txt").also { it.writeText("keep me") }
+
+        try {
+            val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+            builder.build(sampleDetails(), bitmap)
+
+            assertFalse("stale PNG #1 must be pruned", stale1.exists())
+            assertFalse("stale PNG #2 must be pruned", stale2.exists())
+            assertTrue("non-PNG cache file must survive pruning", unrelated.exists())
+            assertEquals("exactly one new PNG must be present", 1, shareDir.listFiles { f -> f.name.endsWith(".png") }!!.size)
+        } finally {
+            shareDir.listFiles()?.forEach { it.delete() }
+            unrelated.delete()
+        }
+    }
+
+    @Test
     fun `cache write failure falls back to text-only without throwing`() {
         // Pre-create a regular file at the place where the subdir would live. mkdirs() will
         // refuse to overwrite a file with a directory, so the rich path must degrade to

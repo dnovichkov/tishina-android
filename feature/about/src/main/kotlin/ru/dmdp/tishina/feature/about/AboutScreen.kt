@@ -91,13 +91,26 @@ fun AboutScreen(
         state = state,
         onNavigateBack = onNavigateBack,
         onOpenUrl = { url ->
-            runCatching {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            // Defensive scheme allow-list: `oss_licenses.json` URLs come from POM scm/url
+            // entries resolved at build time, and the GitHub / Privacy URLs come from
+            // strings.xml. Both sources are currently safe, but a future supply-chain
+            // attack on a POM could substitute `intent://` or `javascript:` payloads —
+            // launching them via `ACTION_VIEW` could surface a crafted browser tab or
+            // pivot through a vulnerable handler. Restricting to http(s) here means
+            // even a poisoned URL renders harmlessly (no Activity match → snackbar-less
+            // no-op, which is preferable to silent exploit).
+            val uri = Uri.parse(url)
+            if (uri.scheme?.lowercase() in HttpSchemeAllowList) {
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                }
             }
         },
         modifier = modifier,
     )
 }
+
+private val HttpSchemeAllowList: Set<String> = setOf("http", "https")
 
 /**
  * Pure / stateless body of AboutScreen. Tests and screenshot fixtures call this directly

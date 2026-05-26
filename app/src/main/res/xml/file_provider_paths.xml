@@ -6,7 +6,11 @@
     bitmaps under cache/coil-images/ which are not safe to redistribute.
 -->
 <paths>
+    <!-- `name` is the URI segment exposed via FileProvider; `path` is the filesystem
+         subdirectory under cacheDir. Keep them aligned ("share" both sides) so the
+         URI segment maps 1:1 to the on-disk location — saves future contributors a
+         debugging cycle when they grep for one and don't find the other. -->
     <cache-path
-        name="shared"
+        name="share"
         path="share/" />
 </paths>

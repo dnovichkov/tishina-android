@@ -126,7 +126,7 @@ class TishinaNavHostTest {
         composeTestRule.waitForIdle()
 
         composeTestRule
-            .onNodeWithTag(ru.dmdp.tishina.ui.TishinaAboutActionTestTag)
+            .onNodeWithTag(ru.dmdp.tishina.ui.TishinaDisclaimerActionTestTag)
             .performClick()
         composeTestRule.waitForIdle()
 
@@ -280,7 +280,7 @@ class TishinaNavHostTest {
 
         // On Measure the outer TopBar is displayed with the disclaimer action.
         composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaTopAppBarTestTag).assertIsDisplayed()
-        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaAboutActionTestTag).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaDisclaimerActionTestTag).assertIsDisplayed()
 
         // Navigate to About the same way production does (matches `navigateToAbout()` helper —
         // see Settings footer link / FR-22 BottomSheet "Learn more" entry points).
@@ -293,7 +293,7 @@ class TishinaNavHostTest {
 
         // On the About route the outer TopBar is gone entirely — AboutScreen brings its own.
         composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaTopAppBarTestTag).assertDoesNotExist()
-        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaAboutActionTestTag).assertDoesNotExist()
+        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaDisclaimerActionTestTag).assertDoesNotExist()
 
         // The stub's back affordance fires `onNavigateBack`, which pops the back stack the
         // same way the real screen's TopAppBar back arrow does.
@@ -308,6 +308,6 @@ class TishinaNavHostTest {
         )
         // And on Measure the outer TopBar with the disclaimer action reappears.
         composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaTopAppBarTestTag).assertIsDisplayed()
-        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaAboutActionTestTag).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(ru.dmdp.tishina.ui.TishinaDisclaimerActionTestTag).assertIsDisplayed()
     }
 }

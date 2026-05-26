@@ -23,8 +23,8 @@ import ru.dmdp.tishina.navigation.TishinaDestination
 import ru.dmdp.tishina.navigation.TopLevelDestination
 import ru.dmdp.tishina.testutils.HistoryScreenTestStub
 import ru.dmdp.tishina.testutils.MeasureScreenTestStub
-import ru.dmdp.tishina.ui.TishinaAboutActionTestTag
 import ru.dmdp.tishina.ui.TishinaApp
+import ru.dmdp.tishina.ui.TishinaDisclaimerActionTestTag
 import ru.dmdp.tishina.ui.navigationItemTestTag
 
 /**
@@ -66,7 +66,7 @@ class TishinaAppDisclaimerWiringTest {
         }
         composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithTag(TishinaAboutActionTestTag).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(TishinaDisclaimerActionTestTag).assertIsDisplayed()
     }
 
     @Test
@@ -91,7 +91,7 @@ class TishinaAppDisclaimerWiringTest {
             .performClick()
         composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithTag(TishinaAboutActionTestTag).assertDoesNotExist()
+        composeTestRule.onNodeWithTag(TishinaDisclaimerActionTestTag).assertDoesNotExist()
     }
 
     @Test
@@ -122,7 +122,7 @@ class TishinaAppDisclaimerWiringTest {
             before!!.hasRoute(TishinaDestination.Measure::class),
         )
 
-        composeTestRule.onNodeWithTag(TishinaAboutActionTestTag).performClick()
+        composeTestRule.onNodeWithTag(TishinaDisclaimerActionTestTag).performClick()
         composeTestRule.waitForIdle()
 
         val after = capturedController!!.currentBackStackEntry?.destination

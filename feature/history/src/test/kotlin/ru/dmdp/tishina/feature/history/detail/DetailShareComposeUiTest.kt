@@ -7,7 +7,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -120,10 +119,12 @@ class DetailShareComposeUiTest {
     }
 
     @Test
-    fun share_and_delete_icons_coexist_in_topbar_in_correct_order() {
-        // Regression guard: a layout regression could swap the action order so Delete sits
-        // closer to the centre, increasing the risk of accidental tap on the destructive
-        // action when reaching for Share. We assert both icons are visible together.
+    fun share_and_delete_icons_both_visible_in_topbar() {
+        // Regression guard against either icon disappearing under future TopAppBar refactors.
+        // We don't pin pixel positions here (theme-dependent + LTR/RTL-dependent); the order
+        // assertion lives in the Roborazzi screenshot baseline instead. Both
+        // `assertIsDisplayed` calls below DO real work — they fail the test if the testTag
+        // node is absent OR has zero bounds — so no tautological `assertTrue(true)` is needed.
         composeTestRule.setContent {
             TishinaTheme(dynamicColors = false) {
                 DetailScreenContent(
@@ -137,9 +138,5 @@ class DetailShareComposeUiTest {
 
         composeTestRule.onNodeWithTag(DetailShareIconTestTag).assertIsDisplayed()
         composeTestRule.onNodeWithTag(DetailDeleteIconTestTag).assertIsDisplayed()
-        // We don't pin pixel positions here (theme-dependent); the order assertion lives in
-        // the Roborazzi screenshot baseline instead. This test just guards against either
-        // icon disappearing under regressions.
-        assertTrue("both icons should be in scene", true)
     }
 }

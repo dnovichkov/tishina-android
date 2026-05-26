@@ -208,18 +208,25 @@ jobs:
           ls -la app/build/outputs/apk/release/*.apk | tee -a "$GITHUB_STEP_SUMMARY"
           ls -la app/build/outputs/bundle/release/*.aab | tee -a "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload release APK
+      # These artifacts are signed with the bundled DEBUG key (see comment above on the
+      # assembleRelease step). They are NOT installable over a production Play-signed
+      # build (different signature) and MUST NOT be uploaded to Play Console — the
+      # release.yml workflow produces the real upload-keystore-signed artifacts. The
+      # purpose of these CI artifacts is to validate R8/ProGuard keep rules end-to-end
+      # by smoke-installing on a maintainer device when investigating obfuscation
+      # regressions; the `-debug-key-smoke` suffix makes that scope unmistakable.
+      - name: Upload release APK (debug-key smoke build)
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk-unsigned
+          name: release-apk-debug-key-smoke
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload release AAB
+      - name: Upload release AAB (debug-key smoke build)
         uses: actions/upload-artifact@v4
         with:
-          name: release-aab-unsigned
+          name: release-aab-debug-key-smoke
           path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 14

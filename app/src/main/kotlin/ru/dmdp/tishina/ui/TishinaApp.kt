@@ -54,7 +54,16 @@ import ru.dmdp.tishina.feature.measure.R as MeasureR
 const val TishinaAppRootTestTag: String = "tishina_app_root"
 const val TishinaNavigationBarTestTag: String = "tishina_navigation_bar"
 const val TishinaNavigationRailTestTag: String = "tishina_navigation_rail"
+
+// Navigation-rail About item (medium/expanded widths) — tapping it navigates to the About
+// destination. Distinct from [TishinaDisclaimerActionTestTag] which tags a TopAppBar icon
+// that opens a bottom sheet without changing the route.
 const val TishinaAboutActionTestTag: String = "tishina_about_action"
+
+// Top-bar `?` IconButton on the Measure screen (compact widths) — opens the accuracy
+// disclaimer ModalBottomSheet. Previously shared a tag with the rail About item, causing
+// instrumentation/unit tests to attach to the wrong control depending on window size class.
+const val TishinaDisclaimerActionTestTag: String = "tishina_disclaimer_action"
 const val TishinaTopAppBarTestTag: String = "tishina_top_app_bar"
 
 fun navigationItemTestTag(destination: TopLevelDestination): String =
@@ -261,7 +270,7 @@ private fun TishinaTopAppBar(
             if (showDisclaimerAction) {
                 IconButton(
                     onClick = onDisclaimerClick,
-                    modifier = Modifier.testTag(TishinaAboutActionTestTag),
+                    modifier = Modifier.testTag(TishinaDisclaimerActionTestTag),
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.HelpOutline,

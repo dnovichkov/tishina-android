@@ -25,7 +25,11 @@ import ru.dmdp.tishina.feature.measure.R
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(qualifiers = "w360dp-h640dp-xhdpi")
+// Pin the locale to en-US so the hardcoded title assertion at the end of the first test
+// (`assertEquals("About measurement accuracy", expectedTitle)`) doesn't break the day a
+// future contributor adds `qualifiers=ru` to `robolectric.properties` for Russian rendering
+// coverage. Width/height/density qualifiers are kept as-is.
+@Config(qualifiers = "en-rUS-w360dp-h640dp-xhdpi")
 class AccuracyDisclaimerBottomSheetBehaviorTest {
 
     @get:Rule

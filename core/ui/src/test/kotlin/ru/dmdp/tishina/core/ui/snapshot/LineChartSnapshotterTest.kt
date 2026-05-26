@@ -1,7 +1,6 @@
 package ru.dmdp.tishina.core.ui.snapshot
 
 import android.graphics.BitmapFactory
-import android.graphics.Color
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -80,16 +79,21 @@ class LineChartSnapshotterTest {
     @Test
     fun `polyline pixels are visible on rendered bitmap`() = runTest {
         // 60 samples sweeping 40-80 dB through three full cycles will paint a curve across
-        // most of the canvas. We only assert "at least one pixel is non-background" — exact
-        // coverage depends on stroke width and anti-aliasing, which we don't pin here.
+        // most of the canvas. We assert "at least one pixel is neither the background grey
+        // NOR the baseline track grey" — i.e. the polyline itself painted SOMETHING that
+        // wasn't already there before drawPolyline was called. Counting transparent pixels
+        // (the previous implementation) was a tautology because the snapshotter renders an
+        // opaque background — every pixel had alpha 0xFF regardless of whether the polyline
+        // ran at all, so the test would pass even if drawPolyline was deleted.
         val samples = sineWave(count = 60)
 
         val bitmap = snapshotter.snapshot(samples, TARGET_WIDTH, TARGET_HEIGHT).getOrThrow()
-        val nonBackground = countNonTransparentPixels(bitmap)
+        val polylinePixels = countPolylinePixels(bitmap)
 
         assertTrue(
-            "expected polyline pixels, got $nonBackground / ${bitmap.width * bitmap.height}",
-            nonBackground > 0,
+            "expected polyline pixels distinct from background+track, got $polylinePixels " +
+                "/ ${bitmap.width * bitmap.height}",
+            polylinePixels > 0,
         )
     }
 
@@ -146,10 +150,22 @@ class LineChartSnapshotterTest {
             SoundSample(db = db, timestampMs = (i * STEP_MS).toLong())
         }
 
-    private fun countNonTransparentPixels(bitmap: android.graphics.Bitmap): Int {
+    /**
+     * Count pixels whose RGB does NOT match the background or baseline-track color. Anti-
+     * aliasing along the polyline edges produces blended shades; anything that is not an
+     * exact match to one of the two pre-existing layers counts as a polyline contribution.
+     * We compare RGB (alpha-stripped) because the snapshotter's background and track are
+     * both fully opaque, so the alpha channel carries no extra signal.
+     */
+    private fun countPolylinePixels(bitmap: android.graphics.Bitmap): Int {
         val pixels = IntArray(bitmap.width * bitmap.height)
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-        return pixels.count { Color.alpha(it) > 0 }
+        val backgroundRgb = BACKGROUND_RGB
+        val trackRgb = TRACK_RGB
+        return pixels.count { pixel ->
+            val rgb = pixel and 0x00FFFFFF
+            rgb != backgroundRgb && rgb != trackRgb
+        }
     }
 
     private companion object {
@@ -160,5 +176,12 @@ class LineChartSnapshotterTest {
         const val AMPLITUDE_DB = 20f
         const val CYCLES = 3f
         const val PNG_QUALITY = 100
+
+        // RGB-only (alpha stripped) mirrors of the constants in [LineChartSnapshotter].
+        // We can't `import` private companion fields from the SUT, so we re-declare them
+        // here — a drift between the two would surface as the assertion turning into a
+        // tautology again, which is the exact regression class we're guarding against.
+        const val BACKGROUND_RGB = 0xEFEFEF
+        const val TRACK_RGB = 0xB0B0B0
     }
 }

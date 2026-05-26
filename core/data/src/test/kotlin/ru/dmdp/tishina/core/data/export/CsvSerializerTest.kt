@@ -221,6 +221,101 @@ class CsvSerializerTest {
         assertEquals("id,createdAt,durationMs,avgDb,minDb,maxDb,title,note", header)
     }
 
+    @Test
+    fun `title starting with equals is sanitized with leading single quote (OWASP CSV injection)`() {
+        val output = serialize(listOf(summary(title = "=HYPERLINK(\"http://evil\",\"Click\")", note = null)))
+        val dataLine = output.lineSequence().drop(1).first()
+
+        // Excel treats `=...` as a formula. Prefixing with `'` neutralises evaluation.
+        // The field also has embedded `,` and `"` so it gets RFC-4180 quoted; the `'`
+        // prefix is INSIDE the quotes, immediately before the `=`.
+        assertTrue(
+            dataLine.contains("\"'=HYPERLINK"),
+            "expected leading apostrophe to neutralise formula: $dataLine",
+        )
+    }
+
+    @Test
+    fun `note starting with plus is sanitized`() {
+        val output = serialize(listOf(summary(note = "+1234567")))
+        val dataLine = output.lineSequence().drop(1).first()
+
+        // No comma/quote so RFC-4180 quoting is not required; the bare `'` prefix is enough.
+        assertTrue(
+            dataLine.endsWith(",'+1234567"),
+            "expected '+1234567 trailing sanitized note: $dataLine",
+        )
+    }
+
+    @Test
+    fun `note starting with minus is sanitized (negative-looking values are formula triggers in Excel)`() {
+        val output = serialize(listOf(summary(note = "-5 dB offset")))
+        val dataLine = output.lineSequence().drop(1).first()
+
+        // Sanitization happens BEFORE RFC-4180 quoting; the sanitized field has a space,
+        // not a CSV-special, so it stays unquoted. Trailing apostrophe-prefixed payload
+        // lives in the last column (note).
+        assertTrue(
+            dataLine.endsWith(",'-5 dB offset"),
+            "expected '-5 dB offset trailing sanitized note: $dataLine",
+        )
+    }
+
+    @Test
+    fun `title starting with at-sign is sanitized`() {
+        val output = serialize(listOf(summary(title = "@SUM(A1:A10)", note = null)))
+        val dataLine = output.lineSequence().drop(1).first()
+
+        // `@` triggers DDE evaluation in some Office builds. The sanitized field has no
+        // CSV-special characters (parens/colon don't require RFC-4180 quoting), so the
+        // value appears bare with the leading apostrophe.
+        assertTrue(
+            dataLine.contains(",'@SUM(A1:A10),"),
+            "expected '@SUM... bare sanitized title: $dataLine",
+        )
+    }
+
+    @Test
+    fun `title containing comma AND starting with formula trigger is both sanitized and quoted`() {
+        // Combined defence: when the sanitized payload itself contains an RFC-4180-special
+        // (comma, quote, CR, LF), the `'`-prefix lives INSIDE the wrapping double quotes.
+        // This is the case the OWASP CSV-injection cheat sheet calls out as the easy spot
+        // for off-by-one mistakes — guard it explicitly.
+        val output = serialize(listOf(summary(title = "=cmd|'/C calc',\"!A1", note = null)))
+        val dataLine = output.lineSequence().drop(1).first()
+
+        // Expected wrapped form: `"'=cmd|'/C calc',""!A1"` — inner `"` doubled per RFC 4180,
+        // leading `'` inside the wrap to neutralise the formula trigger.
+        assertTrue(
+            dataLine.contains("\"'=cmd|'/C calc',\"\"!A1\""),
+            "expected wrapped+sanitized payload: $dataLine",
+        )
+    }
+
+    @Test
+    fun `note starting with tab is sanitized`() {
+        val output = serialize(listOf(summary(note = "\tinjected")))
+        val dataLine = output.lineSequence().drop(1).first()
+
+        // Tab is a Excel formula-injection helper (it can be used to chain into adjacent
+        // cells). Sanitized field has TAB which is not a CSV-special, so no quoting.
+        assertTrue(
+            dataLine.endsWith(",'\tinjected"),
+            "expected '<TAB>injected trailing sanitized note: $dataLine",
+        )
+    }
+
+    @Test
+    fun `safe leading characters are NOT sanitized (no false positive)`() {
+        val output = serialize(listOf(summary(title = "Office quiet", note = "no anomalies")))
+        val dataLine = output.lineSequence().drop(1).first()
+
+        // Regression guard: only formula triggers get the `'` prefix. Ordinary text must
+        // pass through verbatim or the export becomes unreadable for the user.
+        assertFalse(dataLine.contains("'Office"), "regular text must not be prefixed")
+        assertFalse(dataLine.contains("'no anomalies"), "regular text must not be prefixed")
+    }
+
     private companion object {
         val BOM_BYTES: ByteArray = byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte())
     }

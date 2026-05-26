@@ -116,10 +116,17 @@ class DetailViewModel @Inject constructor(
                 widthPx = SHARE_BITMAP_WIDTH_PX,
                 heightPx = SHARE_BITMAP_HEIGHT_PX,
             )
+            val bitmap = bitmapResult.getOrNull()
             val intent = shareIntentBuilder.build(
                 details = details,
-                chartBitmap = bitmapResult.getOrNull(),
+                chartBitmap = bitmap,
             )
+            // Release the bitmap's pixel buffer as soon as the PNG file is written. The Intent
+            // carries a file URI, not the bitmap reference, so recycling is safe here.
+            // On API ≥ 26 (project minSdk) the pixel buffer lives on the native heap, so GC
+            // would eventually free it — but explicit recycle keeps StrictMode and LeakCanary
+            // quiet and shortens the window where rapid share-then-share holds two bitmaps live.
+            bitmap?.recycle()
             effectChannel.send(DetailUiEffect.LaunchShareIntent(intent))
         }
     }
