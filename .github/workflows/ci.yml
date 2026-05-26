@@ -141,6 +141,18 @@ jobs:
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
 
+      # Phase 6 Task 8 — OSS licenses drift check. Re-runs `generateOssLicenses`
+      # and fails the build if the committed JSON diverges from what the current
+      # `releaseRuntimeClasspath` would produce. This catches the case where
+      # a contributor bumps a dep but forgets to refresh the About-screen list.
+      - name: Verify OSS licenses are up-to-date
+        run: |
+          ./gradlew :app:generateOssLicenses --no-daemon --no-configuration-cache
+          if ! git diff --exit-code app/src/main/assets/oss_licenses.json; then
+            echo "::error::app/src/main/assets/oss_licenses.json is out of date. Run './gradlew :app:generateOssLicenses' locally and commit the result."
+            exit 1
+          fi
+
       - name: Assemble debug APK and AAB
         run: ./gradlew :app:assembleDebug :app:bundleDebug --no-daemon --stacktrace
 
@@ -159,3 +171,197 @@ jobs:
           path: app/build/outputs/bundle/debug/*.aab
           if-no-files-found: error
           retention-days: 14
+
+  release-build:
+    name: Assemble release APK + AAB (R8 smoke test)
+    runs-on: ubuntu-latest
+    needs: static-checks
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
+      # Phase 6 Task 2 — smoke-test R8 + resource shrinking on every PR so a
+      # missing keep-rule (Hilt / Compose / Room / kotlinx.serialization) is
+      # caught before merge instead of after publishing. The release here is
+      # signed with the bundled debug key — Phase 6 Task 6 adds the real
+      # upload-key flow in a separate `release.yml` triggered by tag pushes.
+      - name: Assemble release APK and AAB
+        run: ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace
+
+      - name: Report release artifact sizes
+        run: |
+          set -euo pipefail
+          echo "## Release artifact sizes" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          ls -la app/build/outputs/apk/release/*.apk | tee -a "$GITHUB_STEP_SUMMARY"
+          ls -la app/build/outputs/bundle/release/*.aab | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # These artifacts are signed with the bundled DEBUG key (see comment above on the
+      # assembleRelease step). They are NOT installable over a production Play-signed
+      # build (different signature) and MUST NOT be uploaded to Play Console — the
+      # release.yml workflow produces the real upload-keystore-signed artifacts. The
+      # purpose of these CI artifacts is to validate R8/ProGuard keep rules end-to-end
+      # by smoke-installing on a maintainer device when investigating obfuscation
+      # regressions; the `-debug-key-smoke` suffix makes that scope unmistakable.
+      - name: Upload release APK (debug-key smoke build)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk-debug-key-smoke
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload release AAB (debug-key smoke build)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-aab-debug-key-smoke
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 14
+
+      # mapping.txt is required to deobfuscate any crash report (Play Vitals,
+      # bug reports, manual stack traces). Keep it as a CI artifact so we have
+      # a usable mapping even for builds that never reach Play Console upload.
+      - name: Upload R8 mapping.txt
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-mapping
+          path: app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
+          retention-days: 90
+
+  instrumentation-tests:
+    name: Instrumentation tests (API ${{ matrix.api-level }})
+    runs-on: ubuntu-latest
+    # Phase 6 Task 9 — only run on the primary branches to avoid burning
+    # ~30 min × 3 = 90 emulator minutes on every fork PR. The unit tests
+    # (Robolectric + Roborazzi) already cover behavioral regressions;
+    # instrumentation matrix catches platform-specific issues (real RECORD_AUDIO
+    # dialog, navigation rail vs bar on emulator window size class).
+    needs: [unit-tests]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        # API 26 = minSdk floor (Android 8.0)
+        # API 30 = midpoint with scoped-storage enforcement
+        # API 34 = current stable target (matches `targetSdk = 34` baseline)
+        # API 35 deliberately skipped — reactivecircus AOSP images are flaky
+        # on this runner image as of 2026-05, and `assembleRelease` with
+        # targetSdk = 35 already validates the API surface at compile time.
+        api-level: [26, 30, 34]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
+      # KVM acceleration is required for the emulator-runner — ubuntu-latest
+      # supports nested virt only when the runner publishes /dev/kvm. The chmod
+      # is the documented workaround for reactivecircus/android-emulator-runner.
+      - name: Enable KVM group permissions
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run instrumentation tests on API ${{ matrix.api-level }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: ${{ matrix.api-level == 34 && 'google_apis' || 'default' }}
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
+
+      - name: Upload instrumentation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumentation-reports-api-${{ matrix.api-level }}
+          path: |
+            app/build/reports/androidTests/connected/
+            app/build/outputs/androidTest-results/connected/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  macrobenchmark:
+    name: Macrobenchmark (cold-start, API 33)
+    runs-on: ubuntu-latest
+    # Phase 6 Task 9 — runs only on `main` so PRs aren't gated by the slowest
+    # job in the matrix (emulator cold-start measurements are inherently
+    # noisy on virtual hardware). The post-merge cadence still catches
+    # regressions before they reach a release tag — the NFR-1 budget has
+    # ~3-5× headroom on Pixel 6a so transient CI variance is absorbed.
+    needs: [unit-tests]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
+
+      - name: Enable KVM group permissions
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run cold-start benchmark
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: true
+          # `connectedBenchmarkAndroidTest` targets the `benchmark` build type
+          # declared in `:macrobenchmark/build.gradle.kts` (matchingFallbacks
+          # falls through to `:app`'s `release` variant).
+          script: ./gradlew :macrobenchmark:connectedBenchmarkAndroidTest --no-daemon --stacktrace
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macrobenchmark-report
+          path: |
+            macrobenchmark/build/outputs/connected_android_test_additional_output/
+            macrobenchmark/build/outputs/androidTest-results/connected/
+          if-no-files-found: ignore
+          retention-days: 30

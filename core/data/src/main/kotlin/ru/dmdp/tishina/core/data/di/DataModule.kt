@@ -1,5 +1,6 @@
 package ru.dmdp.tishina.core.data.di
 
+import android.content.ContentResolver
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
@@ -18,9 +19,13 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import ru.dmdp.tishina.core.data.db.TishinaDatabase
 import ru.dmdp.tishina.core.data.db.dao.MeasurementDao
+import ru.dmdp.tishina.core.data.licenses.OssLicensesProviderImpl
 import ru.dmdp.tishina.core.data.repository.MeasurementRepositoryImpl
 import ru.dmdp.tishina.core.data.settings.SettingsRepositoryImpl
+import ru.dmdp.tishina.core.data.version.AppVersionProviderImpl
+import ru.dmdp.tishina.core.domain.repository.AppVersionProvider
 import ru.dmdp.tishina.core.domain.repository.MeasurementRepository
+import ru.dmdp.tishina.core.domain.repository.OssLicensesProvider
 import ru.dmdp.tishina.core.domain.repository.SettingsRepository
 import javax.inject.Singleton
 
@@ -63,6 +68,19 @@ internal interface DataModule {
     @Singleton
     fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
 
+    // Phase 5 — FR-21 AboutScreen reads the live VERSION_NAME/CODE off `PackageManager`
+    // (not `BuildConfig` directly) so the value matches what Play Store / RuStore show.
+    @Binds
+    @Singleton
+    fun bindAppVersionProvider(impl: AppVersionProviderImpl): AppVersionProvider
+
+    // Phase 5 — FR-21 OSS-license inventory bundled as `assets/oss_licenses.json` in
+    // the `:app` module. Curated manually to avoid Google's oss-licenses-plugin which
+    // would drag in Play Services (conflicts with NFR-10 "no third-party analytics").
+    @Binds
+    @Singleton
+    fun bindOssLicensesProvider(impl: OssLicensesProviderImpl): OssLicensesProvider
+
     companion object {
 
         private const val SETTINGS_DATASTORE_NAME = "tishina_settings"
@@ -77,6 +95,17 @@ internal interface DataModule {
         @Provides
         fun provideMeasurementDao(database: TishinaDatabase): MeasurementDao =
             database.measurementDao()
+
+        /**
+         * Phase 6 Task 3 — FR-20 CSV export writes through a SAF-provided URI via the
+         * application [ContentResolver]. Bound here once so every consumer (currently the
+         * `MeasurementsExporterImpl` in `:core:data`) sees the same instance and Hilt does
+         * not duplicate provider lookups.
+         */
+        @Provides
+        @Singleton
+        fun provideContentResolver(@ApplicationContext context: Context): ContentResolver =
+            context.contentResolver
 
         /**
          * Settings DataStore — Preferences flavor, one file `tishina_settings.preferences_pb`

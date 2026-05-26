@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Phase 6 Task 4 — paths exposed via androidx.core.content.FileProvider for the Detail
+    share Intent. Only the `share/` subdirectory of the app's private cache is published;
+    we never grant access to the whole cache because Compose tooling writes preview
+    bitmaps under cache/coil-images/ which are not safe to redistribute.
+-->
+<paths>
+    <!-- `name` is the URI segment exposed via FileProvider; `path` is the filesystem
+         subdirectory under cacheDir. Keep them aligned ("share" both sides) so the
+         URI segment maps 1:1 to the on-disk location — saves future contributors a
+         debugging cycle when they grep for one and don't find the other. -->
+    <cache-path
+        name="share"
+        path="share/" />
+</paths>

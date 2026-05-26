@@ -57,4 +57,11 @@
     <string name="measure_save_no_data">Nothing to save — start a measurement</string>
     <string name="measure_save_title_too_long">Name longer than 80 characters</string>
     <string name="measure_save_note_too_long">Note longer than 200 characters</string>
+
+    <!-- Accuracy disclaimer BottomSheet (FR-22, spec § 11) -->
+    <string name="measure_disclaimer_open_cd">Show accuracy disclaimer</string>
+    <string name="measure_disclaimer_title">About measurement accuracy</string>
+    <string name="measure_disclaimer_body">Tishina uses your phone\'s built-in MEMS microphone, which is tuned for voice. Real accuracy is roughly ±3–5 dB(A); above 90 dB it gets worse due to hardware compression. The app is not certified to IEC 61672 and is not suitable for official noise measurements at workplaces.</string>
+    <string name="measure_disclaimer_more">Learn more</string>
+    <string name="measure_disclaimer_close_cd">Close accuracy disclaimer</string>
 </resources>

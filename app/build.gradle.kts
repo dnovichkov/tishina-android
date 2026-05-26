@@ -3,19 +3,53 @@ plugins {
     alias(libs.plugins.tishina.android.compose)
     alias(libs.plugins.tishina.android.hilt)
     alias(libs.plugins.tishina.jvm.testing)
+    alias(libs.plugins.tishina.oss.licenses)
     alias(libs.plugins.kotlin.serialization)
 }
+
+// Phase 6 Task 6 — release signing wired through environment variables so the
+// upload key never lands on disk in plaintext. `release.yml` decodes the
+// base64-encoded keystore from a GitHub Secret onto the runner just before
+// `bundleRelease`; locally these variables are unset, so we transparently fall
+// back to the debug key (still produces a runnable APK for R8 validation).
+val uploadKeystorePath: String? = System.getenv("UPLOAD_KEYSTORE_PATH")
+val uploadKeystorePassword: String? = System.getenv("UPLOAD_KEYSTORE_PASSWORD")
+val uploadKeyAlias: String? = System.getenv("UPLOAD_KEY_ALIAS")
+val uploadKeyPassword: String? = System.getenv("UPLOAD_KEY_PASSWORD")
+val hasUploadKeystore = uploadKeystorePath != null &&
+    uploadKeystorePassword != null &&
+    uploadKeyAlias != null &&
+    uploadKeyPassword != null &&
+    file(uploadKeystorePath).exists()
 
 android {
     namespace = "ru.dmdp.tishina"
 
     defaultConfig {
         applicationId = "ru.dmdp.tishina"
-        versionCode = 1
-        versionName = "0.1.0-foundation"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // CI injects `VERSION_CODE` from `github.run_number` and `VERSION_NAME`
+        // from the pushed git tag (`v1.2.3` -> `1.2.3`). Local builds fall back
+        // to a static `-dev` marker so `versionName` is never empty.
+        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = System.getenv("VERSION_NAME") ?: "1.0.0-dev"
+        // Phase 6 Task 9 — instrumentation tests use a Hilt-aware runner
+        // (HiltTestRunner) to swap the production `TishinaApplication` for
+        // `HiltTestApplication`. Live `androidTest/` sources require this
+        // entry, otherwise Hilt's `@HiltAndroidTest` boots the real graph.
+        testInstrumentationRunner = "ru.dmdp.tishina.HiltTestRunner"
         vectorDrawables.useSupportLibrary = true
         resourceConfigurations += listOf("ru", "en")
+    }
+
+    signingConfigs {
+        if (hasUploadKeystore) {
+            create("release") {
+                storeFile = file(uploadKeystorePath!!)
+                storePassword = uploadKeystorePassword
+                keyAlias = uploadKeyAlias
+                keyPassword = uploadKeyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -23,8 +57,25 @@ android {
             isMinifyEnabled = false
         }
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // Phase 6 Task 2 — R8 in full mode (AGP 8 default) plus resource
+            // shrinking target NFR-4 (<= 6 MB release APK, <= 8 MB AAB).
+            // Keep rules live in `proguard-rules.pro` plus per-module
+            // `consumer-rules.pro` files bundled into AARs.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            // Use the real upload key when env-vars + keystore are present
+            // (CI release.yml flow); otherwise fall back to debug signing so
+            // local R8 smoke-builds and the `release-build` CI job still work
+            // without provisioning a keystore on every dev machine.
+            signingConfig = if (hasUploadKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
@@ -63,4 +114,23 @@ dependencies {
     testImplementation(libs.hilt.android.testing)
     testImplementation(libs.kotlinx.coroutines.test)
     testRuntimeOnly(libs.junit.vintage.engine)
+
+    // Phase 6 Task 9 — instrumentation tests (real emulator API 26/30/34 matrix).
+    // Hilt-aware runner + ComposeRule + UiAutomator (SAF picker is outside the
+    // Compose hierarchy, so the system-UI tap must go through UiAutomator).
+    // KSP must run for `androidTest/` as well so Hilt's generated test
+    // components are emitted alongside the production graph.
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(libs.androidx.test.uiautomator)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    kspAndroidTest(libs.hilt.compiler)
+    // `ui-test-manifest` ships an empty `Activity` declaration used by
+    // `createComposeRule()` so the test process has somewhere to host the
+    // composition without depending on `MainActivity`.
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

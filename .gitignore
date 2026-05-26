@@ -25,6 +25,8 @@ local.properties
 *.jks
 *.keystore
 keystore.properties
+key.properties
+*.base64
 
 # Logs
 *.log

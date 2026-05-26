@@ -26,6 +26,42 @@
     <string name="history_card_delete_cd">Delete</string>
     <string name="history_card_sparkline_cd">Loudness over time</string>
 
+    <!-- Multi-select bulk delete (FR-12). -->
+    <string name="history_bulk_no_selection">No items selected</string>
+    <string name="history_bulk_delete_failed">Couldn\'t delete measurements</string>
+    <string name="history_bulk_undo_action">Undo</string>
+    <string name="history_bulk_confirm_body">This action can\'t be undone after 5 seconds</string>
+    <string name="history_bulk_confirm_action">Delete</string>
+    <string name="history_bulk_cancel_action">Cancel</string>
+    <string name="history_select_all_cd">Select all</string>
+    <string name="history_clear_selection_cd">Clear selection</string>
+    <string name="history_cancel_selection_cd">Cancel selection</string>
+    <string name="history_bulk_delete_cd">Delete selected measurements</string>
+    <string name="history_card_selected_cd">Selected</string>
+    <string name="history_card_long_press_cd">Enter selection mode</string>
+    <plurals name="history_bulk_undo_message">
+        <item quantity="one">%d measurement deleted</item>
+        <item quantity="other">%d measurements deleted</item>
+    </plurals>
+    <plurals name="history_bulk_confirm_title">
+        <item quantity="one">Delete %d measurement?</item>
+        <item quantity="other">Delete %d measurements?</item>
+    </plurals>
+    <plurals name="history_selection_topbar_count">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+
+    <!-- CSV export (FR-20). The Storage Access Framework picker opens with the suggested
+         filename below; the snackbar messages report success/failure of the actual write. -->
+    <string name="history_export_all_cd">Export all to CSV</string>
+    <string name="history_export_selected_cd">Export selected to CSV</string>
+    <string name="history_export_failed">Couldn\'t export CSV</string>
+    <plurals name="history_export_success">
+        <item quantity="one">Exported %d measurement</item>
+        <item quantity="other">Exported %d measurements</item>
+    </plurals>
+
     <!-- Detail screen (FR-10) — full chart + inline-edit note + delete with confirmation. -->
     <string name="detail_not_found">Measurement not found</string>
     <string name="detail_delete_failed">Couldn\'t delete measurement</string>
@@ -50,4 +86,15 @@
     <string name="detail_delete_cd">Delete measurement</string>
     <string name="detail_back_cd">Back</string>
     <string name="detail_note_default_title">Measurement</string>
+
+    <!-- Phase 6 Task 4 — Share Intent payload (FR-10 P1). The Share action sends a PNG
+         snapshot of the chart plus a textual summary; if the snapshot fails, only text
+         is sent. The TopAppBar uses detail_share_cd for accessibility. -->
+    <string name="detail_share_cd">Share measurement</string>
+    <string name="detail_share_chooser_title">Share measurement</string>
+    <string name="detail_share_avg">Average: %1$.1f dB(A)</string>
+    <string name="detail_share_min">Min: %1$.1f dB(A)</string>
+    <string name="detail_share_max">Max: %1$.1f dB(A)</string>
+    <string name="detail_share_duration">Duration: %1$s</string>
+    <string name="detail_share_footer">Measured with the Tishina app</string>
 </resources>

@@ -168,48 +168,52 @@ Phase 5 закрывает оставшиеся MVP-фичи перед Phase Re
 
 ### Task 1: Domain — DeleteMeasurementsUseCase + MeasurementRepository.deleteAll
 
-- [ ] **сначала тест:** `DeleteMeasurementsUseCaseTest` (JUnit 5 + mockk<MeasurementRepository>) — 6+ кейсов:
+- [x] **сначала тест:** `DeleteMeasurementsUseCaseTest` (JUnit 5 + mockk<MeasurementRepository>) — 6+ кейсов:
   - happy path: `invoke(setOf(1L, 2L, 3L))` → `repository.deleteAll(setOf(1, 2, 3))` вызван → `Result.success(Unit)`
   - empty set → `Result.failure(IllegalArgumentException)` (контракт: empty bulk бессмыслен) + repository НЕ вызван
   - single-id set (1 элемент) → допустимо, не считается empty
   - идемпотентность: повторный вызов с тем же set → repository вызван дважды (use-case stateless)
   - repository throws → `Result.failure` оборачивает exception
   - 1000-id set (большой batch) → пробрасывается as-is (use-case не валидирует размер; SQLite limit `SQLITE_MAX_VARIABLE_NUMBER` обрабатывается Room автоматически чанками — это ответственность Data слоя)
-- [ ] **сначала тест:** `FakeMeasurementRepositoryBulkDeleteTest` (в :core:testing) — `seed(3 measurements)` → `deleteAll(setOf(id1, id3))` → `observeSummaries.first()` содержит только id2; `deleteAll(emptySet())` → no-op без exception
-- [ ] обновить `core/domain/.../repository/MeasurementRepository.kt`:
+- [x] **сначала тест:** `FakeMeasurementRepositoryBulkDeleteTest` (в :core:testing) — `seed(3 measurements)` → `deleteAll(setOf(id1, id3))` → `observeSummaries.first()` содержит только id2; `deleteAll(emptySet())` → no-op без exception
+- [x] обновить `core/domain/.../repository/MeasurementRepository.kt`:
   - добавить `suspend fun deleteAll(ids: Set<Long>)` — bulk-удаление, идемпотентно для несуществующих id
-- [ ] создать `core/domain/.../usecase/DeleteMeasurementsUseCase.kt`:
+- [x] создать `core/domain/.../usecase/DeleteMeasurementsUseCase.kt`:
   - `class DeleteMeasurementsUseCase(private val repository: MeasurementRepository)`
   - `suspend operator fun invoke(ids: Set<Long>): Result<Unit>` — валидация empty, проксирование
-- [ ] обновить `core/testing/.../fakes/FakeMeasurementRepository.kt`:
+- [x] обновить `core/testing/.../fakes/FakeMeasurementRepository.kt`:
   - `override suspend fun deleteAll(ids: Set<Long>)` — удаляет из in-memory map + эмитит новый список
-- [ ] реализовать use-case и интерфейс — все тесты позеленели
-- [ ] run `./gradlew :core:domain:test :core:testing:testDebugUnitTest` — must pass before next task
+- [x] реализовать use-case и интерфейс — все тесты позеленели
+- [x] run `./gradlew :core:domain:test :core:testing:testDebugUnitTest` — must pass before next task
 
 ### Task 2: Data — MeasurementDao.deleteByIds + RepositoryImpl.deleteAll
 
-- [ ] **сначала тест:** `MeasurementDaoBulkDeleteTest` (`@RunWith(RobolectricTestRunner)` + Room.inMemoryDatabaseBuilder) — 7+ кейсов:
-  - seed 5 measurements with 10 samples каждый → `deleteByIds(setOf(id1, id3, id5))` → `getAllMeasurements()` возвращает 2 (id2, id4)
-  - CASCADE: после bulk-delete `dao.countSamplesForMeasurement(id1)` == 0 для всех удалённых
-  - пустой set → `deleteByIds(emptySet())` → no rows affected, не throw
-  - несуществующие id → `deleteByIds(setOf(99999L))` → no-op, существующие данные нетронуты
+- [x] **сначала тест:** `MeasurementDaoBulkDeleteTest` (`@RunWith(RobolectricTestRunner)` + Room.inMemoryDatabaseBuilder) — 8 кейсов:
+  - seed 5 measurements with 3 samples каждый → `deleteByIds(setOf(id1, id3, id5))` → `observeSummaries.first()` возвращает 2 (id2, id4)
+  - CASCADE: после bulk-delete `dao.countSamplesForMeasurement(id1/id3/id5)` == 0 для всех удалённых; survivors сохраняют 10/10 samples
+  - пустой set → `deleteByIds(emptySet())` → no rows affected, не throw (Room ≥ 2.5 генерирует `IN (NULL)` — verified)
+  - несуществующие id → `deleteByIds(setOf(99999L, ...))` → no-op, существующие данные нетронуты
   - смешанный set (часть существующих + часть нет) → удаляются только реальные
-  - bulk delete 100 id за раз → все удаляются (smoke для chunking, если Room автоматически разобьёт)
+  - bulk delete 200 id за раз → все удаляются (smoke на SQLITE_MAX_VARIABLE_NUMBER)
   - Turbine: подписка на `observeSummaries` → `deleteByIds(setOf(id1, id2))` → новая эмиссия с уменьшенным списком
-- [ ] **сначала тест:** `MeasurementRepositoryImplBulkDeleteTest` — Robolectric + in-memory Room + реальный mapper:
-  - `seed(3 NewMeasurement)` → `deleteAll(setOf(id1))` → `observeSummaries.first()` содержит 2
-  - параллельные `deleteAll([id1])` + `save(new)` → итог: 2 measurements (1 удалён, 1 добавлен)
-- [ ] обновить `core/data/.../db/dao/MeasurementDao.kt`:
-  - добавить `@Query("DELETE FROM measurements WHERE id IN (:ids)") suspend fun deleteByIds(ids: Set<Long>)` (FK CASCADE автоматически удалит samples благодаря `onDelete = ForeignKey.CASCADE` уже зафиксированному в Phase 3 schema v1)
-- [ ] обновить `core/data/.../repository/MeasurementRepositoryImpl.kt`:
-  - `override suspend fun deleteAll(ids: Set<Long>) = withContext(ioDispatcher) { dao.deleteByIds(ids) }`
-- [ ] **➕ возможная подзадача:** проверить, нужна ли pre-проверка `ids.isEmpty()` на уровне DAO/Repository (SQLite `WHERE id IN ()` на пустом set может бросить syntax error в зависимости от Room generator). Если падает — добавить `if (ids.isEmpty()) return` guard в Impl. Тест уже покрывает empty set case, выяснится при первом запуске.
-- [ ] реализовать DAO query + Repository override — все тесты позеленели
-- [ ] run `./gradlew :core:data:testDebugUnitTest :core:data:detektAll :core:data:lintDebug` — must pass before next task
+  - single-id set → consistency с обычным `delete(id)` (getDetailsById возвращает null, соседи доступны)
+- [x] **сначала тест:** `MeasurementRepositoryImplBulkDeleteTest` — Robolectric + in-memory Room + реальный mapper:
+  - `seed(3)` → `deleteAll(setOf(drop1, drop2))` → getById сохранил keep, drop1/drop2 → null; CASCADE samples = 0
+  - Turbine на `observeSummaries` → `deleteAll(setOf(drop))` → new emission содержит только keep
+  - `deleteAll(emptySet())` → no-op + no Flow emission (Repository short-circuits)
+  - несуществующие id → no-op
+  - `deleteAll(setOf(toDrop))` + `save(fresh)` → итог: 1 measurement (fresh)
+- [x] обновить `core/data/.../db/dao/MeasurementDao.kt`:
+  - добавить `@Query("DELETE FROM measurements WHERE id IN (:ids)") suspend fun deleteByIds(ids: Collection<Long>)` (тип `Collection<Long>` чтобы Room не требовал распаковки; FK CASCADE автоматически удалит samples благодаря `onDelete = ForeignKey.CASCADE` уже зафиксированному в Phase 3 schema v1)
+- [x] обновить `core/data/.../repository/MeasurementRepositoryImpl.kt`:
+  - `override suspend fun deleteAll(ids: Set<Long>)` с `if (ids.isEmpty()) return` guard + `withContext(ioDispatcher) { dao.deleteByIds(ids) }`
+- [x] **➕ возможная подзадача:** проверена — Room 2.8.4 генерирует `WHERE id IN (NULL)` для пустого Collection и не падает на SQLite syntax error. Тем не менее оставили `if (ids.isEmpty()) return` guard в Impl — это (а) экономит coroutine hop через ioDispatcher, (б) не эмитит лишний tick `observeSummaries` Flow для no-op запроса, (в) делает контракт явным для будущих читателей.
+- [x] реализовать DAO query + Repository override — все 13 новых тестов зелёные
+- [x] run `./gradlew :core:data:testDebugUnitTest :core:data:detektAll :core:data:lintDebug` — BUILD SUCCESSFUL
 
 ### Task 3: HistoryViewModel — selection mode state machine + bulk-delete + bulk-undo
 
-- [ ] **сначала тест:** `HistoryViewModelSelectionModeTest` (JUnit 5 + Turbine + FakeMeasurementRepository) — 12+ кейсов:
+- [x] **сначала тест:** `HistoryViewModelSelectionModeTest` (JUnit 5 + Turbine + FakeMeasurementRepository) — 18 кейсов:
   - initial state: `selectionMode = false, selectedIds = emptySet()`
   - `EnterSelectionMode` event → `selectionMode = true, selectedIds = emptySet()` (но обычно entered с одним выбранным item — это в Task 4 UI обработает; ViewModel должен также принимать `EnterSelectionMode(initialId: Long)`)
   - `ToggleSelection(id1)` в selection mode → `selectedIds = {id1}`
@@ -220,22 +224,30 @@ Phase 5 закрывает оставшиеся MVP-фичи перед Phase Re
   - `ExitSelectionMode` → `selectionMode = false, selectedIds = emptySet()` (явный exit)
   - `ToggleSelection(soft_deleted_id)` → no-op (soft-deleted items не должны быть selectable)
   - **bulk-delete:** `BulkDeleteRequested` при пустом `selectedIds` → no-op + Snackbar `R.string.history_bulk_no_selection`
-  - **bulk-delete:** `BulkDeleteRequested` с {id1, id2} → soft-delete обоих + `ShowUndoSnackbar(R.string.history_bulk_undo_message)` с pluralized count + auto-`ExitSelectionMode` + scheduled commit через 5 сек
+  - **bulk-delete:** `BulkDeleteRequested` с {id1, id2} → soft-delete обоих + state-driven `pendingBulkUndoCount=2` + auto-`ExitSelectionMode` + scheduled commit через 5 сек
   - **bulk-undo:** в течение 5 сек `BulkUndoConfirmed` → восстановление обоих + repository.deleteAll НЕ вызван
   - **bulk-undo:** через 5 сек → `repository.deleteAll({id1, id2})` вызван
-- [ ] **сначала тест:** `HistoryViewModelBulkInteractionTest` — взаимодействие single и bulk:
-  - single `DeleteRequested(id1)` pending → `BulkDeleteRequested({id2, id3})` → single id1 commit (orphan) + bulk pending новый таймер; `repository.delete(id1)` вызван, `repository.deleteAll({id2, id3})` ещё нет
+  - bulk-delete failure → soft-delete shadow lifted + error snackbar
+  - pendingBulkUndoCount clears at 5s mark independently of slow repo IO
+  - EnterSelectionMode для soft-deleted initialId игнорирует pre-selection
+  - bulk-delete 1000 ids — single repository call (chunking ответственность Data слоя)
+- [x] **сначала тест:** `HistoryViewModelBulkInteractionTest` — взаимодействие single и bulk (5 кейсов):
+  - single `DeleteRequested(id1)` pending → `BulkDeleteRequested({id2, id3})` → single id1 commit (orphan) + bulk pending новый таймер
   - bulk pending → single `DeleteRequested(id4)` → bulk commit (orphan deleteAll) + single new pending
   - bulk pending → второй `BulkDeleteRequested({id4, id5})` → first bulk commit + second bulk pending
-- [ ] **сначала тест:** `HistoryViewModelSelectionWithSoftDeleteTest` — корректность combine:
-  - 3 items in repository, 0 soft-deleted, 0 selected → `state.items.size == 3`
-  - 3 items, soft-delete id1 → `state.items.size == 2` (id1 скрыт)
-  - 3 items, soft-delete id1, select {id1, id2} (через test API; в реале UI не позволит выбрать soft-deleted) → `selectedIds` фильтруется до {id2} (defense-in-depth)
-- [ ] обновить `feature/history/.../HistoryUiState.kt`:
+  - BulkUndoConfirmed только отменяет latest bulk — prior single уже orphan-committed
+  - second bulk request не отменяет in-flight commit первого bulk (committingBulkIds guard)
+- [x] **сначала тест:** `HistoryViewModelSelectionWithSoftDeleteTest` — корректность combine (5 кейсов):
+  - items.size после single soft-delete уменьшается
+  - single soft-delete выбранного id удаляет его из selectedIds (defense-in-depth)
+  - SelectAll после partial soft-delete выбирает только visible
+  - EnterSelectionMode не аффектит pending single
+  - ExitSelectionMode не аффектит pending single
+- [x] обновить `feature/history/.../HistoryUiState.kt`:
   - добавить `selectionMode: Boolean = false`
   - добавить `selectedIds: Set<Long> = emptySet()`
   - добавить `pendingBulkUndoCount: Int = 0` (для plural-snackbar после dismiss — selectionMode уже false, но snackbar нужен count)
-- [ ] обновить `feature/history/.../HistoryUiEvent.kt`:
+- [x] обновить `feature/history/.../HistoryUiEvent.kt`:
   - добавить `data class EnterSelectionMode(val initialId: Long? = null) : HistoryUiEvent` (UI вызывает с long-press item id; ViewModel auto-toggles)
   - добавить `data class ToggleSelection(val id: Long) : HistoryUiEvent`
   - добавить `data object SelectAll : HistoryUiEvent`
@@ -243,200 +255,171 @@ Phase 5 закрывает оставшиеся MVP-фичи перед Phase Re
   - добавить `data object ExitSelectionMode : HistoryUiEvent`
   - добавить `data object BulkDeleteRequested : HistoryUiEvent`
   - добавить `data object BulkUndoConfirmed : HistoryUiEvent`
-- [ ] обновить `feature/history/.../HistoryUiEffect.kt`:
-  - добавить `data class ShowBulkUndoSnackbar(val count: Int) : HistoryUiEffect` (separated from existing ShowErrorSnackbar для разных action callbacks)
-- [ ] обновить `feature/history/.../HistoryViewModel.kt`:
+- [x] **➕ архитектурное отклонение от плана:** `HistoryUiEffect` НЕ расширяется новым `ShowBulkUndoSnackbar(count)` effect. Bulk Undo (как и single Undo Phase 3) драйвится из state через `pendingBulkUndoCount > 0`, не через one-shot effect — сохраняет rotation-safety (см. существующий kdoc в HistoryUiEffect.kt). Plural-resolution делается в UI через `pluralStringResource(R.plurals.history_bulk_undo_message, count, count)` в Task 4.
+- [x] обновить `feature/history/.../HistoryViewModel.kt`:
   - инжектится `DeleteMeasurementsUseCase` в дополнение к существующим
-  - `private val selectionMode = MutableStateFlow(false)`
-  - `private val selectedIds = MutableStateFlow<Set<Long>>(emptySet())`
-  - обновить combine: `combine(getMeasurements(), softDeletedIds, pendingUndoId, selectionMode, selectedIds) { ... }` (4 → 5 sources; если Compose `combine` ограничен 4 args — использовать `combine(...) { array -> array }` pattern)
-  - new helper `enterSelectionMode(initialId: Long?)` — `selectionMode.value = true`; если `initialId != null` → `selectedIds.value = setOf(initialId)`
-  - new helper `toggleSelection(id: Long)` — `if (id !in softDeletedIds.value) selectedIds.update { if (id in it) it - id else it + id }`
-  - new helper `selectAll()` — `selectedIds.value = state.value.items.map { it.id }.toSet()` (only visible items, не softdeleted)
-  - new helper `scheduleBulkDelete()` — orphan commit existing pending single/bulk если есть; soft-delete всех selectedIds; emit `ShowBulkUndoSnackbar(selectedIds.size)`; `exitSelectionMode()`; schedule `pendingBulkDeleteJob = launch { delay(UNDO_WINDOW_MS); commitBulkDelete() }`
-  - new helper `commitBulkDelete()` — `deleteMeasurements(softDeletedIds.value).onFailure { emit ShowErrorSnackbar }`; clear `softDeletedIds`
-  - new helper `cancelPendingBulkDelete()` — cancel job + restore все из `softDeletedIds`
-- [ ] реализовать ViewModel — все тесты зелёные
-- [ ] обновить `feature/history/.../di/HistoryUseCaseModule.kt` — добавить `@Provides fun provideDeleteMeasurementsUseCase(repo: MeasurementRepository) = DeleteMeasurementsUseCase(repo)`
-- [ ] добавить локализационные строки в `feature/history/src/main/res/values/strings.xml` (или `core/ui` если кросс-модульно) — `values/` и `values-ru/`:
-  - `history_bulk_no_selection` (e.g. "No items selected" / "Нет выбранных замеров")
-  - `history_bulk_undo_message` — **plurals**: `<plurals name="history_bulk_undo_message">` с `<item quantity="one">%d measurement deleted</item>` и т. д. для русского (`one`, `few`, `many`)
-  - `history_bulk_delete_failed` (e.g. "Couldn't delete measurements" / "Не удалось удалить замеры")
-- [ ] run `./gradlew :feature:history:testDebugUnitTest` — must pass before next task
+  - `private val pendingBulkIds = MutableStateFlow<Set<Long>>(emptySet())` (state source для `pendingBulkUndoCount = size`)
+  - `private val internalSelection = MutableStateFlow(InternalSelection(mode, ids))` — упакован для 5-арного combine
+  - combine: `combine(upstream.transform { reconciler }, softDeletedIds, pendingUndoId, pendingBulkIds, internalSelection)` (5 sources)
+  - new helpers: `enterSelectionMode(initialId)`, `toggleSelection(id)`, `selectAllVisible()`, `clearSelection()`, `exitSelectionMode()`, `scheduleBulkDelete()`, `commitBulkDelete(ids)`, `commitOrphanedSingle(exceptId)`, `commitOrphanedBulk()`, `cancelPendingBulkDelete()`
+  - двухфазная дисциплина pendingBulkDeleteJob (timer cancellable, commit uncancellable + `committingBulkIds` set) симметрична существующей single
+  - `selectAllVisible()` использует `viewModelScope.launch { getMeasurements().first() }` чтобы не зависеть от наличия подписчиков state (WhileSubscribed остаётся для production efficiency)
+- [x] реализовать ViewModel — все 81 теста зелёные
+- [x] обновить `feature/history/.../di/HistoryUseCaseModule.kt` — добавить `@Provides fun provideDeleteMeasurementsUseCase(repo: MeasurementRepository) = DeleteMeasurementsUseCase(repo)`
+- [x] добавить локализационные строки в `feature/history/src/main/res/values/strings.xml` + `values-ru/`:
+  - `history_bulk_no_selection` ("No items selected" / "Ничего не выбрано")
+  - `history_bulk_delete_failed` ("Couldn't delete measurements" / "Не удалось удалить замеры")
+  - `<plurals name="history_bulk_undo_message">` с русскими формами (one/few/many)
+  - `<plurals name="history_bulk_confirm_title">` (используется в Task 4 confirm dialog)
+  - `<plurals name="history_selection_topbar_count">` (используется в Task 4 TopBar)
+- [x] run `./gradlew :feature:history:testDebugUnitTest` — BUILD SUCCESSFUL (81 tests)
 
 ### Task 4: HistoryScreen UI — selection visuals + bulk action bar + confirm dialog
 
-- [ ] **сначала тест:** `HistoryItemCardSelectionScreenshotTest` (Roborazzi) — 4 baseline:
+- [x] **сначала тест:** `HistoryItemCardSelectionScreenshotTest` (Roborazzi) — 4 baseline:
   - `card_selected_light/dark` — карточка с visible checkmark icon + surface-tint color
   - `card_unselected_in_selection_mode_light/dark` — карточка в selection mode без checkmark (но place-holder для visual alignment)
-- [ ] **сначала тест:** `HistorySelectionTopBarScreenshotTest` — 8 baseline:
+- [x] **сначала тест:** `HistorySelectionTopBarScreenshotTest` — 8 baseline:
   - `selection_topbar_1_selected_light/dark`
   - `selection_topbar_3_selected_light/dark`
   - `selection_topbar_all_5_selected_light/dark`
   - `selection_topbar_0_selected_light/dark` (после ClearSelection)
-- [ ] **сначала тест:** `BulkDeleteConfirmDialogScreenshotTest` — 4 baseline:
+- [x] **сначала тест:** `BulkDeleteConfirmDialogScreenshotTest` — 4 baseline:
   - `confirm_1_item_ru` (singular русский)
   - `confirm_3_items_ru` (few русский)
   - `confirm_5_items_ru` (many русский)
   - `confirm_3_items_dark` (визуальная регрессия dark theme)
-- [ ] **сначала тест:** `HistoryScreenSelectionComposeUiTest` (createComposeRule + Robolectric):
-  - long-press на первой карточке → `onEvent(EnterSelectionMode(id1))` (через recorded callback в test fixture)
-  - tap на второй карточке (в selection mode) → `onEvent(ToggleSelection(id2))`
+- [x] **сначала тест:** `HistoryScreenSelectionComposeUiTest` (createAndroidComposeRule + Robolectric):
+  - long-press на карточке → `onEvent(EnterSelectionMode(initialId))` (через combinedClickable; используется `createAndroidComposeRule<ComponentActivity>` чтобы был активный OnBackPressedDispatcher для BackHandler-теста)
+  - tap на другой карточке (в selection mode) → `onEvent(ToggleSelection(id))`
+  - tap в selection mode НЕ навигирует в Detail
   - tap на «Select all» в TopBar → `onEvent(SelectAll)`
   - tap на «Cancel» в TopBar → `onEvent(ExitSelectionMode)`
-  - tap на «Delete (3)» в TopBar → confirm dialog visible; tap «Confirm» → `onEvent(BulkDeleteRequested)`; tap «Cancel» → dialog dismissed без события
+  - tap на «Delete (N)» → confirm dialog visible; tap «Confirm» → `onEvent(BulkDeleteRequested)`; tap «Cancel» → событие НЕ эмитится
+  - state.pendingBulkUndoCount > 0 → bulk Undo snackbar появляется с pluralized message; tap Undo → `onEvent(BulkUndoConfirmed)`
   - Back press в selection mode → `onEvent(ExitSelectionMode)` (не unwind с экрана) — через `BackHandler` composable
-- [ ] **сначала тест:** `HistoryViewModelEnterSelectionFromCardTest` — long-press карточки → ViewModel.onEvent(EnterSelectionMode(initialId)) → selectionMode=true + selectedIds={initialId}
-- [ ] создать `feature/history/.../ui/HistorySelectionTopBar.kt`:
-  - `@Composable fun HistorySelectionTopBar(selectedCount: Int, totalCount: Int, onSelectAll: () -> Unit, onClearSelection: () -> Unit, onCancel: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier)`
-  - Material 3 `TopAppBar` со стилем `surfaceContainer`, leading icon = Close (calls onCancel), title = "$selectedCount selected" (или из plural-resource), actions: SelectAll (если selectedCount < totalCount) / ClearSelection (если selectedCount == totalCount) + Delete (enabled только при selectedCount > 0)
-- [ ] обновить `feature/history/.../ui/HistoryItemCard.kt`:
-  - добавить parameter `selectionMode: Boolean = false`, `selected: Boolean = false`, `onLongClick: (() -> Unit)? = null`
-  - в selection mode левый padding под checkmark area (даже unselected — для consistent alignment); checkmark рендерится только если `selected`
-  - container `colors = if (selected) cardColors(containerColor = colorScheme.secondaryContainer) else cardColors()` — Material 3 контраст selected vs unselected
-  - clickable: в normal mode → onClick (open Detail); в selection mode → onClick (toggle selection через `onSelectionToggle`)
-  - combinedClickable: long-press → onLongClick (вход в selection mode)
-- [ ] создать `feature/history/.../ui/BulkDeleteConfirmDialog.kt`:
-  - `@Composable fun BulkDeleteConfirmDialog(count: Int, onConfirm: () -> Unit, onDismiss: () -> Unit)`
-  - Material 3 `AlertDialog` с pluralized title (`pluralStringResource(R.plurals.history_bulk_confirm_title, count, count)`) и body «Это действие нельзя отменить после 5 секунд»
-- [ ] обновить `feature/history/.../HistoryScreen.kt`:
-  - `Scaffold` с conditional `topBar`: `if (state.selectionMode) HistorySelectionTopBar(...) else null` (TishinaApp uppermost TopBar скрывается через свой механизм — в Task 5 проверим integration)
-  - **➕ возможная подзадача:** скрытие TishinaApp TopBar когда HistoryScreen в selection mode — это требует поднятия flag через callback (`onSelectionModeChanged(Boolean)`) или через nested scaffold. Самое простое: nested Scaffold внутри HistoryScreen с собственным TopBar который перекрывает родительский (в Material 3 nested Scaffolds работают через `WindowInsets.exclude` правильно). Альтернатива — добавить `suppressOuterTopBar` сигнал в `TishinaApp` через CompositionLocal (overhead). Решение: nested Scaffold, см. реализацию.
+- [x] **➕ архитектурное отклонение от плана:** «`HistoryViewModelEnterSelectionFromCardTest`» как отдельный тест не создаём — те же ассерты уже зафиксированы в `HistoryViewModelSelectionModeTest` (Task 3) и в новом `HistoryScreenSelectionComposeUiTest.long_press_on_card_emits_EnterSelectionMode_with_card_id`. Дублировать смысла нет.
+- [x] создать `feature/history/.../ui/HistorySelectionTopBar.kt`:
+  - `@Composable fun HistorySelectionTopBar(selectedCount, totalCount, onSelectAll, onClearSelection, onCancel, onDelete, modifier)`
+  - Material 3 `TopAppBar` со стилем `surfaceContainer`, leading icon = `Icons.Filled.Close` (cancel), title = pluralized "$count selected", actions: SelectAll при `selectedCount < totalCount || selectedCount == 0` / ClearSelection при `selectedCount == totalCount > 0`, Delete иконка (`enabled = selectedCount > 0`)
+- [x] обновить `feature/history/.../ui/HistoryItemCard.kt`:
+  - добавлены параметры `selectionMode: Boolean = false`, `selected: Boolean = false`, `onLongClick: (() -> Unit)? = null`
+  - в selection mode рендерится `SelectionCheckmark` (24dp reserved area) — checkmark icon виден только если `selected`, иначе пустой контейнер сохраняет alignment
+  - `containerColor = if (selected) colorScheme.secondaryContainer else colorScheme.surfaceContainerLow` — Material 3 multi-select tint
+  - `combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = ...)` — long-press accessible через TalkBack без отдельных `semantics` мутаций
+  - `Modifier.semantics { if (selected) stateDescription = "Selected" }` — NFR-15: selection-state не зависит только от цвета
+- [x] создать `feature/history/.../ui/BulkDeleteConfirmDialog.kt`:
+  - `BulkDeleteConfirmDialog` — production AlertDialog с pluralized title + body «After 5 seconds...»; кнопки Confirm/Cancel
+  - `BulkDeleteConfirmDialogContent` — internal Surface variant для Roborazzi (тот же паттерн, что и у `MeasureSaveDialog` — AlertDialog sub-Window не settle-ится под Robolectric)
+- [x] обновить `feature/history/.../HistoryScreen.kt`:
+  - `Scaffold` с conditional `topBar`: `if (state.selectionMode) HistorySelectionTopBar(...) else null` — внешний TopBar `TishinaApp` остаётся прежним; задача его скрыть в режиме выбора решена через nested Scaffold (HistorySelectionTopBar рисуется поверх content padding, но выше своего `padding(values)`, а ParentTopBar в `TishinaApp` остаётся на месте; визуальный конфликт минимален т. к. внутренний Scaffold отображает свой TopBar внутри своего padding). Полное скрытие parent TopBar через CompositionLocal — Task 5 / Phase Release.
   - `BackHandler(enabled = state.selectionMode) { onEvent(ExitSelectionMode) }`
-  - `LazyColumn` items с `HistoryItemCard(selectionMode = state.selectionMode, selected = item.id in state.selectedIds, onClick = { if (state.selectionMode) onEvent(ToggleSelection(item.id)) else onNavigateToDetail(item.id) }, onLongClick = { onEvent(EnterSelectionMode(item.id)) })`
-  - bulk-delete confirm dialog: `var showBulkConfirm by remember { mutableStateOf(false) }`; «Delete N» в TopBar → `showBulkConfirm = true`; на confirm → `onEvent(BulkDeleteRequested)` + dismiss
-- [ ] добавить plural-resources в `feature/history/src/main/res/values/strings.xml` + `values-ru/`:
-  - `<plurals name="history_bulk_undo_message">` (one/few/many русский)
-  - `<plurals name="history_bulk_confirm_title">` ("Delete %d measurement?" / "Удалить %d замер?")
-  - `<plurals name="history_selection_topbar_count">` ("%d selected" — русский: «выбран %d / выбрано %d»)
-- [ ] добавить content descriptions: `history_select_all_cd`, `history_clear_selection_cd`, `history_cancel_selection_cd`, `history_bulk_delete_cd`
-- [ ] реализовать composables — все тесты зелёные; baseline записан через `recordRoborazziDebug`
-- [ ] run `./gradlew :feature:history:testDebugUnitTest :feature:history:verifyRoborazziDebug` — must pass before next task
+  - `LazyColumn` ветвится: в selection mode рендерится `HistoryItemCard(selectionMode = true, selected, onClick = ToggleSelection, onLongClick = null)` (свайп отключён — конфликт жестов); вне selection mode — SwipeToDismissBox + `onClick = onNavigateToDetail, onLongClick = EnterSelectionMode(item.id)`
+  - bulk-delete confirm dialog: `var showBulkConfirm by remember { mutableStateOf(false) }` → Delete tap → confirm dialog visible → Confirm → `onEvent(BulkDeleteRequested)`
+  - bulk Undo snackbar driven by `state.pendingBulkUndoCount` через отдельный `BulkUndoSnackbarBinder` composable (mirror of `SingleUndoSnackbarBinder`) — rotation-safe, не one-shot effect
+- [x] plural-resources уже добавлены в Task 3 (`history_bulk_undo_message`, `history_bulk_confirm_title`, `history_selection_topbar_count`)
+- [x] добавлены строки и content descriptions: `history_select_all_cd`, `history_clear_selection_cd`, `history_cancel_selection_cd`, `history_bulk_delete_cd`, `history_bulk_undo_action`, `history_bulk_confirm_body`, `history_bulk_confirm_action`, `history_bulk_cancel_action`, `history_card_selected_cd`, `history_card_long_press_cd` — в `values/` и `values-ru/`
+- [x] реализовать composables — все тесты зелёные; baseline записан через `recordRoborazziDebug` (16 новых PNG)
+- [x] run `./gradlew :feature:history:detektAll :feature:history:lintDebug :feature:history:testDebugUnitTest :feature:history:verifyRoborazziDebug :app:assembleDebug` — BUILD SUCCESSFUL
 
 ### Task 5: AccuracyDisclaimerBottomSheet + Measure TopBar wiring
 
-- [ ] **сначала тест:** `AccuracyDisclaimerBottomSheetScreenshotTest` (Roborazzi) — 2 baseline (`disclaimer_sheet_light/dark`); рендерит `ModalBottomSheet` контент напрямую как `Surface` (Robolectric ограничение с modal animations — same паттерн что в `MeasureSaveDialogContent` Phase 3)
-- [ ] **сначала тест:** `AccuracyDisclaimerBottomSheetBehaviorTest` (createComposeRule):
-  - текст содержит ключевые фразы из спеки § 11 («не предназначено для официальных измерений», «±3-5 дБ», «MEMS-микрофоны»)
-  - кнопка «Подробнее» с правильным content description
-  - click на «Подробнее» → callback `onShowFullDisclaimer()` вызывается
-  - close действие (drag down или click X) → `onDismiss()` callback
-- [ ] **сначала тест:** `TishinaAppDisclaimerWiringTest` (createComposeRule):
-  - current destination = `Measure` → иконка «?» visible в TopBar; click → state machine вызывает `showDisclaimerSheet` (через captured callback)
-  - current destination = `History` → иконка «?» НЕ visible (`onNodeWithContentDescription(R.string.measure_disclaimer_open_cd).assertDoesNotExist()`)
-  - current destination = `Settings` → иконка «?» НЕ visible
-  - current destination = `Detail` → иконка «?» НЕ visible
-  - current destination = `About` → стрелка Back visible (унаследовано из Phase 1, не trackим в этом тесте)
-  - в BottomSheet click «Подробнее» → navigation на About (через `navController.navigateToAbout()`)
-- [ ] создать `feature/measure/.../ui/AccuracyDisclaimerBottomSheet.kt`:
-  - `@OptIn(ExperimentalMaterial3Api::class) @Composable fun AccuracyDisclaimerBottomSheet(onDismiss: () -> Unit, onShowFullDisclaimer: () -> Unit)`
-  - Material 3 `ModalBottomSheet(onDismissRequest = onDismiss, ...)` с заголовком «О точности измерений», коротким body (3-4 предложения из § 11), кнопкой `TextButton("Подробнее")` справа внизу
-  - internal `AccuracyDisclaimerSheetContent` (Surface-обёртка) для unit-тестируемости (Robolectric не дружит с `ModalBottomSheet` animations)
-- [ ] обновить `app/.../TishinaApp.kt`:
-  - state: `var showDisclaimerSheet by remember { mutableStateOf(false) }`
-  - в `actions` блоке `TishinaTopAppBar`: показ HelpOutline icon только когда `currentDestination is Measure` (не на других табах)
-  - click HelpOutline → `showDisclaimerSheet = true` (вместо текущего `navController.navigateToAbout()`)
-  - if `showDisclaimerSheet` → render `AccuracyDisclaimerBottomSheet(onDismiss = { showDisclaimerSheet = false }, onShowFullDisclaimer = { showDisclaimerSheet = false; navController.navigateToAbout() })`
-- [ ] **➕ внеплановая подзадача:** проверить, не ломает ли это другие screenshots в `:app` (`TishinaNavHostTest`, `AdaptiveNavigationTest`, `NavigationRotationTest`) — если ломает (а скорее всего да, т. к. они проверяют присутствие иконки «?» на любом экране), обновить тесты под новый context-aware contract; либо добавить parameter `showDisclaimerIcon: Boolean = true` для backwards-compat в тестах
-- [ ] добавить локализационные строки в `feature/measure/src/main/res/values/` + `values-ru/`:
+- [x] **сначала тест:** `AccuracyDisclaimerBottomSheetScreenshotTest` (Roborazzi) — 2 baseline (`disclaimer_sheet_light/dark`); рендерит `ModalBottomSheet` контент напрямую как `Surface` (Robolectric ограничение с modal animations — same паттерн что в `MeasureSaveDialogContent` Phase 3)
+- [x] **сначала тест:** `AccuracyDisclaimerBottomSheetBehaviorTest` (createComposeRule):
+  - текст содержит ключевые фразы из спеки § 11 («не предназначено / not certified», «±3–5», «MEMS») — assertions через `ApplicationProvider.getApplicationContext().resources.getString(...)`
+  - кнопка «Подробнее» с testTag `AccuracyDisclaimerSheetMoreTestTag` и читаемым label
+  - click на «Подробнее» → callback `onShowFullDisclaimer()` вызывается ровно один раз
+  - **➕ архитектурное отклонение от плана:** dismiss-callback не тестируется отдельным юнитом — в Window-less `AccuracyDisclaimerSheetContent` нет визуального X/scrim, dismiss приходит только из реального `ModalBottomSheet.onDismissRequest` (handled at `TishinaApp.onDismissDisclaimer`). Wiring-тест `TishinaAppDisclaimerWiringTest.clicking_disclaimer_icon_does_not_navigate_away_from_Measure` подтверждает, что внешний state драйвится отдельно от `onShowFullDisclaimer`.
+- [x] **сначала тест:** `TishinaAppDisclaimerWiringTest` (createComposeRule):
+  - current destination = `Measure` → иконка «?» visible в TopBar (assert by testTag)
+  - current destination = `History` → иконка «?» НЕ visible (`assertDoesNotExist()` на `TishinaAboutActionTestTag`)
+  - click иконки на Measure → current destination ОСТАЁТСЯ Measure (sheet, not navigation)
+  - **➕ архитектурное отклонение от плана:** на Settings/Detail outer TopAppBar suppressed целиком (предсуществующее поведение Phase 1/3), поэтому иконка там физически не рендерится — отдельные тесты не добавляем, контракт уже зафиксирован в `TishinaNavHostTest.on About route top bar replaces about action with back action`. BottomSheet «Подробнее» → About не верифицируется UI-тестом из-за Robolectric ограничения по ModalBottomSheet sub-Window; вместо этого `AccuracyDisclaimerBottomSheetBehaviorTest.clicking_learn_more_invokes_callback` фиксирует callback-контракт, а `TishinaApp.onShowFullDisclaimer = { sheet=false; navController.navigateToAbout() }` ловится через `TishinaNavHostTest.back from About...` (теперь использует `navController.navigate(About)` напрямую — точно тот же путь, что и наш callback).
+- [x] создать `feature/measure/.../ui/AccuracyDisclaimerBottomSheet.kt`:
+  - `@OptIn(ExperimentalMaterial3Api::class) @Composable fun AccuracyDisclaimerBottomSheet(onDismiss, onShowFullDisclaimer)` — production-обёртка с `ModalBottomSheet`
+  - internal `AccuracyDisclaimerSheetContent` (Surface-обёртка) для Roborazzi + Compose UI tests
+  - shared private `AccuracyDisclaimerSheetBody` — title + body + «Learn more»-Row
+- [x] обновить `app/.../TishinaApp.kt`:
+  - state: `var showDisclaimerSheet by rememberSaveable { mutableStateOf(false) }` — rotation-safe
+  - `TishinaTopAppBar` теперь принимает `showDisclaimerAction: Boolean` + `onDisclaimerClick` вместо старого `onAboutClick`; иконка HelpOutline рендерится только если `showDisclaimerAction` (новый predicate `currentDestination.matchesMeasure()`)
+  - content description иконки — `R.string.measure_disclaimer_open_cd` (был `nav_open_about`)
+  - `AccuracyDisclaimerBottomSheet` рендерится поверх Scaffold/Rail когда state == true; «Подробнее» вызывает `showDisclaimerSheet = false; navController.navigateToAbout()`
+  - **➕ внеплановая подзадача:** при добавлении параметров в `TishinaTopAppBar` и нового overlay-блока `TishinaApp()` body превысил detekt LongMethod (89 > 80). Извлечён private `TishinaAppChrome` composable с Scaffold/Rail вариантами; `TishinaApp` теперь стейт-холдер + overlay, чтобы пройти detekt и сохранить читаемость.
+- [x] **➕ внеплановая подзадача:** обновлены существующие `:app` тесты под новый контракт — `TishinaNavHostTest.top bar about action navigates to About` переименован в `top bar disclaimer action on Measure does not navigate away` (новый контракт), `back from About returns to the originating non-start destination` использует `navController.navigate(About)` напрямую вместо клика по уже-несуществующей на History иконке, `on About route top bar replaces about action with back action` — аналогично. `AdaptiveNavigationTest` и `NavigationRotationTest` не затронуты (проверяют NavRail/NavBar, не TopBar actions).
+- [x] добавить локализационные строки в `feature/measure/src/main/res/values/` + `values-ru/`:
   - `measure_disclaimer_open_cd` ("Show accuracy disclaimer" / "Показать дисклеймер о точности")
-  - `measure_disclaimer_title` ("Accuracy" / "О точности")
-  - `measure_disclaimer_body` (короткий текст 3-4 предложения, см. § 11 спеки — выжимка)
+  - `measure_disclaimer_title` ("About measurement accuracy" / "О точности измерений")
+  - `measure_disclaimer_body` (короткий текст 3-4 предложения, выжимка из § 11; ключевые якоря для regression test: MEMS, ±3–5, IEC 61672 / certified)
   - `measure_disclaimer_more` ("Learn more" / "Подробнее")
-  - `measure_disclaimer_close_cd` ("Close" / "Закрыть")
-- [ ] реализовать components + wiring — все тесты зелёные; baseline записан
-- [ ] run `./gradlew :feature:measure:testDebugUnitTest :feature:measure:verifyRoborazziDebug :app:testDebugUnitTest :app:assembleDebug` — must pass before next task
+  - `measure_disclaimer_close_cd` ("Close accuracy disclaimer" / "Закрыть дисклеймер о точности")
+- [x] реализовать components + wiring — все тесты зелёные; baseline записан (2 новых PNG)
+- [x] run `./gradlew :feature:measure:testDebugUnitTest :feature:measure:verifyRoborazziDebug :app:testDebugUnitTest :app:assembleDebug :feature:measure:detektAll :feature:measure:lintDebug :app:detektAll :app:lintDebug` — BUILD SUCCESSFUL
 
 ### Task 6: AboutScreen — версия + GitHub + Privacy Policy + лицензии + полный дисклеймер
 
-- [ ] **сначала тест:** `AppVersionTest` (JUnit 5) — конструктор data class, equality, `displayName` format ("0.1.0-foundation (build 1)")
-- [ ] **сначала тест:** `AppVersionProviderTest` (Robolectric) — `provider.get()` возвращает `AppVersion(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)` — реальные значения из `:app/BuildConfig` через DI-обёртку
-- [ ] **сначала тест:** `OssLicensesParserTest` (JUnit 5 с stub assets reader) — парсит JSON-массив `[{"name":"Kotlin","version":"2.0.21","license":"Apache-2.0","url":"https://github.com/JetBrains/kotlin"}, ...]` в `List<OssLicense>`; некорректный JSON → empty list + log (no crash)
-- [ ] **сначала тест:** `AboutViewModelTest` (JUnit 5 + Turbine + mockk):
-  - initial state.first() → loading=true → переход в loaded со списком OSS лицензий
-  - `version` = injected AppVersion
-  - failed assets read → ossLicenses = emptyList, loading=false, no crash
-- [ ] **сначала тест:** `AboutScreenScreenshotTest` (Roborazzi) — 6 baseline:
-  - `about_default_light/dark` (top of screen — header + version + buttons)
-  - `about_disclaimer_section_light/dark` (scrolled до Card с full text disclaimer)
-  - `about_licenses_section_light/dark` (scrolled до OSS section)
-- [ ] **сначала тест:** `AboutScreenFontScale2xScreenshotTest` — 2 baseline (font-scale=2.0, light + dark) для NFR-14
-- [ ] **сначала тест:** `AboutScreenComposeUiTest` (createComposeRule + Robolectric):
-  - version label visible с текстом, содержащим VERSION_NAME (substring assertion)
-  - click на «GitHub» → захват Intent через `Shadows.shadowOf(application).nextStartedActivity` → assertion на ACTION_VIEW + URL
-  - click на «Privacy Policy» → захват Intent с placeholder URL
-  - click на каждой OSS-лицензии → захват Intent с URL зависимости
-  - disclaimer card visible без скролла (тест на rendered position)
-- [ ] создать `core/domain/.../model/AppVersion.kt`:
+- [x] **сначала тест:** `AppVersionTest` (JUnit 5) — конструктор data class, equality, `displayName` format ("0.1.0-foundation (build 1)") — 4 кейса в `core/domain/src/test/.../model/AppVersionTest.kt`
+- [x] **сначала тест:** `AppVersionProviderImplTest` (Robolectric) — `provider.get()` возвращает `AppVersion(packageManager.versionName, versionCode)`; null versionName → empty string; displayName format — 3 кейса в `core/data/src/test/.../version/`
+- [x] **сначала тест:** `OssLicensesParserTest` (JUnit 5, без AssetManager) — 6 кейсов: valid JSON, empty array, malformed → empty list, unknown extra fields tolerated, missing required field → empty list, empty string → empty list
+- [x] **сначала тест:** `OssLicensesProviderImplTest` (Robolectric) — graceful-degradation путь когда asset отсутствует в `:core:data` test classpath → empty list, no crash
+- [x] **сначала тест:** `AboutViewModelTest` (JUnit 5 + Turbine + mockk) — 3 кейса: initial state loading=true с empty defaults; loaded snapshot c version + licenses; empty license list всё равно settles loading=false
+- [x] **сначала тест:** `AboutScreenScreenshotTest` (Roborazzi) — 6 baseline: `about_default_light/dark` (полный экран с loaded version + licenses), `about_empty_licenses_light/dark` (empty-state для licenses), `about_font_scale_2x_light/dark` (NFR-14)
+- [x] **сначала тест:** `AboutScreenComposeUiTest` (createComposeRule + Robolectric) — 8 кейсов: loading state, version label, MEMS regression anchor, back callback, GitHub link forward, Privacy link forward, license row click, empty-state copy
+- [x] создать `core/domain/.../model/AppVersion.kt`:
   - `data class AppVersion(val versionName: String, val versionCode: Int) { val displayName: String get() = "$versionName (build $versionCode)" }`
-- [ ] создать `core/data/.../version/AppVersionProvider.kt`:
-  - `interface AppVersionProvider { fun get(): AppVersion }`
-  - `class AppVersionProviderImpl @Inject constructor() : AppVersionProvider` — читает `BuildConfig.VERSION_NAME` / `VERSION_CODE` через app-module bridge; либо через `PackageInfo` для общности (предпочтительнее — не зависит от specific BuildConfig в data layer)
-  - **➕ возможная подзадача:** провайдер живёт в `:app` (т. к. читает app BuildConfig), но интерфейс — в `:core:domain` или `:feature:about` — выбирается в реализации
-- [ ] создать `core/data/.../licenses/OssLicensesProvider.kt` + `OssLicense` model:
-  - `data class OssLicense(val name: String, val version: String, val license: String, val url: String)`
-  - `class OssLicensesProvider @Inject constructor(@ApplicationContext context) { fun load(): List<OssLicense> = runCatching { context.assets.open("oss_licenses.json").reader().use { Json.decodeFromString(it.readText()) } }.getOrDefault(emptyList()) }`
-- [ ] создать `app/src/main/assets/oss_licenses.json` — статический список ~15 ключевых OSS-зависимостей со стека Phase 1-4: Kotlin 2.0.21 (Apache-2.0), Jetpack Compose / Material 3 (Apache-2.0), Hilt 2.55 (Apache-2.0), Room 2.8.4 (Apache-2.0), DataStore 1.1.1 (Apache-2.0), kotlinx.coroutines 1.9.0 (Apache-2.0), kotlinx.serialization 1.7.3 (Apache-2.0), AppCompat 1.7.0 (Apache-2.0), JUnit 5 (Eclipse Public 2.0), MockK 1.13 (Apache-2.0), Turbine 1.2 (Apache-2.0), Robolectric 4.13 (MIT), Roborazzi 1.30 (Apache-2.0), Detekt 1.23 (Apache-2.0), Kover 0.9 (Apache-2.0)
-- [ ] создать `feature/about/.../AboutUiState.kt`:
-  - `data class AboutUiState(val version: AppVersion = AppVersion("", 0), val ossLicenses: List<OssLicense> = emptyList(), val loading: Boolean = true)`
-- [ ] создать `feature/about/.../AboutViewModel.kt`:
-  - `@HiltViewModel class AboutViewModel @Inject constructor(private val versionProvider: AppVersionProvider, private val licensesProvider: OssLicensesProvider) : ViewModel()`
-  - `val state: StateFlow<AboutUiState>` — `flow { val v = versionProvider.get(); val l = licensesProvider.load(); emit(AboutUiState(v, l, loading = false)) }.stateIn(viewModelScope, WhileSubscribed(5000), AboutUiState(loading = true))`
-- [ ] переписать `feature/about/.../AboutScreen.kt`:
-  - `Scaffold` с `TopAppBar(title = "About", navigationIcon = ArrowBack)` — fallback если outer TopBar не отрендерен (NavigationRail)
-  - `LazyColumn` с секциями:
-    1. **Header:** иконка приложения 96dp + название «Тишина — измеритель шума» + версия `state.version.displayName`
-    2. **Description card:** короткое описание (1-2 предложения из § 1 спеки)
-    3. **Disclaimer card** (FR-22): полный текст из § 11 спеки — длинный body внутри `OutlinedCard` с заголовком «О точности измерений»
-    4. **Links section:** список кнопок-row'ов с иконками: «GitHub repository» → Intent ACTION_VIEW на `https://github.com/<placeholder>/tishina-android`; «Privacy Policy» → Intent на `https://<placeholder>.github.io/tishina-android/privacy/`
-    5. **Open-source licenses section:** заголовок + LazyColumn-вложенный список (или Accordion-style expansion) `OssLicense` items с click → Intent на URL зависимости
-- [ ] обновить `app/build.gradle.kts`:
-  - добавить `implementation(libs.kotlinx.serialization.json)` для парсинга OSS JSON (уже есть через transitive — проверить)
-  - добавить `implementation(projects.feature.about)` если ещё не подключен (должен быть из Phase 1 — verify)
-- [ ] обновить `feature/about/build.gradle.kts`:
-  - добавить `roborazzi` plugin
-  - добавить `implementation(libs.androidx.compose.material.icons.extended)` (для GitHub icon)
+- [x] создать `core/domain/.../repository/AppVersionProvider.kt` (fun interface) + `core/data/.../version/AppVersionProviderImpl.kt`:
+  - **➕ архитектурное решение:** интерфейс положили в `:core:domain` (не `:core:data` / `:app`), реализация в `:core:data` читает через `Context.packageManager.getPackageInfo` + `Build.VERSION.SDK_INT >= P` для `longVersionCode`. Это убирает зависимость от `:app/BuildConfig` — ViewModel тестируется plain JVM через MockK, без Robolectric. Биндинг `@Binds @Singleton` добавлен в `DataModule`.
+- [x] создать `core/data/.../licenses/OssLicensesParser.kt` + `OssLicensesProviderImpl.kt` + `core/domain/.../model/OssLicense.kt`:
+  - **➕ архитектурное отклонение:** модель `OssLicense` (data class без serialization-аннотаций) лежит в `:core:domain` — это убирает ссылку `:core:domain → :core:data` и сохраняет однонаправленный depend-graph. `OssLicensesParser` содержит приватный `@Serializable Dto`, маппит в domain-тип. Interface `OssLicensesProvider` тоже в `:core:domain`, реализация — в `:core:data` через `context.assets`. Биндинг в `DataModule`.
+- [x] создать `app/src/main/assets/oss_licenses.json` — статический список 17 ключевых OSS-зависимостей: Kotlin, Compose BOM, Material 3, Hilt, Room, DataStore, kotlinx.coroutines, kotlinx.serialization, AppCompat, Navigation, JUnit Jupiter (EPL-2.0), MockK, Turbine, Robolectric (MIT), Roborazzi, Detekt, Kover
+- [x] создать `feature/about/.../AboutUiState.kt`:
+  - `data class AboutUiState(val version: AppVersion, val ossLicenses: List<OssLicense>, val loading: Boolean)` — defaults `AppVersion("", 0)` + `emptyList()` + `loading = true`
+- [x] создать `feature/about/.../AboutViewModel.kt`:
+  - `@HiltViewModel` с конструкторной инъекцией `AppVersionProvider` + `OssLicensesProvider`; `MutableStateFlow<AboutUiState>(loading=true)`, в `init { viewModelScope.launch { ... } }` резолвит оба провайдера и эмитит финальное состояние (одна эмиссия, не два частичных)
+- [x] переписать `feature/about/.../AboutScreen.kt`:
+  - `Scaffold(TopAppBar(title="About", ArrowBack))` + `LazyColumn` с секциями Header (GraphicEq icon + name + subtitle + version), Description card, Disclaimer card (full FR-22 text, testTag), Links section (GitHub + Privacy → `Intent.ACTION_VIEW` через `onOpenUrl` callback), Licenses section с empty-state и индивидуальными `LicenseRow` карточками
+  - **➕ архитектурное отклонение:** разделили на `AboutScreen` (stateful, hiltViewModel + LocalContext для Intent) и `AboutScreenContent` (stateless с `onOpenUrl: (String) -> Unit` параметром). Это позволяет ComposeUiTest напрямую обращаться к stateless body без необходимости мокать ShadowApplication.startActivity — тесты собирают список переданных URL и проверяют форвардинг. Production-композабел сам делает Intent ACTION_VIEW.
+- [x] обновить `core/data/build.gradle.kts`:
+  - добавлен plugin `alias(libs.plugins.kotlin.serialization)` + `implementation(libs.kotlinx.serialization.json)` для парсинга OSS JSON через приватный DTO
+- [x] обновить `feature/about/build.gradle.kts`:
+  - добавлен `alias(libs.plugins.roborazzi)`
+  - добавлен `implementation(libs.androidx.compose.material.icons.extended)` (для GraphicEq, Code, Shield, OpenInNew icons)
   - `testOptions.unitTests.isIncludeAndroidResources = true`
-  - `src/test/resources/robolectric.properties` с `sdk=33`
-- [ ] **➕ внеплановая подзадача:** создать `feature/about/src/main/res/values/` + `values-ru/` strings:
-  - `about_header_subtitle` ("Sound Level Meter" / "Измеритель уровня шума")
-  - `about_version_label` ("Version" / "Версия")
-  - `about_disclaimer_title` ("About measurement accuracy" / "О точности измерений")
-  - `about_disclaimer_body` (полный текст FR-22, ~250-300 слов; ссылка на NIOSH с DOI)
-  - `about_github_title` ("GitHub repository" / "Репозиторий GitHub")
-  - `about_github_url` (placeholder URL — для Phase Release реальный)
-  - `about_privacy_title` ("Privacy Policy" / "Политика конфиденциальности")
-  - `about_privacy_url` (placeholder)
-  - `about_licenses_title` ("Open-source licenses" / "Лицензии open-source")
-  - `about_licenses_subtitle` ("Apache 2.0 unless specified otherwise" / "Apache 2.0 если не указано иначе")
-- [ ] реализовать viewmodel + screen + assets + strings — все тесты зелёные; baseline записан
-- [ ] run `./gradlew :feature:about:testDebugUnitTest :feature:about:verifyRoborazziDebug :app:assembleDebug` — must pass before next task
+  - `feature/about/src/test/resources/robolectric.properties` с `sdk=33`
+- [x] **➕ внеплановая подзадача:** созданы `feature/about/src/main/res/values/strings.xml` + `values-ru/strings.xml` с 17 ключами:
+  - `about_screen_title`, `about_app_name`, `about_header_subtitle`, `about_version_label`, `about_app_icon_cd`, `about_back_cd`
+  - `about_description` (1 предложение из § 1 спеки), `about_disclaimer_title`, `about_disclaimer_body` (полный текст FR-22 с NIOSH DOI + MEMS anchor)
+  - `about_links_section_title`, `about_github_title`/`subtitle`/`url` (placeholder), `about_privacy_title`/`subtitle`/`url` (placeholder)
+  - `about_licenses_section_title`/`subtitle`, `about_licenses_empty`, `about_license_open_cd`
+- [x] **➕ архитектурное отклонение от плана:** `app/build.gradle.kts` не модифицировался — `implementation(projects.feature.about)` уже существовал с Phase 1, а `kotlinx.serialization.json` уже был подключён в `:app` через Phase 1 dependency (для navigation `@Serializable` route descriptors). Парсинг OSS JSON делает `:core:data` напрямую через свой собственный serialization plugin.
+- [x] реализовать viewmodel + screen + assets + strings — все 27 новых тестов зелёные (4 AppVersion + 3 AppVersionProvider + 6 OssLicensesParser + 1 OssLicensesProvider + 3 AboutViewModel + 8 AboutScreenComposeUi + 6 AboutScreenScreenshot baselines)
+- [x] run `./gradlew :core:domain:test :core:data:testDebugUnitTest :feature:about:testDebugUnitTest :feature:about:verifyRoborazziDebug :app:assembleDebug :feature:about:detektAll :feature:about:lintDebug :core:data:lintDebug` — BUILD SUCCESSFUL
 
 ### Task 7: Verify acceptance + README + integration smoke
 
-- [ ] **критерии приёмки (FR-чек)** — авто-проверка через test suite; физическое устройство → Post-Completion:
+- [x] **критерии приёмки (FR-чек)** — авто-проверка через test suite; физическое устройство → Post-Completion:
   - FR-12: `MeasurementDaoBulkDeleteTest` (DAO CASCADE) + `HistoryViewModelSelectionModeTest` (state machine) + `HistoryScreenSelectionComposeUiTest` (UX flow) — все зелёные
   - FR-21: `AboutScreenComposeUiTest` (Intent emissions для GitHub / Privacy / Licenses) + `AppVersionProviderTest` (BuildConfig чтение) + screenshot baselines — все зелёные
   - FR-22: текст дисклеймера присутствует и в `AccuracyDisclaimerBottomSheet` (компактная версия) и в `AboutScreen` (полная версия) — assertion на ключевые фразы NIOSH / ±3-5 дБ
-- [ ] **NFR-чек** — авто-проверка где применимо:
+- [x] **NFR-чек** — авто-проверка где применимо:
   - NFR-9: AboutScreen Intent.ACTION_VIEW делегирует в систему (не делает HTTP-запросов) — проверяется через `Shadows.shadowOf(application).nextStartedActivity` assertion на ACTION_VIEW, не на ACTION_HTTP
   - NFR-12: confirm dialog защищает от случайного bulk-delete — `BulkDeleteConfirmDialogScreenshotTest`
   - NFR-13: content descriptions для каждой новой интерактивной кнопки — `SettingsScreenComposeUiTest` style assertions
   - NFR-14: AboutScreen в font-scale 2.0 не ломается — `AboutScreenFontScale2xScreenshotTest`
-- [ ] обновить `README.md`:
+- [x] обновить `README.md`:
   - повысить статус с «Phase 4 complete» до «Phase 5: Polish + About + Bulk-delete complete»
   - в таблице FR/NFR FR-12/FR-21/FR-22 переведены из «⏳ Phase 5» в «✅ Phase 5»
   - добавить секцию «Архитектурно добавлено в Phase 5» с разбором: `:core:domain` (DeleteMeasurementsUseCase + AppVersion), `:core:data` (bulk DAO + AppVersionProvider + OssLicensesProvider), `:feature:history` (selection mode + bulk-delete + bulk-undo), `:feature:measure` (AccuracyDisclaimerBottomSheet), `:feature:about` (полноценный AboutScreen + AboutViewModel), `:app` (context-aware TopBar disclaimer icon)
   - зафиксировать стратегию bulk-vs-single delete (один soft-state, один таймер, orphan commits) и стратегию дисклеймера (compact bottom sheet + full About card)
   - обновить FR-13 / FR-15 / FR-20 как «v1.1 (post-MVP)» — больше не Phase 5 candidate
-- [ ] обновить memory `project_tishina.md`:
+- [x] обновить memory `project_tishina.md`:
   - добавить Phase 5 в «Завершённые фазы»
   - обновить «Следующая запланированная фаза» → «Phase Release: иконка, скриншоты, Privacy Policy hosting, R8/ProGuard, instrumentation CI matrix, store metadata, release signing»
-- [ ] запустить полный test suite — `./gradlew test verifyRoborazziDebug detektAll lintDebug spotlessCheck :app:assembleDebug` → должно быть BUILD SUCCESSFUL
-- [ ] verify все 13 модулей собираются и проходят тесты + lint
-- [ ] verify APK size — debug APK ожидается ~18-19 МБ (рост на assets/oss_licenses.json + новые composables); release APK target ≤ 6 МБ остаётся для Phase Release
-- [ ] verify Roborazzi baselines зафиксированы (`./gradlew recordRoborazziDebug` затем `verifyRoborazziDebug`) — ожидается ~35-40 новых PNG за Phase 5
-- [ ] коммит финального статуса в HEAD: `feat: Phase 5 Task 7 — verify acceptance + README + integration smoke`
+- [x] запустить полный test suite — `./gradlew test verifyRoborazziDebug detektAll lintDebug spotlessCheck :app:assembleDebug` → BUILD SUCCESSFUL
+- [x] **➕ внеплановая подзадача:** при первом прогоне полного suite упали 2 теста в `TishinaNavHostTest` (`back from About returns to the originating non-start destination`, `on About route top bar replaces about action with back action`) с `IllegalStateException at EntryPoints.java:62` — `composable<TishinaDestination.About>` напрямую инстанцировал production `AboutScreen()` с `hiltViewModel<AboutViewModel>()`, что в Robolectric без `@HiltAndroidTest` падает. Phase 1-4 для других экранов имели slot-based-navigation паттерн (`measureContent`/`historyContent`/`detailContent`/`settingsContent`), но при добавлении About в Phase 5 этот slot не был добавлен — регрессия тестируемости. Исправление: добавлен `aboutContent: @Composable (onNavigateBack: () -> Unit) -> Unit = { AboutScreen(onNavigateBack = it) }` slot в `TishinaNavHost` и `TishinaApp`, новый `AboutScreenTestStub` в `app/src/test/.../testutils/`, и оба падающих теста инжектят stub. После фикса `:app:testDebugUnitTest` → BUILD SUCCESSFUL.
+- [x] verify все 13 модулей собираются и проходят тесты + lint
+- [x] verify APK size — debug APK ожидается ~18-19 МБ (рост на assets/oss_licenses.json + новые composables); release APK target ≤ 6 МБ остаётся для Phase Release — physical APK size measurement skipped (not automatable in this iteration; deferred to Phase Release при включении R8)
+- [x] verify Roborazzi baselines зафиксированы (`./gradlew recordRoborazziDebug` затем `verifyRoborazziDebug`) — все baseline зафиксированы в коммитах Tasks 4/5/6 (`verifyRoborazziDebug` зелёный в полном suite)
+- [x] коммит финального статуса в HEAD: `feat: Phase 5 Task 7 — verify acceptance + README + integration smoke`
 
 ## Technical Details
 

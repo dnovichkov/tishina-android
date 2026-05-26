@@ -1,5 +1,6 @@
 package ru.dmdp.tishina.feature.history.detail
 
+import android.content.Intent
 import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -61,6 +63,7 @@ const val DetailNoteCancelTestTag: String = "detail_note_cancel"
 const val DetailDeleteIconTestTag: String = "detail_delete_icon"
 const val DetailDeleteDialogTestTag: String = "detail_delete_dialog"
 const val DetailBackIconTestTag: String = "detail_back_icon"
+const val DetailShareIconTestTag: String = "detail_share_icon"
 
 private const val DURATION_MS_PER_SECOND = 1000L
 private const val SECONDS_PER_MINUTE = 60L
@@ -92,6 +95,18 @@ fun DetailScreen(
                     }
                 }
                 DetailUiEffect.NavigateBack -> onNavigateBack()
+                is DetailUiEffect.LaunchShareIntent -> {
+                    val chooser = Intent.createChooser(
+                        effect.intent,
+                        context.getString(R.string.detail_share_chooser_title),
+                    )
+                    // FLAG_ACTIVITY_NEW_TASK so the chooser launches from an application context
+                    // when the host isn't an Activity (e.g. screen-recording overlay). For the
+                    // normal Detail navigation flow `context` is an Activity context and the flag
+                    // is a no-op.
+                    chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(chooser)
+                }
             }
         }
     }
@@ -138,17 +153,7 @@ internal fun DetailScreenContent(
                         )
                     }
                 },
-                actions = {
-                    IconButton(
-                        onClick = { onEvent(DetailUiEvent.DeleteRequested) },
-                        modifier = Modifier.testTag(DetailDeleteIconTestTag),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Delete,
-                            contentDescription = stringResource(R.string.detail_delete_cd),
-                        )
-                    }
-                },
+                actions = { TopBarActions(state = state, onEvent = onEvent) },
             )
         },
     ) { padding ->
@@ -183,6 +188,34 @@ internal fun DetailScreenContent(
                 onCancel = { onEvent(DetailUiEvent.DeleteCancelled) },
             )
         }
+    }
+}
+
+@Composable
+private fun TopBarActions(state: DetailUiState, onEvent: (DetailUiEvent) -> Unit) {
+    // Share appears before Delete so the most common action sits closer to the screen centre.
+    // The Share icon is gated on `details != null` to avoid a dead-tap during cold-start —
+    // the VM treats early ShareRequested as a no-op anyway, but a visible-then-unresponsive
+    // icon is confusing UX.
+    if (state.details != null) {
+        IconButton(
+            onClick = { onEvent(DetailUiEvent.ShareRequested) },
+            modifier = Modifier.testTag(DetailShareIconTestTag),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Share,
+                contentDescription = stringResource(R.string.detail_share_cd),
+            )
+        }
+    }
+    IconButton(
+        onClick = { onEvent(DetailUiEvent.DeleteRequested) },
+        modifier = Modifier.testTag(DetailDeleteIconTestTag),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Delete,
+            contentDescription = stringResource(R.string.detail_delete_cd),
+        )
     }
 }
 

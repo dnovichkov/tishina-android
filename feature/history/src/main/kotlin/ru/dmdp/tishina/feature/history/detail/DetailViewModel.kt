@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,12 +15,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ru.dmdp.tishina.core.domain.model.MeasurementDetails
 import ru.dmdp.tishina.core.domain.model.NewMeasurement
 import ru.dmdp.tishina.core.domain.usecase.DeleteMeasurementUseCase
 import ru.dmdp.tishina.core.domain.usecase.GetMeasurementByIdUseCase
 import ru.dmdp.tishina.core.domain.usecase.UpdateMeasurementNoteUseCase
+import ru.dmdp.tishina.core.ui.snapshot.LineChartSnapshotter
 import ru.dmdp.tishina.feature.history.R
+import ru.dmdp.tishina.feature.history.detail.share.ShareIntentBuilder
 import javax.inject.Inject
 
 /**
@@ -45,6 +49,8 @@ class DetailViewModel @Inject constructor(
     private val getMeasurementById: GetMeasurementByIdUseCase,
     private val updateNote: UpdateMeasurementNoteUseCase,
     private val deleteMeasurement: DeleteMeasurementUseCase,
+    private val snapshotter: LineChartSnapshotter,
+    private val shareIntentBuilder: ShareIntentBuilder,
 ) : ViewModel() {
 
     private val measurementId: Long = savedStateHandle.toRoute<DetailRoute>().measurementId
@@ -96,6 +102,46 @@ class DetailViewModel @Inject constructor(
             DetailUiEvent.DeleteRequested -> _state.update { it.copy(deleteConfirmVisible = true) }
             DetailUiEvent.DeleteConfirmed -> performDelete()
             DetailUiEvent.DeleteCancelled -> _state.update { it.copy(deleteConfirmVisible = false) }
+            DetailUiEvent.ShareRequested -> performShare()
+        }
+    }
+
+    private fun performShare() {
+        // Tap before load completes is a defensive no-op — the TopAppBar gates the Share button
+        // on details != null but the cold-start race is still possible if the user is fast.
+        val details = _state.value.details ?: return
+        viewModelScope.launch {
+            // CPU + IO work (Bitmap.createBitmap of a 1080×540 ARGB_8888 surface ≈ 2.3 MB,
+            // Canvas drawing, Bitmap.compress(PNG, 100, ...), then writing the result to
+            // cache file) must NOT run on the Main dispatcher. On low-end devices PNG
+            // compression alone can take 50–200 ms; bundling that into viewModelScope's
+            // Main.immediate would drop frames at every Share tap (NFR-1 / NFR-7 risk).
+            // Dispatchers.Default is correct here — the bottleneck is CPU work (Skia draw +
+            // PNG codec); the short file write to cache piggybacks on the same hop.
+            val intent = withContext(Dispatchers.Default) {
+                // Snapshot dimensions chosen to match a comfortable share preview on most
+                // messengers (Telegram caps at 1280 px on the longer edge; we stay below to
+                // avoid recompression).
+                val bitmapResult = snapshotter.snapshot(
+                    samples = details.samples,
+                    widthPx = SHARE_BITMAP_WIDTH_PX,
+                    heightPx = SHARE_BITMAP_HEIGHT_PX,
+                )
+                val bitmap = bitmapResult.getOrNull()
+                val intent = shareIntentBuilder.build(
+                    details = details,
+                    chartBitmap = bitmap,
+                )
+                // Release the bitmap's pixel buffer as soon as the PNG file is written. The
+                // Intent carries a file URI, not the bitmap reference, so recycling is safe
+                // here. On API ≥ 26 (project minSdk) the pixel buffer lives on the native
+                // heap, so GC would eventually free it — but explicit recycle keeps
+                // StrictMode and LeakCanary quiet and shortens the window where rapid
+                // share-then-share holds two bitmaps live.
+                bitmap?.recycle()
+                intent
+            }
+            effectChannel.send(DetailUiEffect.LaunchShareIntent(intent))
         }
     }
 
@@ -184,5 +230,12 @@ class DetailViewModel @Inject constructor(
                 effectChannel.send(DetailUiEffect.ShowSnackbar(R.string.detail_delete_failed))
             }
         }
+    }
+
+    private companion object {
+        // Share-Intent PNG dimensions. Big enough to look sharp in messengers, small enough
+        // to stay well under WhatsApp's 16 MB total payload limit even uncompressed.
+        const val SHARE_BITMAP_WIDTH_PX = 1080
+        const val SHARE_BITMAP_HEIGHT_PX = 540
     }
 }

@@ -24,8 +24,11 @@ import ru.dmdp.tishina.core.domain.model.NewMeasurement
 import ru.dmdp.tishina.core.domain.model.SoundSample
 import ru.dmdp.tishina.core.domain.model.TimeWeighting
 import ru.dmdp.tishina.core.domain.usecase.DeleteMeasurementUseCase
+import ru.dmdp.tishina.core.domain.usecase.DeleteMeasurementsUseCase
+import ru.dmdp.tishina.core.domain.usecase.ExportHistoryUseCase
 import ru.dmdp.tishina.core.domain.usecase.GetMeasurementsUseCase
 import ru.dmdp.tishina.core.testing.fakes.FakeMeasurementRepository
+import ru.dmdp.tishina.core.testing.fakes.FakeMeasurementsExporter
 import ru.dmdp.tishina.core.testing.rules.MainDispatcherRule
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -72,6 +75,9 @@ class HistoryViewModelTest {
         HistoryViewModel(
             getMeasurements = GetMeasurementsUseCase(repo),
             deleteMeasurement = DeleteMeasurementUseCase(repo),
+            deleteMeasurements = DeleteMeasurementsUseCase(repo),
+            exportHistory = ExportHistoryUseCase(FakeMeasurementsExporter()),
+            nowMillisProvider = { 0L },
         )
 
     @Test

@@ -1,7 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Stub launcher foreground. Three concentric sound-wave arcs over the brand background.
-    Replaced in Phase Release with the final artwork.
+    Tishina adaptive launcher foreground.
+
+    Brand mark: a damped sine wave on the left that resolves into a flat horizontal line
+    on the right — reads as «звук → тишина» (sound dissipating into silence), matching the
+    app's value proposition (§ 17 spec, "брендинг").
+
+    Geometry stays inside the Material 3 adaptive-icon safe zone:
+        - canvas:   108×108 dp
+        - safe box: x ∈ [21, 87],  y ∈ [21, 87]  (66 dp centred)
+        - our path: x ∈ [24, 84],  y ∈ [28, 78]  (3 dp margin on every side)
+
+    A single stroke is used (no fills) so the icon also reads cleanly when the launcher
+    applies a circular / squircle / square mask. The same drawable is reused as the
+    `<monochrome>` source in the adaptive-icon XML — Android 13+ themed icons take the
+    alpha channel and re-tint with the system accent, so a single opaque stroke gives a
+    predictable silhouette.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -10,25 +24,11 @@
     android:viewportHeight="108">
 
     <path
-        android:fillColor="#0FB5BA"
-        android:pathData="M54,46 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" />
-
-    <path
+        android:fillColor="#00000000"
         android:strokeColor="#0FB5BA"
-        android:strokeWidth="3"
+        android:strokeWidth="5"
         android:strokeLineCap="round"
-        android:pathData="M38,62 a16,16 0 0,1 32,0" />
-
-    <path
-        android:strokeColor="#7CFFE0"
-        android:strokeWidth="2"
-        android:strokeLineCap="round"
-        android:pathData="M30,70 a24,24 0 0,1 48,0" />
-
-    <path
-        android:strokeColor="#7CFFE0"
-        android:strokeWidth="2"
-        android:strokeLineCap="round"
-        android:pathData="M22,78 a32,32 0 0,1 64,0" />
+        android:strokeLineJoin="round"
+        android:pathData="M24,54 C28,22 32,22 36,54 C40,76 44,76 48,54 C52,44 56,44 60,54 L84,54" />
 
 </vector>

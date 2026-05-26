@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
@@ -53,6 +54,38 @@
                 android:name="autoStoreLocales"
                 android:value="true" />
         </service>
+
+        <!--
+            Phase 6 Task 9 — Macrobenchmark requires the target app to declare itself
+            profileable so the macrobench instrumentation can attach the simpleperf /
+            ART profiler on Android 10+ (API 29). Without this, the cold-start
+            measurement runs but produces NOT-PROFILEABLE warnings and the timing
+            samples are unreliable. `shell="true"` restricts attach access to the
+            shell user (no production data exposure on user-builds); `enabled=true`
+            keeps the declaration active across all build types. This declaration is
+            inert on devices below API 29 and on builds whose target SDK ignores it.
+        -->
+        <profileable
+            android:shell="true"
+            tools:targetApi="29" />
+
+        <!--
+            Phase 6 Task 4 — FileProvider for the Detail share Intent (FR-10 P1).
+            DetailViewModel renders a PNG snapshot of the chart into the app's private
+            cache directory, then hands a `content://` URI to the share chooser via
+            `FileProvider.getUriForFile`. `exported=false` + per-Intent
+            `FLAG_GRANT_READ_URI_PERMISSION` keeps the grant scoped to the receiving
+            app only — no broadcast-style access to the cache.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+        </provider>
     </application>
 
 </manifest>

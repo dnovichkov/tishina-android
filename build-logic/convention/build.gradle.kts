@@ -29,6 +29,13 @@ dependencies {
     compileOnly(libs.plugin.spotless.gradle)
     compileOnly(libs.plugin.kover.gradle)
 
+    // Phase 6 Task 8 — OssLicensesGenerator parses POM XML (StAX from JDK) and
+    // serialises the curated list to JSON. The runtime JSON parser is enough —
+    // we do not need the kotlinx.serialization compiler plugin here because the
+    // generator deliberately avoids @Serializable codegen to keep build-logic
+    // free of Kotlin compiler-plugin classpath.
+    implementation(libs.kotlinx.serialization.json)
+
     testImplementation(libs.junit.jupiter.api)
     testImplementation(libs.junit.jupiter.params)
     testRuntimeOnly(libs.junit.jupiter.engine)
@@ -147,6 +154,10 @@ gradlePlugin {
         register("quality") {
             id = "tishina.quality"
             implementationClass = "QualityConventionPlugin"
+        }
+        register("ossLicenses") {
+            id = "tishina.oss.licenses"
+            implementationClass = "OssLicensesConventionPlugin"
         }
     }
 }

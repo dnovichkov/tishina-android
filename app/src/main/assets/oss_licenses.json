@@ -1,0 +1,686 @@
+[
+  {
+    "name": "Activity",
+    "version": "1.10.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Activity Compose",
+    "version": "1.10.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Activity Kotlin Extensions",
+    "version": "1.10.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Android App Startup Runtime",
+    "version": "1.1.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Android Arch-Common",
+    "version": "2.2.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Android Arch-Runtime",
+    "version": "2.2.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Android Graphics Path",
+    "version": "1.0.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Android Resource Inspection - Annotations",
+    "version": "1.0.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Android Support AnimatedVectorDrawable",
+    "version": "1.1.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "Android Support DynamicAnimation",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "Android Support Library core utils",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "Android Support Library Cursor Adapter",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "Android Support Library Custom View",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "Android Support Library Document File",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "Android Support Library Drawer Layout",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "Android Support Library fragment",
+    "version": "1.5.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Android Support Library Interpolators",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "Android Support Library loader",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "Android Support Library Local Broadcast Manager",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "Android Support Library Print",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "Android Support Library View Pager",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "Android Support VectorDrawable",
+    "version": "1.1.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "Android Tracing",
+    "version": "1.2.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "AndroidX Autofill",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "AndroidX Futures",
+    "version": "1.1.0",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "androidx.core:core-viewtree",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "androidx.customview:poolingcontainer",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Annotation",
+    "version": "1.9.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "AppCompat",
+    "version": "1.7.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "AppCompat Resources",
+    "version": "1.7.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "collections",
+    "version": "1.5.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Collections Kotlin Extensions",
+    "version": "1.5.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Animation",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Animation Core",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Foundation",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Geometry",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Graphics",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Layouts",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Material 3 Window Size Class",
+    "version": "1.4.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Material Icons Core",
+    "version": "1.7.8",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Material Icons Extended",
+    "version": "1.7.8",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Material Ripple",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Material3 Components",
+    "version": "1.4.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Navigation",
+    "version": "2.9.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Runtime",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Runtime Annotation",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Runtime Retain",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Saveable",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose UI",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose UI Preview Tooling",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose UI Text",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Unit",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Compose Util",
+    "version": "1.11.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Core",
+    "version": "1.16.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Core Kotlin Extensions",
+    "version": "1.16.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Dagger",
+    "version": "2.55",
+    "license": "Apache-2.0",
+    "url": "https://github.com/google/dagger/"
+  },
+  {
+    "name": "Dagger Lint Rules AAR Distribution",
+    "version": "2.55",
+    "license": "Apache-2.0",
+    "url": "https://github.com/google/dagger/"
+  },
+  {
+    "name": "DataStore",
+    "version": "1.1.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "DataStore Core",
+    "version": "1.1.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "DataStore Core Okio",
+    "version": "1.1.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Emoji2",
+    "version": "1.4.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Emoji2 Views Helper",
+    "version": "1.4.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Experimental annotation",
+    "version": "1.5.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "FindBugs-jsr305",
+    "version": "3.0.2",
+    "license": "Apache-2.0",
+    "url": "https://code.google.com/p/jsr-305/"
+  },
+  {
+    "name": "Hilt Android",
+    "version": "2.55",
+    "license": "Apache-2.0",
+    "url": "https://github.com/google/dagger/"
+  },
+  {
+    "name": "Hilt Core",
+    "version": "2.55",
+    "license": "Apache-2.0",
+    "url": "https://github.com/google/dagger/"
+  },
+  {
+    "name": "Jakarta Dependency Injection",
+    "version": "2.0.1",
+    "license": "Apache-2.0",
+    "url": "https://github.com/eclipse-ee4j/injection-api"
+  },
+  {
+    "name": "javax.inject",
+    "version": "1",
+    "license": "Apache-2.0",
+    "url": "http://code.google.com/p/atinject/source/checkout"
+  },
+  {
+    "name": "JetBrains Java Annotations",
+    "version": "23.0.0",
+    "license": "Apache-2.0",
+    "url": "https://github.com/JetBrains/java-annotations"
+  },
+  {
+    "name": "JSpecify annotations",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "url": "https://github.com/jspecify/jspecify/"
+  },
+  {
+    "name": "Kotlin Android Extensions Runtime",
+    "version": "1.9.22",
+    "license": "Apache-2.0",
+    "url": "https://github.com/JetBrains/kotlin"
+  },
+  {
+    "name": "Kotlin Stdlib",
+    "version": "2.1.20",
+    "license": "Apache-2.0",
+    "url": "https://github.com/JetBrains/kotlin"
+  },
+  {
+    "name": "Kotlin Stdlib Jdk7",
+    "version": "1.8.0",
+    "license": "Apache-2.0",
+    "url": "https://github.com/JetBrains/kotlin"
+  },
+  {
+    "name": "Kotlin Stdlib Jdk8",
+    "version": "1.8.0",
+    "license": "Apache-2.0",
+    "url": "https://github.com/JetBrains/kotlin"
+  },
+  {
+    "name": "kotlinx-coroutines-android",
+    "version": "1.9.0",
+    "license": "Apache-2.0",
+    "url": "https://github.com/Kotlin/kotlinx.coroutines"
+  },
+  {
+    "name": "kotlinx-coroutines-core",
+    "version": "1.9.0",
+    "license": "Apache-2.0",
+    "url": "https://github.com/Kotlin/kotlinx.coroutines"
+  },
+  {
+    "name": "kotlinx-serialization-core",
+    "version": "1.7.3",
+    "license": "Apache-2.0",
+    "url": "https://github.com/Kotlin/kotlinx.serialization"
+  },
+  {
+    "name": "kotlinx-serialization-json",
+    "version": "1.7.3",
+    "license": "Apache-2.0",
+    "url": "https://github.com/Kotlin/kotlinx.serialization"
+  },
+  {
+    "name": "Lifecycle Kotlin Extensions",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Lifecycle LiveData",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Lifecycle LiveData Core",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Lifecycle Process",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Lifecycle Runtime",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Lifecycle Runtime Compose",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Lifecycle ViewModel",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Lifecycle ViewModel",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Lifecycle ViewModel Compose",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Lifecycle ViewModel Kotlin Extensions",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Lifecycle ViewModel with SavedState",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Lifecycle-Common",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Lifecycle-Common for Java 8",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "LiveData Core Kotlin Extensions",
+    "version": "2.9.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Navigation Common",
+    "version": "2.9.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Navigation Compose Hilt Integration",
+    "version": "1.2.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Navigation Hilt Extension",
+    "version": "1.2.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Navigation Runtime",
+    "version": "2.9.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "okio",
+    "version": "3.4.0",
+    "license": "Apache-2.0",
+    "url": "https://github.com/square/okio/"
+  },
+  {
+    "name": "Parcelize Runtime",
+    "version": "1.9.22",
+    "license": "Apache-2.0",
+    "url": "https://github.com/JetBrains/kotlin"
+  },
+  {
+    "name": "Preferences DataStore",
+    "version": "1.1.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Preferences DataStore Core",
+    "version": "1.1.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Profile Installer",
+    "version": "1.4.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Room Kotlin Extensions",
+    "version": "2.8.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Room-Common",
+    "version": "2.8.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Room-Runtime",
+    "version": "2.8.4",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Saved State",
+    "version": "1.3.2",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Saved State Compose",
+    "version": "1.3.2",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "SavedState Kotlin Extensions",
+    "version": "1.3.2",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "SplashScreen",
+    "version": "1.0.1",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "SQLite",
+    "version": "2.6.2",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "SQLite Framework Integration",
+    "version": "2.6.2",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "Transition",
+    "version": "1.6.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "VersionedParcelable",
+    "version": "1.1.1",
+    "license": "Apache-2.0",
+    "url": "http://source.android.com"
+  },
+  {
+    "name": "WindowManager",
+    "version": "1.5.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  },
+  {
+    "name": "WindowManager Core",
+    "version": "1.5.0",
+    "license": "Apache-2.0",
+    "url": "https://cs.android.com/androidx/platform/frameworks/support"
+  }
+]
