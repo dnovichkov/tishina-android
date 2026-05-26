@@ -45,7 +45,7 @@
 | FR-20 (CSV export через SAF + Share Intent) | ⏳ Phase Release | вместе с PNG-снимком графика |
 | NFR-1 (cold start ≤ 1 с) | ✅ Phase 3/5 — lazy Room + lazy DataStore + AboutScreen lazy через `hiltViewModel()` | замер на эмуляторе → Phase Release |
 | NFR-5 / NFR-6 (lifecycle / rotation) | ✅ Phase 2/3/4/5 | `SavedStateHandle` + `rememberSaveable` + DataStore + `pendingBulkUndoCount` driven from state |
-| NFR-9 / NFR-10 / NFR-11 (no PCM persistence, no analytics, internal storage) | ✅ Phase 3/5 | OSS-лицензии собраны вручную (`oss_licenses.json`), AboutScreen ссылки делегированы системному браузеру через `Intent.ACTION_VIEW` |
+| NFR-9 / NFR-10 / NFR-11 (no PCM persistence, no analytics, internal storage) | ✅ Phase 3/5/6 | OSS-лицензии auto-генерируются (`./gradlew :app:generateOssLicenses` + CI drift-check), AboutScreen ссылки делегированы системному браузеру через `Intent.ACTION_VIEW` |
 | NFR-12 (валидация длин + защита от случайного bulk-delete) | ✅ Phase 3/5 | UI counter + `BulkDeleteConfirmDialog` с pluralized title и body «After 5 seconds…» |
 | NFR-13…NFR-16 (a11y, контраст, Material 3) | ✅ Phase 2/3/4/5 | selection-mode card имеет `stateDescription = "Selected"` + checkmark (NFR-15: цвет не единственный признак); все интерактивные элементы AboutScreen / SelectionTopBar имеют `contentDescription` |
 | NFR-17 / NFR-18 / NFR-19 (i18n) | ✅ Phase 4/5 | все строки в `strings.xml` (RU + EN), русские `<plurals>` для bulk-undo и confirm-dialog с правильными формами one/few/many |
@@ -77,7 +77,7 @@
 Известные ограничения Phase 5:
 
 - **Bulk-undo не выживает kill процесса** — same limitation что single-undo Phase 3; fully-durable Undo через write-ahead delete log out of MVP scope.
-- **OSS-лицензии — ручной список** в `assets/oss_licenses.json` — при добавлении новой dep нужно вручную обновить JSON. Long-term gen-task через Gradle → Phase Release.
+- **~~OSS-лицензии — ручной список~~** — закрыто в Phase 6 Task 8: список auto-генерируется через `./gradlew :app:generateOssLicenses` (читает POM-ы зависимостей `releaseRuntimeClasspath`, трансформирует через `OssLicensesGenerator` в build-logic, пишет `app/src/main/assets/oss_licenses.json`). CI gating через diff-check в `.github/workflows/ci.yml` ловит drift между committed JSON и актуальной dependency tree.
 - **AboutScreen URL — placeholder** в strings.xml (`about_github_url` / `about_privacy_url`) — реальный хостинг Privacy Policy на GitHub Pages и финализированный GitHub-username — Phase Release. На устройстве без сети `Intent.ACTION_VIEW` покажет browser-error — accepted для MVP-build.
 - **Иконка «?» суппрессирована на History/Settings/Detail TopBar** — это break backwards-compat для screenshot-тестов в `:app`, тесты обновлены в Task 5.
 - **Bulk-delete не имеет `@Transaction` обёртки** — FK CASCADE samples срабатывает на уровне SQLite DDL атомарно с DELETE measurements (no need for explicit Room transaction).

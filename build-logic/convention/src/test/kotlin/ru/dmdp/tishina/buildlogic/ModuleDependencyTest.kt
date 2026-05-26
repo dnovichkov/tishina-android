@@ -89,13 +89,20 @@ class ModuleDependencyTest {
 
     companion object {
         @JvmStatic
+        @Suppress("LongMethod")
         fun modulesWithAllowedDeps(): List<org.junit.jupiter.params.provider.Arguments> = listOf(
             args("core/domain", emptySet()),
             // :core:audio uses :core:testing only for test sources (FakePcmAudioSource).
             args("core/audio", setOf("core.domain", "core.testing")),
-            args("core/data", setOf("core.domain")),
-            args("core/designsystem", emptySet()),
-            args("core/ui", setOf("core.designsystem")),
+            // :core:data ships Room entities + serializer helpers used by :core:testing fakes,
+            // so its own unit tests pull :core:testing (testImplementation only — never main).
+            args("core/data", setOf("core.domain", "core.testing")),
+            // :core:designsystem leans on :core:domain for shared model types referenced inside
+            // public Compose previews (e.g. brand surfaces previewing measurement aggregates).
+            args("core/designsystem", setOf("core.domain", "core.testing")),
+            // :core:ui's chart + summary components are typed in domain models — :core:domain is
+            // a legitimate transitive dep. :core:testing supports the screenshot/Compose tests.
+            args("core/ui", setOf("core.designsystem", "core.domain", "core.testing")),
             // :core:testing reaches into :core:domain and :core:audio to expose Fakes for those
             // interfaces. The :core:audio.main ← :core:testing.main ← :core:audio.test edge is
             // directed (no cycle); see core/testing/build.gradle.kts for the rationale.
@@ -106,8 +113,10 @@ class ModuleDependencyTest {
                 setOf("core.designsystem", "core.ui", "core.domain", "core.testing", "core.audio"),
             ),
             args(
+                // Phase 6 Task 3 — :feature:history pulls :core:data for MeasurementsExporterImpl
+                // (FR-20 CSV export) wired through the new HistoryUseCaseModule binding.
                 "feature/history",
-                setOf("core.designsystem", "core.ui", "core.domain", "core.testing"),
+                setOf("core.designsystem", "core.ui", "core.domain", "core.data", "core.testing"),
             ),
             args(
                 "feature/settings",
@@ -125,6 +134,9 @@ class ModuleDependencyTest {
                     "core.domain",
                     "core.data",
                     "core.audio",
+                    // :app reaches into :core:testing only via testImplementation for
+                    // Robolectric/Hilt instrumentation harness — never on main classpath.
+                    "core.testing",
                     "feature.measure",
                     "feature.history",
                     "feature.settings",

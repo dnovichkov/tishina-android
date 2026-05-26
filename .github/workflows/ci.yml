@@ -141,6 +141,18 @@ jobs:
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
 
+      # Phase 6 Task 8 — OSS licenses drift check. Re-runs `generateOssLicenses`
+      # and fails the build if the committed JSON diverges from what the current
+      # `releaseRuntimeClasspath` would produce. This catches the case where
+      # a contributor bumps a dep but forgets to refresh the About-screen list.
+      - name: Verify OSS licenses are up-to-date
+        run: |
+          ./gradlew :app:generateOssLicenses --no-daemon --no-configuration-cache
+          if ! git diff --exit-code app/src/main/assets/oss_licenses.json; then
+            echo "::error::app/src/main/assets/oss_licenses.json is out of date. Run './gradlew :app:generateOssLicenses' locally and commit the result."
+            exit 1
+          fi
+
       - name: Assemble debug APK and AAB
         run: ./gradlew :app:assembleDebug :app:bundleDebug --no-daemon --stacktrace
 

@@ -153,3 +153,4 @@ tishina-android-hilt = { id = "tishina.android.hilt" }
 tishina-kotlin-library = { id = "tishina.kotlin.library" }
 tishina-jvm-testing = { id = "tishina.jvm.testing" }
 tishina-quality = { id = "tishina.quality" }
+tishina-oss-licenses = { id = "tishina.oss.licenses" }

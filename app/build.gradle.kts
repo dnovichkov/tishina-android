@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.tishina.android.compose)
     alias(libs.plugins.tishina.android.hilt)
     alias(libs.plugins.tishina.jvm.testing)
+    alias(libs.plugins.tishina.oss.licenses)
     alias(libs.plugins.kotlin.serialization)
 }
 

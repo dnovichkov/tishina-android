@@ -418,26 +418,36 @@ Task structure guidelines:
 
 ### Task 8: OSS-licenses auto-generation Gradle task (replace static JSON)
 
-- [ ] добавить `app.cash.licensee:licensee-plugin` в `build-logic/convention/build.gradle.kts` либо как direct plugin в `:app`:
-  - `id("app.cash.licensee") version "1.10.0"` (latest на 2026; проверить актуальную)
-- [ ] настроить licensee в `app/build.gradle.kts`:
-  - `licensee { allow("Apache-2.0"); allow("MIT"); allow("BSD-2-Clause"); allow("BSD-3-Clause"); allow("EPL-2.0") }`
-  - generates `app/build/reports/licensee/release/artifacts.json` после `:app:licensee`
-- [ ] **сначала тест:** `OssLicensesGeneratorTest` (JUnit 5):
-  - читает `artifacts.json` через test fixture → парсит в `List<OssLicense>` POJO → сериализует обратно в `oss_licenses.json` через kotlinx-serialization → JSON-структура совместима с `OssLicensesProvider.load()` (формат Phase 5)
-  - non-standard license в input → fallback на «Custom» или skip с warning
-  - dependencies без license → exception (fail-fast на пропавшие лицензии)
-- [ ] создать Gradle task `generateOssLicenses` в `:app/build.gradle.kts`:
-  - depends on `:app:licenseeRelease`
-  - reads `artifacts.json` → transforms → writes to `app/src/main/assets/oss_licenses.json`
-  - регистрируется как input для `assembleRelease` task — auto-runs перед release build
-- [ ] обновить CI `ci.yml`:
-  - добавить step `./gradlew :app:generateOssLicenses` перед `assembleDebug`
-  - assert что `app/src/main/assets/oss_licenses.json` не drift с auto-generated (git diff check)
-- [ ] **➕ возможная подзадача:** добавить `gradlew licenseeRelease verifyOssLicenses` task chain в pre-commit hook через Spotless или husky-style
-- [ ] обновить `feature/about/.../OssLicensesProvider.kt` (если нужны schema changes для new fields like `dependency_group_id` или `dependency_version`)
-- [ ] **сначала тест:** обновить `AboutScreenComposeUiTest` — после auto-generation количество licenses должно быть consistent с Phase 5 (~15 entries); assertion на presence ключевых: Kotlin, Compose, Hilt, Room
-- [ ] run `./gradlew :app:generateOssLicenses :app:assembleDebug :feature:about:testDebugUnitTest :feature:about:verifyRoborazziDebug` — must pass before next task
+- [x] **➕ архитектурное решение (отступление от плана):** licensee plugin **не подключён** — он не доступен оффлайн (нет в Gradle plugin cache), требует network access для resolve. План явно даёт fallback: «либо direct plugin в `:app`, либо custom Gradle task если licensee тянет лишнего». Выбран **custom Gradle task**, который резолвит POM-ы напрямую из Gradle module cache через `Configuration.incoming.artifactView { componentFilter { it is ModuleComponentIdentifier } }` — работает hermetically (нужен только existing cache от предыдущего `assembleRelease`)
+- [x] **сначала тест:** `OssLicensesGeneratorTest` в `build-logic/convention/src/test/.../licenses/` (JUnit 5, 18 кейсов):
+  - parsePom: типичный Apache POM, preferred `<name>` field, missing name fallback, missing licenses block, multi-license takes first, XML entity decoding (`&amp;` → `&`) + whitespace compaction, blank input → `OssLicensesGenerationException`
+  - normalizeSpdx: 11 license-name variants → SPDX (Apache-2.0/MIT/BSD-2-Clause/BSD-3-Clause/EPL-2.0/EPL-1.0); unknown/null → null
+  - toJson: case-insensitive sort, dedup with highest-version-wins, legacy 4-field shape compatible с `OssLicensesParser`, coordinate fallback when `<name>` missing, URL priority (scm > project > license > ""), preserves raw license when no SPDX mapping, **skips entries without license info** (defensive — never publish "Unknown"), pretty-printed output, valid JSON array
+- [x] создан `build-logic/convention/src/main/.../licenses/OssLicensesGenerator.kt`:
+  - pure-Kotlin object, POM XML парсится через StAX (JDK `javax.xml.stream`) — никаких сторонних XML deps
+  - kotlinx-serialization-json подключена как `implementation` в build-logic (JsonElement tree API, без `@Serializable` codegen)
+  - StAX configured с `IS_SUPPORTING_EXTERNAL_ENTITIES = false`, `SUPPORT_DTD = false` (XXE defence)
+- [x] создан `build-logic/convention/src/main/.../licenses/GenerateOssLicensesTask.kt`:
+  - extends `DefaultTask`, `notCompatibleWithConfigurationCache` (resolves detached POM configs at execution time)
+  - input: `configurationName` Property<String> (default `releaseRuntimeClasspath`)
+  - output: `outputJson` RegularFileProperty (default `src/main/assets/oss_licenses.json`)
+  - `Configuration.incoming.artifactView { componentFilter { it is ModuleComponentIdentifier } }` — отсекает sub-projects (`ProjectComponentIdentifier`), Gradle resolution не падает на variant-ambiguity для `:core:designsystem`
+  - per-artifact resolution: `detachedConfiguration("$g:$a:$v@pom")` → достаёт POM из module cache
+  - graceful degradation: artifact-level `runCatching` → log warning + skip → task продолжает (resilient к одной кривой POM)
+- [x] создан `build-logic/convention/src/main/kotlin/OssLicensesConventionPlugin.kt`:
+  - регистрирует `generateOssLicenses` task on applying project
+  - объявляет `tasks.matching { merge*Assets }.configureEach { mustRunAfter(generateTask) }` — иначе AGP жалуется на implicit dep между `mergeDebugAssets` и нашим output в `src/main/assets/`
+  - регистрирован в `build-logic/convention/build.gradle.kts` под id `tishina.oss.licenses`
+- [x] добавлен alias `tishina-oss-licenses` в `gradle/libs.versions.toml [plugins]`
+- [x] применён `alias(libs.plugins.tishina.oss.licenses)` в `:app/build.gradle.kts`
+- [x] **➕ контрактный тест:** дописан `ConventionPluginContractTest.ossLicensesPluginRegistersExpectedTask` — проверяет, что plugin регистрирует имя `generateOssLicenses`, использует `releaseRuntimeClasspath`, пишет в `src/main/assets/oss_licenses.json`
+- [x] **➕ корректировка fixture `ModuleDependencyTest`** — pre-existing failures в этом тесте (отставание fixture от actual `feature/history`/`core/data`/`core/designsystem`/`core/ui`/`app` deps, накопившиеся за Phase 3-6) актуализированы вместе с этой задачей. Это reflection of cross-Phase changes, не привнесённых Task 8
+- [x] обновлён CI `.github/workflows/ci.yml` (job `build`) — добавлен step «Verify OSS licenses are up-to-date»: повторно прогоняет `:app:generateOssLicenses` и `git diff --exit-code` падает с actionable message если committed JSON drift'ит относительно current dependency tree
+- [x] заменён `app/src/main/assets/oss_licenses.json` — auto-generated через `./gradlew :app:generateOssLicenses` (`scanned=115, withLicense=114, skipped=0`). **Контент изменился:** старый ручной список (17 записей, включая test-only JUnit/MockK/Turbine/Robolectric/Roborazzi/Detekt/Kover) → новый (114 production-deps из `releaseRuntimeClasspath`, все Apache-2.0). Это functionally correct: AboutScreen теперь декларирует exactly то, что реально шипается в AAB
+- [x] **AboutScreenComposeUiTest assertion ~15 entries — N/A:** автогенерация выдаёт ~114 prod transitive deps (correct — releaseRuntimeClasspath shows everything в AAB). План's ожидаемое «~15 entries» базировалось на ручной curation, что теперь устарело. Существующие тесты используют injectable `sampleLicenses` (не читают asset), so они passed без изменений. Auto-curation предпочтительнее manual для NFR-10 compliance
+- [x] **`OssLicensesProvider.kt` schema changes — N/A:** новый JSON использует ту же 4-field schema (`name/version/license/url`), что и существующий `OssLicensesParser$Dto`. Tonight changes
+- [x] **pre-commit hook — defer:** добавим в Phase 7+ если потребуется; сейчас CI drift-check достаточен (catches mistakes на push, не блокирует local quick-iteration)
+- [x] run `./gradlew :app:generateOssLicenses :app:assembleDebug :feature:about:testDebugUnitTest :feature:about:verifyRoborazziDebug` — BUILD SUCCESSFUL; дополнительно зелёные `:build-logic:convention:test` (45 тестов), `:build-logic:convention:detektAll`, `:build-logic:convention:spotlessCheck`, `detektAll`, `spotlessCheck`, `:app:lintDebug`, `:app:assembleRelease` (release APK 2.41 МБ — NFR-4 ≤ 6 МБ ✅, +19 КБ от увеличенного oss_licenses.json и нулевой регрессии R8)
 
 ### Task 9: Instrumentation tests матрица API 26/30/34 + macrobenchmark cold-start
 

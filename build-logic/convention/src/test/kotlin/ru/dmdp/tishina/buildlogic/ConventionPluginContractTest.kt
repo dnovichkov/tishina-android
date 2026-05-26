@@ -115,6 +115,26 @@ class ConventionPluginContractTest {
         )
     }
 
+    @Test
+    @DisplayName("OssLicensesConventionPlugin registers generateOssLicenses on releaseRuntimeClasspath -> assets JSON")
+    fun ossLicensesPluginRegistersExpectedTask() {
+        val source = pluginSource("OssLicensesConventionPlugin.kt")
+        assertTrue(
+            source.contains("\"generateOssLicenses\""),
+            "OssLicensesConventionPlugin must register a task named 'generateOssLicenses'",
+        )
+        assertTrue(
+            source.contains("releaseRuntimeClasspath"),
+            "OssLicensesConventionPlugin must use the 'releaseRuntimeClasspath' configuration so the " +
+                "JSON mirrors what ships in the AAB (not the debug variant with junit/mockk POMs).",
+        )
+        assertTrue(
+            source.contains("src/main/assets/oss_licenses.json"),
+            "OssLicensesConventionPlugin must write to src/main/assets/oss_licenses.json — that is the " +
+                "asset path read by OssLicensesProviderImpl in :core:data.",
+        )
+    }
+
     private fun pluginSource(fileName: String): String {
         val file = File(conventionSrc, fileName)
         assertTrue(file.isFile, "missing convention plugin source: $file")
