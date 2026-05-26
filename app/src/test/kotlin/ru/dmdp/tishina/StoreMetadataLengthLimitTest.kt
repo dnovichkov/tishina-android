@@ -113,7 +113,10 @@ class StoreMetadataLengthLimitTest {
 
     private companion object {
         const val GOOGLE_PLAY_TITLE_LIMIT = 30
-        const val RUSTORE_TITLE_LIMIT = 50
+        // RuStore tightened the catalogue title limit to 30 in 2025-2026 (was 50 historically).
+        // Source: rustore.ru/help/en/developers/publishing-and-verifying-apps/app-publication —
+        // "Name: up to 30 characters; the application name must be unique."
+        const val RUSTORE_TITLE_LIMIT = 30
         const val SAMSUNG_TITLE_LIMIT = 30
         const val SHORT_DESCRIPTION_LIMIT = 80
         const val FULL_DESCRIPTION_LIMIT = 4000
