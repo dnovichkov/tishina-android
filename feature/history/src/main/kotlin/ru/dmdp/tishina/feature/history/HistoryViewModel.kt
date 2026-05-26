@@ -19,10 +19,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ru.dmdp.tishina.core.domain.model.ExportFilter
 import ru.dmdp.tishina.core.domain.usecase.DeleteMeasurementUseCase
 import ru.dmdp.tishina.core.domain.usecase.DeleteMeasurementsUseCase
+import ru.dmdp.tishina.core.domain.usecase.ExportHistoryUseCase
 import ru.dmdp.tishina.core.domain.usecase.GetMeasurementsUseCase
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
+import javax.inject.Named
 
 /**
  * Source of truth for the History screen (FR-8…FR-12).
@@ -103,6 +109,8 @@ class HistoryViewModel @Inject constructor(
     private val getMeasurements: GetMeasurementsUseCase,
     private val deleteMeasurement: DeleteMeasurementUseCase,
     private val deleteMeasurements: DeleteMeasurementsUseCase,
+    private val exportHistory: ExportHistoryUseCase,
+    @Named(NOW_MILLIS_PROVIDER) private val nowMillisProvider: () -> Long = { System.currentTimeMillis() },
 ) : ViewModel() {
 
     private val softDeletedIds = MutableStateFlow<Set<Long>>(emptySet())
@@ -179,6 +187,32 @@ class HistoryViewModel @Inject constructor(
             HistoryUiEvent.ExitSelectionMode -> exitSelectionMode()
             HistoryUiEvent.BulkDeleteRequested -> scheduleBulkDelete()
             HistoryUiEvent.BulkUndoConfirmed -> cancelPendingBulkDelete()
+            is HistoryUiEvent.ExportRequested -> launchSafPicker(event.filter)
+            is HistoryUiEvent.ExportFileSelected -> runExport(event.targetUriString, event.filter)
+            HistoryUiEvent.ExportCancelled -> Unit
+        }
+    }
+
+    private fun launchSafPicker(filter: ExportFilter) {
+        // The suggested filename is dated UTC — same date everywhere regardless of the user's
+        // timezone, which matches how the SAF picker shows it. We avoid `LocalDate.now()` and
+        // route through the injected `nowMillisProvider` so tests can pin a fixed timestamp.
+        val isoDate = DateTimeFormatter.ISO_LOCAL_DATE.format(
+            Instant.ofEpochMilli(nowMillisProvider()).atOffset(ZoneOffset.UTC).toLocalDate(),
+        )
+        val suggestedName = "tishina-history-$isoDate.csv"
+        effectChannel.trySend(HistoryUiEffect.LaunchSafPicker(suggestedName, filter))
+    }
+
+    private fun runExport(targetUriString: String, filter: ExportFilter) {
+        viewModelScope.launch {
+            val result = exportHistory(targetUriString, filter)
+            val rowCount = result.getOrNull()
+            if (result.isSuccess && rowCount != null) {
+                effectChannel.trySend(HistoryUiEffect.ShowExportSuccessSnackbar(rowCount))
+            } else {
+                effectChannel.trySend(HistoryUiEffect.ShowExportFailedSnackbar)
+            }
         }
     }
 
@@ -415,5 +449,12 @@ class HistoryViewModel @Inject constructor(
         /** Keep the upstream live ~5 s after the last collector to survive config changes
          *  (rotation, theme switch) without re-querying Room. */
         private const val STATE_KEEPALIVE_MS = 5_000L
+
+        /**
+         * `@Named` qualifier for the `() -> Long` clock injected into the ViewModel. Hilt cannot
+         * disambiguate function types by signature alone, so we tag the binding here and in the
+         * matching `@Provides` in [ru.dmdp.tishina.feature.history.di.HistoryUseCaseModule].
+         */
+        const val NOW_MILLIS_PROVIDER: String = "HistoryViewModel.nowMillisProvider"
     }
 }

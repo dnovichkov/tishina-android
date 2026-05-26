@@ -51,6 +51,16 @@
         <item quantity="other">Выбрано %d</item>
     </plurals>
 
+    <string name="history_export_all_cd">Экспорт всех в CSV</string>
+    <string name="history_export_selected_cd">Экспорт выбранных в CSV</string>
+    <string name="history_export_failed">Не удалось экспортировать CSV</string>
+    <plurals name="history_export_success">
+        <item quantity="one">Экспортирован %d замер</item>
+        <item quantity="few">Экспортировано %d замера</item>
+        <item quantity="many">Экспортировано %d замеров</item>
+        <item quantity="other">Экспортировано %d замера</item>
+    </plurals>
+
     <string name="detail_not_found">Замер не найден</string>
     <string name="detail_delete_failed">Не удалось удалить замер</string>
     <string name="detail_note_label">Заметка</string>

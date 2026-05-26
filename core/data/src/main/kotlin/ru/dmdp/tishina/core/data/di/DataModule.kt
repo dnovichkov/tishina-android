@@ -1,5 +1,6 @@
 package ru.dmdp.tishina.core.data.di
 
+import android.content.ContentResolver
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
@@ -94,6 +95,17 @@ internal interface DataModule {
         @Provides
         fun provideMeasurementDao(database: TishinaDatabase): MeasurementDao =
             database.measurementDao()
+
+        /**
+         * Phase 6 Task 3 — FR-20 CSV export writes through a SAF-provided URI via the
+         * application [ContentResolver]. Bound here once so every consumer (currently the
+         * `MeasurementsExporterImpl` in `:core:data`) sees the same instance and Hilt does
+         * not duplicate provider lookups.
+         */
+        @Provides
+        @Singleton
+        fun provideContentResolver(@ApplicationContext context: Context): ContentResolver =
+            context.contentResolver
 
         /**
          * Settings DataStore — Preferences flavor, one file `tishina_settings.preferences_pb`

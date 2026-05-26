@@ -19,6 +19,10 @@ android {
 }
 
 dependencies {
+    // Phase 6 Task 3 — the FR-20 CSV exporter implementation (`MeasurementsExporterImpl`)
+    // lives in `:core:data`; the history DI module binds it to the `:core:domain` interface.
+    implementation(projects.core.data)
+
     // `Icons.Default.Delete` and other Material Symbols for the swipe-delete UI.
     implementation(libs.androidx.compose.material.icons.extended)
 

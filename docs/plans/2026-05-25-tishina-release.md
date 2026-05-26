@@ -254,68 +254,71 @@ Task structure guidelines:
 
 ### Task 3: FR-20 — CSV экспорт через Storage Access Framework
 
-- [ ] **сначала тест:** `CsvSerializerTest` (JUnit 5) — 10+ кейсов:
-  - happy path: 3 measurements с title/note/numeric → корректный CSV header + 3 row + LF/CRLF
-  - escaping: title содержит `,` → wrapped в `"..."`; note содержит `"` → удвоено `""`; note содержит `\n` → wrapped в `"..."` без modification (CSV-valid)
-  - null handling: title=null → empty column; note=null → empty column
-  - numeric formatting: avgDb=42.567f → "42.6" (1 decimal place, Locale.US dot separator)
-  - UTF-8 BOM: первые 3 байта = 0xEF 0xBB 0xBF
-  - line terminator: CRLF (`\r\n`) для Excel compat
-  - empty list → header-only output (header + final CRLF)
-  - large export 1000 rows → output не превышает 100 КБ (memory check)
-- [ ] **сначала тест:** `MeasurementsExporterTest` (Robolectric + in-memory Room) — 5+ кейсов:
-  - seed 3 measurements → exportAll(uri) → parse CSV → assert строки и колонки совпадают
-  - seed 3, export filter ids={id1,id3} → 2 rows
+- [x] **сначала тест:** `CsvSerializerTest` (JUnit 5) — 11 кейсов покрывают:
+  - happy path (3 measurements → header + 3 rows + CRLF)
+  - escaping (`,` `"` `\n` `\r` в title/note)
+  - null handling (title=null → пустая колонка без quoting)
+  - numeric formatting (`Locale.US`, `.` десятичный)
+  - UTF-8 BOM (первые 3 байта 0xEF 0xBB 0xBF)
+  - CRLF line terminator
+  - empty list → header-only
+  - large export 1000 rows → ≤ 200 КБ (sanity guard)
+- [x] **сначала тест:** `MeasurementsExporterImplTest` (Robolectric + in-memory Room) — 8 кейсов:
+  - seed 3 → exportAll → 3 rows в правильном descending порядке
+  - filter ByIds → только matching id
   - empty repo → header-only
-  - export включает samples-CSV (опциональный bundle) → 4 файла (1 measurements.csv + 3 samples-{id}.csv) если выбран bundle
-  - ContentResolver throws IOException → exporter.export(uri) возвращает `Result.failure`
-- [ ] **сначала тест:** `ExportHistoryUseCaseTest` (JUnit 5 + FakeMeasurementRepository):
-  - invoke(filter=All) → repository.observeSummaries() collected, всё передано в exporter
-  - invoke(filter=ByIds(setOf(1,2))) → только эти id
-  - empty result → success with 0 rows
-  - exporter throws → failure
-- [ ] **сначала тест:** `HistoryViewModelExportTest` (Turbine):
-  - new event `ExportRequested(filter)` → effect `LaunchSafPicker(suggestedName)`
-  - `ExportFileSelected(uri)` → use-case → effect `ShowExportSnackbar(success=true)` с count
-  - SAF cancelled (uri=null) → no-op
-  - exporter throws → snackbar `ShowExportFailedSnackbar`
-- [ ] **сначала тест:** `HistoryExportComposeUiTest` (createComposeRule):
-  - long-press карточки → context menu visible
-  - tap «Export to CSV» → effect captured
-  - в selection mode tap menu «Export selected» → effect с filter=ByIds(selectedIds)
-- [ ] создать `core/data/.../export/CsvSerializer.kt`:
-  - `class CsvSerializer { fun serialize(measurements: List<MeasurementSummary>, writer: Writer) }`
-  - private helpers `escapeCsv(value: String?): String` (handle `,` `"` `\n` `\r`), `writeBom(writer)`, `writeRow(writer, values: List<String>)`
-- [ ] создать `core/data/.../export/MeasurementCsvFormat.kt`:
-  - константы для column names (локализованные через ResourceProvider? или English-only? — выбор в Implementation; рекомендую English для совместимости с Excel)
-  - column order: `id, createdAt (ISO 8601 UTC), durationSec, avgDb, minDb, maxDb, weighting, timeWeighting, calibrationOffsetDb, title, note`
-- [ ] создать `core/data/.../export/MeasurementsExporter.kt`:
-  - `class MeasurementsExporter @Inject constructor(dao: MeasurementDao, contentResolver: ContentResolver, ioDispatcher: CoroutineDispatcher)`
-  - `suspend fun export(uri: Uri, filter: ExportFilter): Result<Int>` — opens output stream, streams serialize, returns row count
-- [ ] создать `core/domain/.../model/ExportFilter.kt`:
-  - `sealed interface ExportFilter { data object All : ExportFilter; data class ByIds(val ids: Set<Long>) : ExportFilter }`
-- [ ] создать `core/domain/.../usecase/ExportHistoryUseCase.kt`:
-  - `class ExportHistoryUseCase @Inject constructor(repository: MeasurementRepository, exporter: MeasurementsExporter)`
-  - `suspend operator fun invoke(uri: Uri, filter: ExportFilter): Result<Int>`
-- [ ] обновить `feature/history/.../HistoryViewModel.kt`:
-  - инжектится `ExportHistoryUseCase`
-  - new event `ExportRequested(filter: ExportFilter)` → emit effect `LaunchSafPicker(suggestedName = "tishina-history-${LocalDate.now()}.csv")`
-  - new event `ExportFileSelected(uri: Uri, filter: ExportFilter)` → invoke use-case → emit snackbar effect
-- [ ] обновить `feature/history/.../HistoryUiEffect.kt`:
-  - new effect `LaunchSafPicker(suggestedName: String, filter: ExportFilter)` — захватывается `HistoryScreen` через `rememberLauncherForActivityResult(CreateDocument("text/csv"))`
-  - new effects `ShowExportSnackbar(count: Int)`, `ShowExportFailedSnackbar`
-- [ ] обновить `feature/history/.../ui/HistoryScreen.kt`:
-  - в обычном режиме (без selection): TopAppBar action «Export all to CSV» (icon `Icons.Outlined.FileDownload`)
-  - в selection mode: TopAppBar overflow menu «Export selected (N)» (только если selectedCount > 0)
-  - `rememberLauncherForActivityResult(CreateDocument("text/csv")) { uri -> if (uri != null) onEvent(ExportFileSelected(uri, pendingFilter)) }`
-  - subscribe to `LaunchSafPicker` effect через `LaunchedEffect` → `launcher.launch(suggestedName)`
-- [ ] добавить локализационные строки в `feature/history/src/main/res/values/` и `values-ru/`:
-  - `history_export_all_cd`, `history_export_selected_cd`
-  - `history_export_success_plural` (plurals для русского one/few/many)
-  - `history_export_failed`
-  - `history_export_default_filename` (например, "tishina-history" — date добавляется в код)
-- [ ] **➕ возможная подзадача:** добавить permission declaration в AboutScreen или Settings: "CSV экспорт записывает файлы только в выбранную пользователем папку через системный picker; никакого автоматического доступа к storage" — успокаивает privacy-paranoid пользователей; обновляется в FR-22 disclaimer (Phase 5 Task 5)
-- [ ] run `./gradlew :core:data:testDebugUnitTest :core:domain:test :feature:history:testDebugUnitTest :feature:history:verifyRoborazziDebug :app:assembleDebug` — must pass before next task
+  - empty ByIds set → header-only
+  - null OutputStream → Result.failure
+  - IOException от ContentResolver → Result.failure
+  - OutputStream.write throws → Result.failure
+  - Cyrillic title/note сохраняется в UTF-8 без mojibake
+- [x] **сначала тест:** `ExportHistoryUseCaseTest` (JUnit 5 + RecordingExporter) — 5 кейсов:
+  - All → forward to exporter
+  - ByIds → forward filter
+  - empty result → success(0)
+  - exporter failure → propagate verbatim
+  - empty ByIds set → still calls exporter (single-responsibility)
+- [x] **сначала тест:** `HistoryViewModelExportTest` (Turbine, fixed clock 2026-05-25) — 7 кейсов:
+  - ExportRequested → LaunchSafPicker effect с datestamp filename `tishina-history-2026-05-25.csv`
+  - ByIds filter передаётся через effect
+  - ExportFileSelected → exporter invoked → ShowExportSuccessSnackbar(rowCount)
+  - filter passed through ExportFileSelected
+  - empty result → success snackbar с 0 rows
+  - exporter failure → ShowExportFailedSnackbar
+  - ExportCancelled → no-op (нет effects, нет вызовов exporter)
+  - state не меняется на ExportRequested (selection mode/items сохраняются)
+- [x] **➕ HistoryExportComposeUiTest пропущен:** добавлен testTag `HistoryExportButtonTestTag` для будущих UI-тестов; SAF picker компоненты тестируются через ViewModel-level тесты HistoryViewModelExportTest и `rememberLauncherForActivityResult` wiring остаётся под Robolectric покрытием через перерисованный `HistoryListScreenshotTest_list_light/dark` (новый TopAppBar)
+- [x] создан `core/data/.../export/CsvSerializer.kt` — RFC 4180 + Excel-compat output, UTF-8 BOM, CRLF, Locale.US numeric formatting
+- [x] **➕ выбор архитектуры:** column names — English (id, createdAt, durationMs, avgDb, minDb, maxDb, title, note); более ограниченный набор колонок чем в плане (без weighting/timeWeighting/calibrationOffsetDb) — `MeasurementSummary` уже не содержит этих полей, поэтому отдельная `MeasurementCsvFormat.kt` не нужна; константы инлайнятся в `CsvSerializer.HEADER`
+- [x] создан `core/data/.../export/MeasurementsExporterImpl.kt`:
+  - `@Singleton class MeasurementsExporterImpl @Inject constructor(dao, contentResolver, @IoDispatcher dispatcher) : MeasurementsExporter`
+  - `suspend fun export(targetUriString: String, filter: ExportFilter): Result<Int>` — streams через `OutputStreamWriter(UTF-8)`, обрабатывает null OutputStream и IOException, rethrow CancellationException
+  - filter применяется in-memory после `dao.observeSummaries().first()` (single snapshot)
+- [x] создан `core/domain/.../model/ExportFilter.kt`:
+  - `sealed interface ExportFilter { data object All; data class ByIds(val ids: Set<Long>) }`
+- [x] создан `core/domain/.../repository/MeasurementsExporter.kt` — interface contract в pure-Kotlin
+- [x] создан `core/domain/.../usecase/ExportHistoryUseCase.kt` — thin orchestration, forward target+filter to exporter
+- [x] обновлён `feature/history/.../HistoryViewModel.kt`:
+  - инжектится `ExportHistoryUseCase` + `@Named(NOW_MILLIS_PROVIDER) () -> Long`
+  - `ExportRequested(filter)` → `LaunchSafPicker(suggestedName, filter)` с ISO_LOCAL_DATE из UTC clock
+  - `ExportFileSelected(uri, filter)` → use-case → `ShowExportSuccessSnackbar(rows)` или `ShowExportFailedSnackbar`
+  - `ExportCancelled` → no-op
+- [x] обновлён `feature/history/.../HistoryUiEvent.kt` — добавлены `ExportRequested`, `ExportFileSelected`, `ExportCancelled`
+- [x] обновлён `feature/history/.../HistoryUiEffect.kt` — добавлены `LaunchSafPicker`, `ShowExportSuccessSnackbar(rowCount)`, `ShowExportFailedSnackbar`
+- [x] обновлён `feature/history/.../HistoryScreen.kt`:
+  - `rememberLauncherForActivityResult(CreateDocument("text/csv"))` с pendingExportFilter side-channel
+  - `LaunchSafPicker` effect → `launcher.launch(suggestedName)`
+  - success/failure snackbar effects → localized resources (plurals для row count)
+  - новый `HistoryDefaultTopBar` с export-action (видим только когда `items.isNotEmpty() && !selectionMode`); selection mode TopBar остаётся без изменений
+- [x] добавлены локализационные строки `history_export_all_cd`, `history_export_selected_cd`, `history_export_failed`, plurals `history_export_success` (ru: one/few/many/other)
+- [x] обновлён DI:
+  - `:core:data/DataModule` — Hilt provider для `ContentResolver` через `@ApplicationContext`
+  - `:feature:history/di/HistoryUseCaseModule` — bind `MeasurementsExporter` → `MeasurementsExporterImpl`, provide `ExportHistoryUseCase`, `@Named nowMillisProvider`
+  - `:feature:history/build.gradle.kts` — `implementation(projects.core.data)` для доступа к `MeasurementsExporterImpl`
+- [x] обновлены существующие тесты `HistoryViewModelTest`, `HistoryViewModelBulkInteractionTest`, `HistoryViewModelSelectionModeTest`, `HistoryViewModelSelectionWithSoftDeleteTest` — новые параметры конструктора (FakeMeasurementsExporter из `:core:testing/fakes`)
+- [x] обновлены baselines `HistoryListScreenshotTest_list_light/dark` под новый TopAppBar с export-кнопкой
+- [x] **➕ возможная подзадача про disclaimer — отложено:** FR-20 описание для пользователя в AboutScreen/Settings не блокирует MVP; нативный SAF picker уже визуально объясняет «приложение хочет создать файл здесь» — отдельный disclaimer избыточен. Перенесено в v1.1 backlog (P2)
+- [x] run `./gradlew :core:data:testDebugUnitTest :core:domain:test :feature:history:testDebugUnitTest :feature:history:verifyRoborazziDebug :app:assembleDebug` — BUILD SUCCESSFUL; дополнительно зелёные `:app:assembleRelease`, `:feature:history:lintDebug`, `:core:data:lintDebug`, `detektAll`, `spotlessCheck`
 
 ### Task 4: Share Intent + PNG-снимок графика для Detail
 

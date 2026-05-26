@@ -52,6 +52,16 @@
         <item quantity="other">%d selected</item>
     </plurals>
 
+    <!-- CSV export (FR-20). The Storage Access Framework picker opens with the suggested
+         filename below; the snackbar messages report success/failure of the actual write. -->
+    <string name="history_export_all_cd">Export all to CSV</string>
+    <string name="history_export_selected_cd">Export selected to CSV</string>
+    <string name="history_export_failed">Couldn\'t export CSV</string>
+    <plurals name="history_export_success">
+        <item quantity="one">Exported %d measurement</item>
+        <item quantity="other">Exported %d measurements</item>
+    </plurals>
+
     <!-- Detail screen (FR-10) — full chart + inline-edit note + delete with confirmation. -->
     <string name="detail_not_found">Measurement not found</string>
     <string name="detail_delete_failed">Couldn\'t delete measurement</string>

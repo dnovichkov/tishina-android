@@ -1,6 +1,9 @@
 package ru.dmdp.tishina.feature.history
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,7 +14,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -20,6 +26,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ru.dmdp.tishina.core.domain.model.ExportFilter
 import ru.dmdp.tishina.feature.history.ui.BulkDeleteConfirmDialog
 import ru.dmdp.tishina.feature.history.ui.HistoryEmptyState
 import ru.dmdp.tishina.feature.history.ui.HistoryErrorState
@@ -46,6 +55,7 @@ import ru.dmdp.tishina.feature.history.ui.HistorySelectionTopBar
 const val HistoryScreenTestTag: String = "history_screen"
 const val HistoryListTestTag: String = "history_list"
 const val HistorySwipeBackgroundTestTagPrefix: String = "history_swipe_bg_"
+const val HistoryExportButtonTestTag: String = "history_export_button"
 
 /**
  * Main History entry point (FR-8…FR-12).
@@ -69,15 +79,54 @@ fun HistoryScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
+    // SAF CreateDocument launcher (FR-20). Activity result is consumed off the system picker and
+    // forwarded into the ViewModel as ExportFileSelected (URI present) or ExportCancelled (null).
+    //
+    // We keep `pendingExportFilter` here in the screen layer because the SAF picker callback runs
+    // on the main Activity result thread without our event payload — we need a side channel that
+    // survives the round-trip. Reset to null on every new ExportRequested effect so a previously
+    // unfinished picker can never silently leak into the next export.
+    var pendingExportFilter: ExportFilter? by remember { mutableStateOf(null) }
+    val csvPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri: Uri? ->
+        val filter = pendingExportFilter ?: return@rememberLauncherForActivityResult
+        pendingExportFilter = null
+        if (uri == null) {
+            viewModel.onEvent(HistoryUiEvent.ExportCancelled)
+        } else {
+            viewModel.onEvent(HistoryUiEvent.ExportFileSelected(uri.toString(), filter))
+        }
+    }
+
     LaunchedEffect(viewModel) {
-        // Only error snackbars go through the effect channel — Undo (single + bulk) lives in
-        // state. One-shot effects are appropriate for ephemeral notifications that don't need
-        // to survive recomposition; Undo affordances do, so they're bound to VM state instead.
+        // Only error snackbars + the SAF picker / export snackbars go through the effect
+        // channel — Undo (single + bulk) lives in state. One-shot effects are appropriate for
+        // ephemeral notifications that don't need to survive recomposition; Undo affordances do,
+        // so they're bound to VM state instead.
         viewModel.effects.collect { effect ->
             when (effect) {
                 is HistoryUiEffect.ShowErrorSnackbar -> {
                     snackbarHostState.showSnackbar(
                         message = context.getString(effect.messageRes),
+                        duration = SnackbarDuration.Short,
+                    )
+                }
+                is HistoryUiEffect.LaunchSafPicker -> {
+                    pendingExportFilter = effect.filter
+                    csvPickerLauncher.launch(effect.suggestedName)
+                }
+                is HistoryUiEffect.ShowExportSuccessSnackbar -> {
+                    val message = context.resources.getQuantityString(
+                        R.plurals.history_export_success,
+                        effect.rowCount,
+                        effect.rowCount,
+                    )
+                    snackbarHostState.showSnackbar(message = message, duration = SnackbarDuration.Short)
+                }
+                HistoryUiEffect.ShowExportFailedSnackbar -> {
+                    snackbarHostState.showSnackbar(
+                        message = context.getString(R.string.history_export_failed),
                         duration = SnackbarDuration.Short,
                     )
                 }
@@ -144,14 +193,17 @@ internal fun HistoryScreenContent(
             .fillMaxSize()
             .testTag(HistoryScreenTestTag),
         topBar = {
-            if (state.selectionMode) {
-                HistorySelectionTopBar(
+            when {
+                state.selectionMode -> HistorySelectionTopBar(
                     selectedCount = state.selectedIds.size,
                     totalCount = state.items.size,
                     onSelectAll = { onEvent(HistoryUiEvent.SelectAll) },
                     onClearSelection = { onEvent(HistoryUiEvent.ClearSelection) },
                     onCancel = { onEvent(HistoryUiEvent.ExitSelectionMode) },
                     onDelete = { showBulkConfirm = true },
+                )
+                state.items.isNotEmpty() -> HistoryDefaultTopBar(
+                    onExportAll = { onEvent(HistoryUiEvent.ExportRequested(ExportFilter.All)) },
                 )
             }
         },
@@ -340,6 +392,31 @@ private fun HistoryList(
             }
         }
     }
+}
+
+/**
+ * Default top app bar visible when there is at least one measurement and the screen is NOT in
+ * selection mode. Hosts only the "Export all to CSV" action (FR-20). Keeping the title empty
+ * matches the existing minimalist look of the History screen — we don't waste vertical real
+ * estate on a redundant "History" header (the bottom-nav already identifies the destination).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HistoryDefaultTopBar(onExportAll: () -> Unit) {
+    TopAppBar(
+        title = { Text("") },
+        actions = {
+            IconButton(
+                onClick = onExportAll,
+                modifier = Modifier.testTag(HistoryExportButtonTestTag),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.FileDownload,
+                    contentDescription = stringResource(R.string.history_export_all_cd),
+                )
+            }
+        },
+    )
 }
 
 @Composable

@@ -1,5 +1,7 @@
 package ru.dmdp.tishina.feature.history
 
+import ru.dmdp.tishina.core.domain.model.ExportFilter
+
 /**
  * User intents on the History screen. The ViewModel maps each one to a state mutation +
  * optional one-shot effect (Snackbar etc.).
@@ -48,4 +50,28 @@ sealed interface HistoryUiEvent {
 
     /** Triggered by the "Undo" action on the bulk-delete snackbar, within 5 s of soft-delete. */
     data object BulkUndoConfirmed : HistoryUiEvent
+
+    /**
+     * User asked to export the history (FR-20). The [filter] decides whether the export covers
+     * the full history ([ExportFilter.All]) or just a hand-picked subset ([ExportFilter.ByIds],
+     * raised from selection mode). The VM responds with [HistoryUiEffect.LaunchSafPicker] so
+     * the screen can open the system Storage Access Framework `CreateDocument` picker.
+     */
+    data class ExportRequested(val filter: ExportFilter) : HistoryUiEvent
+
+    /**
+     * SAF returned a destination URI; trigger the actual export. [filter] is the same value the
+     * matching [ExportRequested] carried — the screen forwards it through the
+     * `rememberLauncherForActivityResult` callback. The VM runs [ExportHistoryUseCase] and emits
+     * either [HistoryUiEffect.ShowExportSuccessSnackbar] or
+     * [HistoryUiEffect.ShowExportFailedSnackbar].
+     */
+    data class ExportFileSelected(val targetUriString: String, val filter: ExportFilter) : HistoryUiEvent
+
+    /**
+     * SAF picker cancelled (Back / outside-tap). No-op for the ViewModel — the use-case never
+     * runs, no snackbar is emitted. Kept as an explicit event so the screen can be exhaustive
+     * about the picker callback paths and so future telemetry can hook into cancellations.
+     */
+    data object ExportCancelled : HistoryUiEvent
 }
