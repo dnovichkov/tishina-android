@@ -35,7 +35,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout (full history for release notes)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # `softprops/action-gh-release` derives auto-generated notes from
           # commits between the previous and current tag — shallow clones drop
